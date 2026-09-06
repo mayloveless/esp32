@@ -1,7 +1,9 @@
 #include <Arduino.h>
 #include <ESP_I2S.h>
 #include <WiFi.h>
-#include <WebServer.h>
+#include <ESPmDNS.h>
+#include <Preferences.h>
+#include <WebSocketsServer.h>
 #include <ArduinoJson.h>
 #include <math.h>
 #include "esp_timer.h"
@@ -34,7 +36,7 @@
 #define ENCODER_KEY 16
 
 // =====================
-// WiFi / HTTP config
+// WiFi / WebSocket config
 // =====================
 
 // Fill these in before uploading. Keep the ESP32 and browser on the same LAN.
@@ -42,8 +44,14 @@ const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
-WebServer server(80);
-bool httpServerStarted = false;
+constexpr uint16_t WEBSOCKET_PORT = 81;
+constexpr char MDNS_HOSTNAME[] = "esp32-drum";
+constexpr char WIFI_PREFERENCES_NAMESPACE[] = "drum-wifi";
+WebSocketsServer webSocket(WEBSOCKET_PORT);
+bool webSocketStarted = false;
+Preferences wifiPreferences;
+String activeSsid;
+String activePassword;
 
 // =====================
 // Drum config
@@ -57,21 +65,31 @@ constexpr int BPM_MAX = 240;
 constexpr int BPM_STEP = 5;
 
 struct DrumPattern {
-  int bpm;
   bool kick[STEPS_PER_BAR];
   bool snare[STEPS_PER_BAR];
   bool hihat[STEPS_PER_BAR];
 };
 
+struct DrumState {
+  int bpm;
+  DrumPattern pattern;
+  bool playing;
+  int currentStep;
+};
+
 // Basic 4/4 pattern: kick on 1/3, snare on 2/4, closed hat on eighth notes.
-DrumPattern pattern = {
+DrumState drumState = {
   120,
-  { true, false, false, false, false, false, false, false,
-    true, false, false, false, false, false, false, false },
-  { false, false, false, false, true, false, false, false,
-    false, false, false, false, true, false, false, false },
-  { true, false, true, false, true, false, true, false,
-    true, false, true, false, true, false, true, false }
+  {
+    { true, false, false, false, false, false, false, false,
+      true, false, false, false, false, false, false, false },
+    { false, false, false, false, true, false, false, false,
+      false, false, false, false, true, false, false, false },
+    { true, false, true, false, true, false, true, false,
+      true, false, true, false, true, false, true, false }
+  },
+  false,
+  0
 };
 
 // =====================
@@ -269,13 +287,14 @@ uint32_t lastClickMs = 0;
 // Sequencer
 // =====================
 
-bool playing = false;
-int currentStep = 0;
+int scheduledStep = 0;
 int64_t nextStepAtUs = 0;
+
+void broadcastState();
 
 int64_t stepIntervalUs() {
   // 16th note: quarter-note duration / 4.
-  return 60000000LL / ((int64_t)pattern.bpm * 4LL);
+  return 60000000LL / ((int64_t)drumState.bpm * 4LL);
 }
 
 void printStep(int step, bool kick, bool snare, bool hihat) {
@@ -288,9 +307,9 @@ void printStep(int step, bool kick, bool snare, bool hihat) {
 }
 
 void triggerStep(int step) {
-  bool kick = pattern.kick[step];
-  bool snare = pattern.snare[step];
-  bool hihat = pattern.hihat[step];
+  bool kick = drumState.pattern.kick[step];
+  bool snare = drumState.pattern.snare[step];
+  bool hihat = drumState.pattern.hihat[step];
 
   printStep(step, kick, snare, hihat);
 
@@ -300,28 +319,33 @@ void triggerStep(int step) {
 }
 
 void startSequencer() {
-  playing = true;
-  currentStep = 0;
+  drumState.playing = true;
+  drumState.currentStep = 0;
+  scheduledStep = 0;
   nextStepAtUs = esp_timer_get_time();
 
-  Serial.printf("DRUM START | BPM %d\n", pattern.bpm);
+  Serial.printf("DRUM START | BPM %d\n", drumState.bpm);
+  broadcastState();
 }
 
 void stopSequencer() {
-  playing = false;
+  drumState.playing = false;
   Serial.println("DRUM STOP");
+  broadcastState();
 }
 
 void updateSequencer() {
-  if (!playing) return;
+  if (!drumState.playing) return;
 
   int64_t now = esp_timer_get_time();
 
   // Use an absolute timeline instead of delay(), so processing time does not
   // accumulate into the beat timing.
-  while (playing && now >= nextStepAtUs) {
-    triggerStep(currentStep);
-    currentStep = (currentStep + 1) % STEPS_PER_BAR;
+  while (drumState.playing && now >= nextStepAtUs) {
+    drumState.currentStep = scheduledStep;
+    triggerStep(drumState.currentStep);
+    broadcastState();
+    scheduledStep = (scheduledStep + 1) % STEPS_PER_BAR;
     nextStepAtUs += stepIntervalUs();
   }
 }
@@ -331,13 +355,14 @@ void updateEncoder() {
 
   if (clk != lastCLK && clk == LOW) {
     if (digitalRead(ENCODER_DT) != clk) {
-      pattern.bpm += BPM_STEP;
+      drumState.bpm += BPM_STEP;
     } else {
-      pattern.bpm -= BPM_STEP;
+      drumState.bpm -= BPM_STEP;
     }
 
-    pattern.bpm = constrain(pattern.bpm, BPM_MIN, BPM_MAX);
-    Serial.printf("BPM: %d\n", pattern.bpm);
+    drumState.bpm = constrain(drumState.bpm, BPM_MIN, BPM_MAX);
+    Serial.printf("BPM: %d\n", drumState.bpm);
+    broadcastState();
   }
 
   lastCLK = clk;
@@ -348,7 +373,7 @@ void updateEncoder() {
   if (lastKey == HIGH && key == LOW && nowMs - lastClickMs > 180) {
     lastClickMs = nowMs;
 
-    if (playing) stopSequencer();
+    if (drumState.playing) stopSequencer();
     else startSequencer();
   }
 
@@ -356,19 +381,40 @@ void updateEncoder() {
 }
 
 // =====================
-// HTTP pattern API
+// WebSocket state API
 // =====================
 
-void addCorsHeaders() {
-  server.sendHeader("Access-Control-Allow-Origin", "*");
-  server.sendHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+void writeTrack(JsonArray target, const bool* source) {
+  for (int step = 0; step < STEPS_PER_BAR; step++) {
+    target.add(source[step]);
+  }
 }
 
-void sendApiError(int statusCode, const char* message) {
-  addCorsHeaders();
-  String body = String("{\"ok\":false,\"error\":\"") + message + "\"}";
-  server.send(statusCode, "application/json", body);
+String stateMessage() {
+  DynamicJsonDocument document(1536);
+  document["type"] = "state_sync";
+  JsonObject data = document.createNestedObject("data");
+  data["bpm"] = drumState.bpm;
+  data["playing"] = drumState.playing;
+  data["currentStep"] = drumState.currentStep;
+  JsonObject pattern = data.createNestedObject("pattern");
+  writeTrack(pattern.createNestedArray("kick"), drumState.pattern.kick);
+  writeTrack(pattern.createNestedArray("snare"), drumState.pattern.snare);
+  writeTrack(pattern.createNestedArray("hihat"), drumState.pattern.hihat);
+
+  String message;
+  serializeJson(document, message);
+  return message;
+}
+
+void sendState(uint8_t clientNumber) {
+  String message = stateMessage();
+  webSocket.sendTXT(clientNumber, message);
+}
+
+void broadcastState() {
+  String message = stateMessage();
+  webSocket.broadcastTXT(message);
 }
 
 bool copyTrack(JsonArray source, bool* destination) {
@@ -382,57 +428,161 @@ bool copyTrack(JsonArray source, bool* destination) {
   return true;
 }
 
-void handlePatternOptions() {
-  addCorsHeaders();
-  server.send(204, "text/plain", "");
+bool parseBpm(JsonVariant value, int& destination) {
+  if (!value.is<int>()) return false;
+
+  int bpm = value.as<int>();
+  if (bpm < BPM_MIN || bpm > BPM_MAX) return false;
+  destination = bpm;
+  return true;
 }
 
-void handlePatternPost() {
-  const String body = server.arg("plain");
+bool parsePattern(JsonObject data, DrumPattern& destination) {
+  return copyTrack(data["kick"].as<JsonArray>(), destination.kick) &&
+         copyTrack(data["snare"].as<JsonArray>(), destination.snare) &&
+         copyTrack(data["hihat"].as<JsonArray>(), destination.hihat);
+}
+
+bool parseWiFiCredentials(JsonObject data, String& nextSsid, String& nextPassword) {
+  if (!data["ssid"].is<const char*>() || !data["password"].is<const char*>()) return false;
+
+  nextSsid = data["ssid"].as<const char*>();
+  nextPassword = data["password"].as<const char*>();
+  return !nextSsid.isEmpty() && nextSsid.length() <= 32 && nextPassword.length() <= 63;
+}
+
+void saveWiFiCredentials(const String& nextSsid, const String& nextPassword) {
+  wifiPreferences.begin(WIFI_PREFERENCES_NAMESPACE, false);
+  wifiPreferences.putString("ssid", nextSsid);
+  wifiPreferences.putString("password", nextPassword);
+  wifiPreferences.end();
+}
+
+void handleWebSocketMessage(uint8_t clientNumber, uint8_t* payload, size_t length) {
   DynamicJsonDocument document(1024);
-  DeserializationError error = deserializeJson(document, body);
+  DeserializationError error = deserializeJson(document, payload, length);
 
   if (error) {
-    sendApiError(400, "Invalid JSON");
+    Serial.printf("WebSocket client %u sent invalid JSON\n", clientNumber);
     return;
   }
 
-  JsonVariant bpmValue = document["bpm"];
-  if (!bpmValue.is<int>()) {
-    sendApiError(400, "bpm must be an integer");
+  const char* type = document["type"];
+  JsonObject data = document["data"].as<JsonObject>();
+  if (!type || data.isNull()) {
+    Serial.printf("WebSocket client %u sent an invalid message envelope\n", clientNumber);
     return;
   }
 
-  DrumPattern nextPattern;
-  nextPattern.bpm = bpmValue.as<int>();
-  if (nextPattern.bpm < BPM_MIN || nextPattern.bpm > BPM_MAX) {
-    sendApiError(400, "bpm must be between 40 and 240");
+  if (strcmp(type, "get_state") == 0) {
+    sendState(clientNumber);
     return;
   }
 
-  if (!copyTrack(document["kick"].as<JsonArray>(), nextPattern.kick) ||
-      !copyTrack(document["snare"].as<JsonArray>(), nextPattern.snare) ||
-      !copyTrack(document["hihat"].as<JsonArray>(), nextPattern.hihat)) {
-    sendApiError(400, "kick, snare and hihat must have 16 booleans");
+  if (strcmp(type, "set_bpm") == 0) {
+    int nextBpm;
+    if (!parseBpm(data["bpm"], nextBpm)) {
+      Serial.println("Rejected WebSocket set_bpm message");
+      return;
+    }
+    drumState.bpm = nextBpm;
+    broadcastState();
     return;
   }
 
-  // This runs in the Arduino loop, as does updateSequencer(). The audio task
-  // only consumes trigger messages, so replacing the pattern cannot interrupt it.
-  pattern = nextPattern;
+  if (strcmp(type, "set_pattern") == 0) {
+    DrumPattern nextPattern;
+    int nextBpm;
+    if (!parseBpm(data["bpm"], nextBpm) || !parsePattern(data, nextPattern)) {
+      Serial.println("Rejected WebSocket set_pattern message");
+      return;
+    }
+    drumState.bpm = nextBpm;
+    drumState.pattern = nextPattern;
+    broadcastState();
+    return;
+  }
 
-  Serial.print("Received pattern: ");
-  serializeJson(document, Serial);
-  Serial.println();
-  Serial.printf("Pattern updated | BPM %d\n", pattern.bpm);
+  if (strcmp(type, "toggle_step") == 0) {
+    const char* track = data["track"];
+    int step = data["step"] | -1;
+    if (!track || step < 0 || step >= STEPS_PER_BAR) {
+      Serial.println("Rejected WebSocket toggle_step message");
+      return;
+    }
 
-  addCorsHeaders();
-  server.send(200, "application/json", String("{\"ok\":true,\"bpm\":") + pattern.bpm + "}");
+    bool* trackSteps = nullptr;
+    if (strcmp(track, "kick") == 0) trackSteps = drumState.pattern.kick;
+    else if (strcmp(track, "snare") == 0) trackSteps = drumState.pattern.snare;
+    else if (strcmp(track, "hihat") == 0) trackSteps = drumState.pattern.hihat;
+
+    if (!trackSteps) {
+      Serial.println("Rejected WebSocket toggle_step track");
+      return;
+    }
+
+    trackSteps[step] = !trackSteps[step];
+    broadcastState();
+    return;
+  }
+
+  if (strcmp(type, "set_playing") == 0) {
+    if (!data["playing"].is<bool>()) {
+      Serial.println("Rejected WebSocket set_playing message");
+      return;
+    }
+
+    bool shouldPlay = data["playing"].as<bool>();
+    if (shouldPlay && !drumState.playing) startSequencer();
+    else if (!shouldPlay && drumState.playing) stopSequencer();
+    else broadcastState();
+    return;
+  }
+
+  if (strcmp(type, "set_wifi") == 0) {
+    String nextSsid;
+    String nextPassword;
+    if (!parseWiFiCredentials(data, nextSsid, nextPassword)) {
+      Serial.println("Rejected WebSocket set_wifi message");
+      return;
+    }
+
+    saveWiFiCredentials(nextSsid, nextPassword);
+    Serial.printf("WiFi settings saved for SSID: %s; restarting\n", nextSsid.c_str());
+    broadcastState();
+    delay(200);
+    ESP.restart();
+    return;
+  }
+
+  Serial.printf("Unknown WebSocket message type: %s\n", type);
+}
+
+void webSocketEvent(uint8_t clientNumber, WStype_t type, uint8_t* payload, size_t length) {
+  switch (type) {
+    case WStype_CONNECTED:
+      Serial.printf("WebSocket client %u connected\n", clientNumber);
+      sendState(clientNumber);
+      break;
+    case WStype_DISCONNECTED:
+      Serial.printf("WebSocket client %u disconnected\n", clientNumber);
+      break;
+    case WStype_TEXT:
+      handleWebSocketMessage(clientNumber, payload, length);
+      break;
+    default:
+      break;
+  }
 }
 
 void wifiBegin() {
+  wifiPreferences.begin(WIFI_PREFERENCES_NAMESPACE, true);
+  activeSsid = wifiPreferences.getString("ssid", ssid);
+  activePassword = wifiPreferences.getString("password", password);
+  wifiPreferences.end();
+
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  WiFi.begin(activeSsid.c_str(), activePassword.c_str());
   Serial.print("Connecting to WiFi");
 
   const uint32_t startedAtMs = millis();
@@ -443,7 +593,7 @@ void wifiBegin() {
   Serial.println();
 
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi connection FAILED; HTTP API disabled");
+    Serial.println("WiFi connection FAILED; WebSocket API disabled");
     return;
   }
 
@@ -451,11 +601,17 @@ void wifiBegin() {
   Serial.print("IP: ");
   Serial.println(WiFi.localIP());
 
-  server.on("/api/pattern", HTTP_OPTIONS, handlePatternOptions);
-  server.on("/api/pattern", HTTP_POST, handlePatternPost);
-  server.begin();
-  httpServerStarted = true;
-  Serial.println("HTTP API ready: POST /api/pattern");
+  if (MDNS.begin(MDNS_HOSTNAME)) {
+    MDNS.addService("ws", "tcp", WEBSOCKET_PORT);
+    Serial.printf("mDNS: %s.local\n", MDNS_HOSTNAME);
+  } else {
+    Serial.println("mDNS start FAILED; use the IP address instead");
+  }
+
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+  webSocketStarted = true;
+  Serial.printf("WebSocket API ready: ws://%s.local:%u\n", MDNS_HOSTNAME, WEBSOCKET_PORT);
 }
 
 // =====================
@@ -477,12 +633,12 @@ void setup() {
   wifiBegin();
 
   Serial.println("Drum Machine Ready");
-  Serial.printf("BPM: %d\n", pattern.bpm);
+  Serial.printf("BPM: %d\n", drumState.bpm);
   Serial.println("Rotate = BPM, press = START/STOP");
 }
 
 void loop() {
-  if (httpServerStarted) server.handleClient();
+  if (webSocketStarted) webSocket.loop();
   updateEncoder();
   updateSequencer();
   delay(1);

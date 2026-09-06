@@ -37,6 +37,17 @@ export const useDrumStore = defineStore('drum', () => {
     currentStep.value = step
   }
 
+  function syncFromEsp32(nextPattern: DrumPattern, nextPlaying: boolean, nextStep: number) {
+    pattern.value = {
+      bpm: nextPattern.bpm,
+      kick: [...nextPattern.kick],
+      snare: [...nextPattern.snare],
+      hihat: [...nextPattern.hihat],
+    }
+    playing.value = nextPlaying
+    currentStep.value = nextStep
+  }
+
   function start() {
     playing.value = true
   }
@@ -55,6 +66,7 @@ export const useDrumStore = defineStore('drum', () => {
     setBpm,
     toggleStep,
     setCurrentStep,
+    syncFromEsp32,
     start,
     stop,
   }

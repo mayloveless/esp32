@@ -1,72 +1,95 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import TrackRow from './components/TrackRow.vue'
 import Transport from './components/Transport.vue'
 import { Sequencer } from './audio/sequencer'
-import { sendPattern } from './api/esp32'
+import { Esp32Socket, type Esp32State } from './api/esp32'
 import { useDrumStore } from './stores/drum'
-import { trackNames } from './types/drum'
+import { trackNames, type TrackName } from './types/drum'
 
-const ESP32_IP_STORAGE_KEY = 'drum-web.esp32-ip'
+const DEFAULT_ESP32_HOST = 'esp32-drum.local'
 const drum = useDrumStore()
-const esp32Ip = ref(localStorage.getItem(ESP32_IP_STORAGE_KEY) ?? '')
 const connectionStatus = ref('')
-const sendingPattern = ref(false)
+const settingsOpen = ref(false)
+const wifiSsid = ref('')
+const wifiPassword = ref('')
 const sequencer = new Sequencer(
   () => drum.pattern,
-  (step) => drum.setCurrentStep(step),
+  // ESP32 owns the visual playhead; browser audio is only a local preview.
+  () => {},
 )
 
-async function togglePlayback() {
-  if (drum.playing) {
-    sequencer.stop()
-    drum.stop()
-    return
-  }
+function applyEsp32State(state: Esp32State) {
+  drum.syncFromEsp32(
+    {
+      bpm: state.bpm,
+      kick: state.pattern.kick,
+      snare: state.pattern.snare,
+      hihat: state.pattern.hihat,
+    },
+    state.playing,
+    state.currentStep,
+  )
 
-  drum.start()
+  if (!state.playing) sequencer.stop()
+}
+
+const esp32Socket = new Esp32Socket(applyEsp32State, (status) => {
+  connectionStatus.value = status
+})
+
+function sendCommand(type: string, data: object) {
+  if (esp32Socket.send(type, data)) return true
+  connectionStatus.value = '尚未连接 ESP32，无法发送命令'
+  return false
+}
+
+async function startLocalPreview() {
   try {
     await sequencer.start()
   } catch (error) {
-    // Audio can be unavailable in restricted browser contexts.
-    drum.stop()
-    console.error('Unable to start Web Audio', error)
+    console.error('Unable to start local Web Audio preview', error)
   }
 }
 
-function saveEsp32Ip() {
-  const ip = esp32Ip.value.trim()
-  if (!ip) {
-    connectionStatus.value = '请输入 ESP32 IP 地址'
+function togglePlayback() {
+  if (!sendCommand('set_playing', { playing: !drum.playing })) return
+  if (drum.playing) sequencer.stop()
+  else void startLocalPreview()
+}
+
+function changeBpm(amount: number) {
+  sendCommand('set_bpm', { bpm: drum.bpm + amount })
+}
+
+function setBpm(bpm: number) {
+  sendCommand('set_bpm', { bpm })
+}
+
+function toggleStep(track: TrackName, step: number) {
+  sendCommand('toggle_step', { track, step })
+}
+
+function saveWiFiSettings() {
+  const ssid = wifiSsid.value.trim()
+  if (!ssid) {
+    connectionStatus.value = '请输入 Wi-Fi SSID'
     return
   }
 
-  esp32Ip.value = ip
-  localStorage.setItem(ESP32_IP_STORAGE_KEY, ip)
-  connectionStatus.value = 'ESP32 IP 已保存'
+  if (!sendCommand('set_wifi', { ssid, password: wifiPassword.value })) return
+
+  wifiSsid.value = ssid
+  wifiPassword.value = ''
+  settingsOpen.value = false
+  connectionStatus.value = 'Wi-Fi 设置已发送；ESP32 正在重启并连接新网络'
 }
 
-async function sendToEsp32() {
-  if (!esp32Ip.value.trim()) {
-    connectionStatus.value = '请先填写 ESP32 IP 地址'
-    return
-  }
-
-  saveEsp32Ip()
-  sendingPattern.value = true
-  connectionStatus.value = '正在发送 pattern…'
-
-  try {
-    await sendPattern(esp32Ip.value, drum.pattern)
-    connectionStatus.value = 'Pattern 已发送至 ESP32'
-  } catch (error) {
-    connectionStatus.value = error instanceof Error ? error.message : '发送失败，请检查网络和 IP'
-  } finally {
-    sendingPattern.value = false
-  }
-}
-
-onBeforeUnmount(() => sequencer.stop())
+onMounted(() => esp32Socket.connect(DEFAULT_ESP32_HOST))
+onBeforeUnmount(() => {
+  sequencer.stop()
+  esp32Socket.disconnect()
+})
 </script>
 
 <template>
@@ -75,18 +98,32 @@ onBeforeUnmount(() => sequencer.stop())
       <Transport
         :bpm="drum.bpm"
         :playing="drum.playing"
-        @change-bpm="drum.changeBpm"
-        @set-bpm="drum.setBpm"
+        @change-bpm="changeBpm"
+        @set-bpm="setBpm"
         @toggle-playback="togglePlayback"
       />
       <section class="esp32-panel" aria-label="ESP32 connection">
-        <label for="esp32-ip">ESP32 IP</label>
-        <input id="esp32-ip" v-model="esp32Ip" placeholder="192.168.x.x" inputmode="decimal" @keydown.enter="saveEsp32Ip" />
-        <button class="secondary-button" @click="saveEsp32Ip">Connect</button>
-        <button class="send-button" :disabled="sendingPattern" @click="sendToEsp32">
-          {{ sendingPattern ? 'Sending…' : 'Send To ESP32' }}
-        </button>
+        <span class="esp32-host">ESP32: {{ DEFAULT_ESP32_HOST }}</span>
+        <button class="settings-button" @click="settingsOpen = !settingsOpen">Settings</button>
         <output v-if="connectionStatus" class="connection-status" aria-live="polite">{{ connectionStatus }}</output>
+      </section>
+      <section v-if="settingsOpen" class="settings-panel" aria-label="Wi-Fi settings">
+        <div>
+          <h2>ESP32 Wi-Fi</h2>
+          <p>保存后 ESP32 会重启。请将本设备切换到同一 Wi-Fi，页面会自动重连。</p>
+        </div>
+        <label>
+          SSID
+          <input v-model="wifiSsid" autocomplete="username" maxlength="32" placeholder="Wi-Fi 名称" />
+        </label>
+        <label>
+          Password
+          <input v-model="wifiPassword" type="password" autocomplete="new-password" maxlength="63" placeholder="Wi-Fi 密码（开放网络可留空）" @keydown.enter="saveWiFiSettings" />
+        </label>
+        <div class="settings-actions">
+          <button class="secondary-button" @click="settingsOpen = false">Cancel</button>
+          <button class="save-button" @click="saveWiFiSettings">Save Wi-Fi</button>
+        </div>
       </section>
       <div class="legend"><span class="active-dot" /> active step <span class="playhead-dot" /> playhead</div>
       <div class="tracks">
@@ -96,7 +133,7 @@ onBeforeUnmount(() => sequencer.stop())
           :name="track"
           :steps="drum.pattern[track]"
           :current-step="drum.currentStep"
-          @toggle="drum.toggleStep(track, $event)"
+          @toggle="toggleStep(track, $event)"
         />
       </div>
     </div>
@@ -111,14 +148,16 @@ button { font: inherit; }
 main { display: grid; min-height: 100vh; padding: clamp(16px, 5vw, 72px); place-items: center; background: radial-gradient(circle at 15% 0%, #27384a 0, transparent 34rem), #101218; }
 .machine { width: min(100%, 960px); padding: clamp(20px, 5vw, 46px); border: 1px solid #363d4c; border-radius: 16px; background: rgb(25 29 37 / .93); box-shadow: 0 24px 80px rgb(0 0 0 / .25); }
 .esp32-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 22px; padding: 13px; border: 1px solid #333947; border-radius: 9px; background: #1d212a; }
-.esp32-panel label { color: #aeb7c8; font-size: .78rem; font-weight: 650; }
-.esp32-panel input { min-width: 150px; flex: 1; height: 34px; padding: 0 10px; border: 1px solid #4b5262; border-radius: 6px; outline: 0; color: #f5f7fb; background: #141820; }
-.esp32-panel input:focus { border-color: #68ddaf; }
-.secondary-button, .send-button { height: 34px; padding: 0 12px; border: 0; border-radius: 6px; cursor: pointer; font-size: .78rem; font-weight: 700; }
-.secondary-button { color: #dce2ed; background: #3a4354; }.send-button { color: #11151c; background: #68ddaf; }.send-button:disabled { cursor: wait; opacity: .65; }
+.esp32-host { flex: 1; color: #aeb7c8; font-size: .78rem; font-weight: 650; }
+.settings-button, .secondary-button, .save-button { height: 34px; padding: 0 12px; border: 0; border-radius: 6px; cursor: pointer; font-size: .78rem; font-weight: 700; }
+.settings-button, .secondary-button { color: #dce2ed; background: #3a4354; }.save-button { color: #11151c; background: #68ddaf; }
 .connection-status { width: 100%; color: #aeb7c8; font-size: .72rem; }
+.settings-panel { display: grid; gap: 14px; margin-top: 10px; padding: 17px; border: 1px solid #3c4353; border-radius: 9px; background: #1b2029; }
+.settings-panel h2 { margin: 0; color: #f5f7fb; font-size: .95rem; }.settings-panel p { margin: 5px 0 0; color: #9aa5b7; font-size: .75rem; line-height: 1.45; }
+.settings-panel label { display: grid; gap: 6px; color: #cbd3e0; font-size: .78rem; font-weight: 650; }.settings-panel input { height: 36px; padding: 0 10px; border: 1px solid #4b5262; border-radius: 6px; outline: 0; color: #f5f7fb; background: #141820; }.settings-panel input:focus { border-color: #68ddaf; }
+.settings-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .legend { display: flex; align-items: center; gap: 8px; margin: 21px 0 7px 108px; color: #8f99ab; font-size: .72rem; }
 .legend span { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .active-dot { background: #68ddaf; }.playhead-dot { margin-left: 10px; border: 2px solid #f4c95d; }
-@media (max-width: 620px) { .machine { border-radius: 10px; } .esp32-panel input { flex-basis: 100%; } .legend { margin-left: 0; } }
+@media (max-width: 620px) { .machine { border-radius: 10px; } .legend { margin-left: 0; } }
 </style>
