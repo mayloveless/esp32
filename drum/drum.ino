@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <ESP_I2S.h>
+#include <WiFi.h>
+#include <WebServer.h>
+#include <ArduinoJson.h>
 #include <math.h>
 #include "esp_timer.h"
 
@@ -31,6 +34,18 @@
 #define ENCODER_KEY 16
 
 // =====================
+// WiFi / HTTP config
+// =====================
+
+// Fill these in before uploading. Keep the ESP32 and browser on the same LAN.
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
+WebServer server(80);
+bool httpServerStarted = false;
+
+// =====================
 // Drum config
 // =====================
 
@@ -41,26 +56,22 @@ constexpr int BPM_MIN = 40;
 constexpr int BPM_MAX = 240;
 constexpr int BPM_STEP = 5;
 
+struct DrumPattern {
+  int bpm;
+  bool kick[STEPS_PER_BAR];
+  bool snare[STEPS_PER_BAR];
+  bool hihat[STEPS_PER_BAR];
+};
+
 // Basic 4/4 pattern: kick on 1/3, snare on 2/4, closed hat on eighth notes.
-const bool KICK_PATTERN[STEPS_PER_BAR] = {
-  true, false, false, false,
-  false, false, false, false,
-  true, false, false, false,
-  false, false, false, false
-};
-
-const bool SNARE_PATTERN[STEPS_PER_BAR] = {
-  false, false, false, false,
-  true, false, false, false,
-  false, false, false, false,
-  true, false, false, false
-};
-
-const bool HIHAT_PATTERN[STEPS_PER_BAR] = {
-  true, false, true, false,
-  true, false, true, false,
-  true, false, true, false,
-  true, false, true, false
+DrumPattern pattern = {
+  120,
+  { true, false, false, false, false, false, false, false,
+    true, false, false, false, false, false, false, false },
+  { false, false, false, false, true, false, false, false,
+    false, false, false, false, true, false, false, false },
+  { true, false, true, false, true, false, true, false,
+    true, false, true, false, true, false, true, false }
 };
 
 // =====================
@@ -258,14 +269,13 @@ uint32_t lastClickMs = 0;
 // Sequencer
 // =====================
 
-int bpm = 120;
 bool playing = false;
 int currentStep = 0;
 int64_t nextStepAtUs = 0;
 
 int64_t stepIntervalUs() {
   // 16th note: quarter-note duration / 4.
-  return 60000000LL / ((int64_t)bpm * 4LL);
+  return 60000000LL / ((int64_t)pattern.bpm * 4LL);
 }
 
 void printStep(int step, bool kick, bool snare, bool hihat) {
@@ -278,9 +288,9 @@ void printStep(int step, bool kick, bool snare, bool hihat) {
 }
 
 void triggerStep(int step) {
-  bool kick = KICK_PATTERN[step];
-  bool snare = SNARE_PATTERN[step];
-  bool hihat = HIHAT_PATTERN[step];
+  bool kick = pattern.kick[step];
+  bool snare = pattern.snare[step];
+  bool hihat = pattern.hihat[step];
 
   printStep(step, kick, snare, hihat);
 
@@ -294,7 +304,7 @@ void startSequencer() {
   currentStep = 0;
   nextStepAtUs = esp_timer_get_time();
 
-  Serial.printf("DRUM START | BPM %d\n", bpm);
+  Serial.printf("DRUM START | BPM %d\n", pattern.bpm);
 }
 
 void stopSequencer() {
@@ -321,13 +331,13 @@ void updateEncoder() {
 
   if (clk != lastCLK && clk == LOW) {
     if (digitalRead(ENCODER_DT) != clk) {
-      bpm += BPM_STEP;
+      pattern.bpm += BPM_STEP;
     } else {
-      bpm -= BPM_STEP;
+      pattern.bpm -= BPM_STEP;
     }
 
-    bpm = constrain(bpm, BPM_MIN, BPM_MAX);
-    Serial.printf("BPM: %d\n", bpm);
+    pattern.bpm = constrain(pattern.bpm, BPM_MIN, BPM_MAX);
+    Serial.printf("BPM: %d\n", pattern.bpm);
   }
 
   lastCLK = clk;
@@ -346,6 +356,109 @@ void updateEncoder() {
 }
 
 // =====================
+// HTTP pattern API
+// =====================
+
+void addCorsHeaders() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+void sendApiError(int statusCode, const char* message) {
+  addCorsHeaders();
+  String body = String("{\"ok\":false,\"error\":\"") + message + "\"}";
+  server.send(statusCode, "application/json", body);
+}
+
+bool copyTrack(JsonArray source, bool* destination) {
+  if (source.isNull() || source.size() != STEPS_PER_BAR) return false;
+
+  for (int step = 0; step < STEPS_PER_BAR; step++) {
+    if (!source[step].is<bool>()) return false;
+    destination[step] = source[step].as<bool>();
+  }
+
+  return true;
+}
+
+void handlePatternOptions() {
+  addCorsHeaders();
+  server.send(204, "text/plain", "");
+}
+
+void handlePatternPost() {
+  const String body = server.arg("plain");
+  DynamicJsonDocument document(1024);
+  DeserializationError error = deserializeJson(document, body);
+
+  if (error) {
+    sendApiError(400, "Invalid JSON");
+    return;
+  }
+
+  JsonVariant bpmValue = document["bpm"];
+  if (!bpmValue.is<int>()) {
+    sendApiError(400, "bpm must be an integer");
+    return;
+  }
+
+  DrumPattern nextPattern;
+  nextPattern.bpm = bpmValue.as<int>();
+  if (nextPattern.bpm < BPM_MIN || nextPattern.bpm > BPM_MAX) {
+    sendApiError(400, "bpm must be between 40 and 240");
+    return;
+  }
+
+  if (!copyTrack(document["kick"].as<JsonArray>(), nextPattern.kick) ||
+      !copyTrack(document["snare"].as<JsonArray>(), nextPattern.snare) ||
+      !copyTrack(document["hihat"].as<JsonArray>(), nextPattern.hihat)) {
+    sendApiError(400, "kick, snare and hihat must have 16 booleans");
+    return;
+  }
+
+  // This runs in the Arduino loop, as does updateSequencer(). The audio task
+  // only consumes trigger messages, so replacing the pattern cannot interrupt it.
+  pattern = nextPattern;
+
+  Serial.print("Received pattern: ");
+  serializeJson(document, Serial);
+  Serial.println();
+  Serial.printf("Pattern updated | BPM %d\n", pattern.bpm);
+
+  addCorsHeaders();
+  server.send(200, "application/json", String("{\"ok\":true,\"bpm\":") + pattern.bpm + "}");
+}
+
+void wifiBegin() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+
+  const uint32_t startedAtMs = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startedAtMs < WIFI_CONNECT_TIMEOUT_MS) {
+    delay(250);
+    Serial.print('.');
+  }
+  Serial.println();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi connection FAILED; HTTP API disabled");
+    return;
+  }
+
+  Serial.println("WiFi connected");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/api/pattern", HTTP_OPTIONS, handlePatternOptions);
+  server.on("/api/pattern", HTTP_POST, handlePatternPost);
+  server.begin();
+  httpServerStarted = true;
+  Serial.println("HTTP API ready: POST /api/pattern");
+}
+
+// =====================
 // Arduino lifecycle
 // =====================
 
@@ -361,13 +474,15 @@ void setup() {
   lastKey = digitalRead(ENCODER_KEY);
 
   audioBegin();
+  wifiBegin();
 
   Serial.println("Drum Machine Ready");
-  Serial.printf("BPM: %d\n", bpm);
+  Serial.printf("BPM: %d\n", pattern.bpm);
   Serial.println("Rotate = BPM, press = START/STOP");
 }
 
 void loop() {
+  if (httpServerStarted) server.handleClient();
   updateEncoder();
   updateSequencer();
   delay(1);
