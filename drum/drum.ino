@@ -39,14 +39,12 @@
 // WiFi / WebSocket config
 // =====================
 
-// Fill these in before uploading. Keep the ESP32 and browser on the same LAN.
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
 constexpr uint16_t WEBSOCKET_PORT = 81;
 constexpr char MDNS_HOSTNAME[] = "esp32-drum";
 constexpr char WIFI_PREFERENCES_NAMESPACE[] = "drum-wifi";
+constexpr char AP_SSID[] = "ESP32-Drum";
+constexpr char AP_PASSWORD[] = "drum1234";
 WebSocketsServer webSocket(WEBSOCKET_PORT);
 bool webSocketStarted = false;
 Preferences wifiPreferences;
@@ -63,6 +61,7 @@ constexpr int STEPS_PER_BAR = 16;
 constexpr int BPM_MIN = 40;
 constexpr int BPM_MAX = 240;
 constexpr int BPM_STEP = 5;
+constexpr int DEFAULT_BPM = 120;
 
 struct DrumPattern {
   bool kick[STEPS_PER_BAR];
@@ -78,16 +77,18 @@ struct DrumState {
 };
 
 // Basic 4/4 pattern: kick on 1/3, snare on 2/4, closed hat on eighth notes.
+const DrumPattern DEFAULT_PATTERN = {
+  { true, false, false, false, false, false, false, false,
+    true, false, false, false, false, false, false, false },
+  { false, false, false, false, true, false, false, false,
+    false, false, false, false, true, false, false, false },
+  { true, false, true, false, true, false, true, false,
+    true, false, true, false, true, false, true, false }
+};
+
 DrumState drumState = {
-  120,
-  {
-    { true, false, false, false, false, false, false, false,
-      true, false, false, false, false, false, false, false },
-    { false, false, false, false, true, false, false, false,
-      false, false, false, false, true, false, false, false },
-    { true, false, true, false, true, false, true, false,
-      true, false, true, false, true, false, true, false }
-  },
+  DEFAULT_BPM,
+  DEFAULT_PATTERN,
   false,
   0
 };
@@ -269,10 +270,15 @@ void audioBegin() {
 }
 
 void triggerDrum(DrumVoiceType type) {
-  if (!audioReady || !audioQueue) return;
+  if (!audioReady || !audioQueue) {
+    Serial.println("Audio trigger ignored: audio engine is not ready");
+    return;
+  }
 
   DrumTrigger trigger{type};
-  xQueueSend(audioQueue, &trigger, 0);
+  if (xQueueSend(audioQueue, &trigger, 0) != pdTRUE) {
+    Serial.println("Audio trigger dropped: audio queue is full");
+  }
 }
 
 // =====================
@@ -512,9 +518,17 @@ void handleWebSocketMessage(uint8_t clientNumber, uint8_t* payload, size_t lengt
     }
 
     bool* trackSteps = nullptr;
-    if (strcmp(track, "kick") == 0) trackSteps = drumState.pattern.kick;
-    else if (strcmp(track, "snare") == 0) trackSteps = drumState.pattern.snare;
-    else if (strcmp(track, "hihat") == 0) trackSteps = drumState.pattern.hihat;
+    DrumVoiceType previewVoice = DRUM_KICK;
+    if (strcmp(track, "kick") == 0) {
+      trackSteps = drumState.pattern.kick;
+      previewVoice = DRUM_KICK;
+    } else if (strcmp(track, "snare") == 0) {
+      trackSteps = drumState.pattern.snare;
+      previewVoice = DRUM_SNARE;
+    } else if (strcmp(track, "hihat") == 0) {
+      trackSteps = drumState.pattern.hihat;
+      previewVoice = DRUM_HIHAT;
+    }
 
     if (!trackSteps) {
       Serial.println("Rejected WebSocket toggle_step track");
@@ -522,6 +536,35 @@ void handleWebSocketMessage(uint8_t clientNumber, uint8_t* payload, size_t lengt
     }
 
     trackSteps[step] = !trackSteps[step];
+    triggerDrum(previewVoice);
+    Serial.printf("Preview: %s\n", track);
+    broadcastState();
+    return;
+  }
+
+  if (strcmp(type, "trigger_drum") == 0) {
+    const char* track = data["track"];
+    if (!track) {
+      Serial.println("Rejected WebSocket trigger_drum message");
+      return;
+    }
+
+    if (strcmp(track, "kick") == 0) triggerDrum(DRUM_KICK);
+    else if (strcmp(track, "snare") == 0) triggerDrum(DRUM_SNARE);
+    else if (strcmp(track, "hihat") == 0) triggerDrum(DRUM_HIHAT);
+    else {
+      Serial.println("Rejected WebSocket trigger_drum track");
+      return;
+    }
+
+    Serial.printf("Preview: %s\n", track);
+    return;
+  }
+
+  if (strcmp(type, "reset_pattern") == 0) {
+    drumState.bpm = DEFAULT_BPM;
+    drumState.pattern = DEFAULT_PATTERN;
+    Serial.println("Pattern restored to default");
     broadcastState();
     return;
   }
@@ -576,42 +619,55 @@ void webSocketEvent(uint8_t clientNumber, WStype_t type, uint8_t* payload, size_
 }
 
 void wifiBegin() {
+  WiFi.mode(WIFI_AP_STA);
+  if (WiFi.softAP(AP_SSID, AP_PASSWORD)) {
+    Serial.println("AP mode ready");
+    Serial.print("AP SSID: ");
+    Serial.println(AP_SSID);
+    Serial.print("AP IP: ");
+    Serial.println(WiFi.softAPIP());
+  } else {
+    Serial.println("AP mode FAILED");
+  }
+
   wifiPreferences.begin(WIFI_PREFERENCES_NAMESPACE, true);
-  activeSsid = wifiPreferences.getString("ssid", ssid);
-  activePassword = wifiPreferences.getString("password", password);
+  activeSsid = wifiPreferences.getString("ssid", "");
+  activePassword = wifiPreferences.getString("password", "");
   wifiPreferences.end();
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(activeSsid.c_str(), activePassword.c_str());
-  Serial.print("Connecting to WiFi");
-
-  const uint32_t startedAtMs = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startedAtMs < WIFI_CONNECT_TIMEOUT_MS) {
-    delay(250);
-    Serial.print('.');
-  }
-  Serial.println();
-
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi connection FAILED; WebSocket API disabled");
-    return;
-  }
-
-  Serial.println("WiFi connected");
-  Serial.print("IP: ");
-  Serial.println(WiFi.localIP());
-
-  if (MDNS.begin(MDNS_HOSTNAME)) {
-    MDNS.addService("ws", "tcp", WEBSOCKET_PORT);
-    Serial.printf("mDNS: %s.local\n", MDNS_HOSTNAME);
+  if (activeSsid.isEmpty()) {
+    Serial.println("No saved WiFi credentials; use AP Settings to configure WiFi");
   } else {
-    Serial.println("mDNS start FAILED; use the IP address instead");
+    WiFi.begin(activeSsid.c_str(), activePassword.c_str());
+    Serial.print("Connecting to saved WiFi");
+
+    const uint32_t startedAtMs = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startedAtMs < WIFI_CONNECT_TIMEOUT_MS) {
+      delay(250);
+      Serial.print('.');
+    }
+    Serial.println();
+
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("Saved WiFi connection FAILED; AP configuration remains available");
+    } else {
+      Serial.println("WiFi connected");
+      Serial.print("IP: ");
+      Serial.println(WiFi.localIP());
+
+      if (MDNS.begin(MDNS_HOSTNAME)) {
+        MDNS.addService("ws", "tcp", WEBSOCKET_PORT);
+        Serial.printf("mDNS: %s.local\n", MDNS_HOSTNAME);
+      } else {
+        Serial.println("mDNS start FAILED");
+      }
+    }
   }
 
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
   webSocketStarted = true;
-  Serial.printf("WebSocket API ready: ws://%s.local:%u\n", MDNS_HOSTNAME, WEBSOCKET_PORT);
+  Serial.printf("WebSocket API ready: ws://%s:%u\n", WiFi.softAPIP().toString().c_str(), WEBSOCKET_PORT);
 }
 
 // =====================

@@ -2,22 +2,16 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import TrackRow from './components/TrackRow.vue'
 import Transport from './components/Transport.vue'
-import { Sequencer } from './audio/sequencer'
 import { Esp32Socket, type Esp32State } from './api/esp32'
 import { useDrumStore } from './stores/drum'
 import { trackNames, type TrackName } from './types/drum'
 
-const DEFAULT_ESP32_HOST = 'esp32-drum.local'
+const DEFAULT_ESP32_HOST = '192.168.4.1'
 const drum = useDrumStore()
 const connectionStatus = ref('')
 const settingsOpen = ref(false)
 const wifiSsid = ref('')
 const wifiPassword = ref('')
-const sequencer = new Sequencer(
-  () => drum.pattern,
-  // ESP32 owns the visual playhead; browser audio is only a local preview.
-  () => {},
-)
 
 function applyEsp32State(state: Esp32State) {
   drum.syncFromEsp32(
@@ -31,7 +25,6 @@ function applyEsp32State(state: Esp32State) {
     state.currentStep,
   )
 
-  if (!state.playing) sequencer.stop()
 }
 
 const esp32Socket = new Esp32Socket(applyEsp32State, (status) => {
@@ -44,18 +37,8 @@ function sendCommand(type: string, data: object) {
   return false
 }
 
-async function startLocalPreview() {
-  try {
-    await sequencer.start()
-  } catch (error) {
-    console.error('Unable to start local Web Audio preview', error)
-  }
-}
-
 function togglePlayback() {
   if (!sendCommand('set_playing', { playing: !drum.playing })) return
-  if (drum.playing) sequencer.stop()
-  else void startLocalPreview()
 }
 
 function changeBpm(amount: number) {
@@ -68,6 +51,12 @@ function setBpm(bpm: number) {
 
 function toggleStep(track: TrackName, step: number) {
   sendCommand('toggle_step', { track, step })
+}
+
+function resetPattern() {
+  if (sendCommand('reset_pattern', {})) {
+    connectionStatus.value = '正在恢复初始 Pattern…'
+  }
 }
 
 function saveWiFiSettings() {
@@ -86,10 +75,7 @@ function saveWiFiSettings() {
 }
 
 onMounted(() => esp32Socket.connect(DEFAULT_ESP32_HOST))
-onBeforeUnmount(() => {
-  sequencer.stop()
-  esp32Socket.disconnect()
-})
+onBeforeUnmount(() => esp32Socket.disconnect())
 </script>
 
 <template>
@@ -103,14 +89,15 @@ onBeforeUnmount(() => {
         @toggle-playback="togglePlayback"
       />
       <section class="esp32-panel" aria-label="ESP32 connection">
-        <span class="esp32-host">ESP32: {{ DEFAULT_ESP32_HOST }}</span>
+        <span class="esp32-host">ESP32 AP: {{ DEFAULT_ESP32_HOST }}</span>
+        <button class="reset-button" @click="resetPattern">恢复初始 Pattern</button>
         <button class="settings-button" @click="settingsOpen = !settingsOpen">Settings</button>
         <output v-if="connectionStatus" class="connection-status" aria-live="polite">{{ connectionStatus }}</output>
       </section>
       <section v-if="settingsOpen" class="settings-panel" aria-label="Wi-Fi settings">
         <div>
           <h2>ESP32 Wi-Fi</h2>
-          <p>保存后 ESP32 会重启。请将本设备切换到同一 Wi-Fi，页面会自动重连。</p>
+          <p>先连接 ESP32-Drum 热点。保存后设备会保留热点，并同时尝试接入这里填写的 Wi-Fi。</p>
         </div>
         <label>
           SSID
@@ -149,8 +136,9 @@ main { display: grid; min-height: 100vh; padding: clamp(16px, 5vw, 72px); place-
 .machine { width: min(100%, 960px); padding: clamp(20px, 5vw, 46px); border: 1px solid #363d4c; border-radius: 16px; background: rgb(25 29 37 / .93); box-shadow: 0 24px 80px rgb(0 0 0 / .25); }
 .esp32-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 22px; padding: 13px; border: 1px solid #333947; border-radius: 9px; background: #1d212a; }
 .esp32-host { flex: 1; color: #aeb7c8; font-size: .78rem; font-weight: 650; }
-.settings-button, .secondary-button, .save-button { height: 34px; padding: 0 12px; border: 0; border-radius: 6px; cursor: pointer; font-size: .78rem; font-weight: 700; }
+.settings-button, .secondary-button, .save-button, .reset-button { height: 34px; padding: 0 12px; border: 0; border-radius: 6px; cursor: pointer; font-size: .78rem; font-weight: 700; }
 .settings-button, .secondary-button { color: #dce2ed; background: #3a4354; }.save-button { color: #11151c; background: #68ddaf; }
+.reset-button { color: #f4c95d; background: #463b23; }
 .connection-status { width: 100%; color: #aeb7c8; font-size: .72rem; }
 .settings-panel { display: grid; gap: 14px; margin-top: 10px; padding: 17px; border: 1px solid #3c4353; border-radius: 9px; background: #1b2029; }
 .settings-panel h2 { margin: 0; color: #f5f7fb; font-size: .95rem; }.settings-panel p { margin: 5px 0 0; color: #9aa5b7; font-size: .75rem; line-height: 1.45; }

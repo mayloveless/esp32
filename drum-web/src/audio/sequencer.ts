@@ -12,6 +12,8 @@ export class Sequencer {
   private context: AudioContext | null = null
   private timerId: number | null = null
   private playing = false
+  private starting = false
+  private startToken = 0
   private nextStep = 0
   private nextStepTime = 0
 
@@ -21,22 +23,48 @@ export class Sequencer {
   ) {}
 
   async start() {
-    if (this.playing) return
+    if (this.playing || this.starting) return
 
+    this.starting = true
+    const token = ++this.startToken
     this.context ??= new AudioContext()
-    await this.context.resume()
-    this.playing = true
-    this.nextStep = 0
-    this.nextStepTime = this.context.currentTime + 0.03
-    this.tick()
+    try {
+      await this.context.resume()
+      if (token !== this.startToken) return
+
+      this.playing = true
+      this.nextStep = 0
+      this.nextStepTime = this.context.currentTime + 0.03
+      this.tick()
+    } finally {
+      if (token === this.startToken) this.starting = false
+    }
   }
 
   stop() {
+    this.startToken += 1
+    this.starting = false
     this.playing = false
     if (this.timerId !== null) {
       window.clearTimeout(this.timerId)
       this.timerId = null
     }
+  }
+
+  get isRunning() {
+    return this.playing || this.starting
+  }
+
+  /** Unlocks Web Audio from a browser user gesture without making a sound. */
+  async enable() {
+    this.context ??= new AudioContext()
+    await this.context.resume()
+  }
+
+  /** Plays one instrument immediately; used when editing a step while stopped. */
+  async preview(track: TrackName) {
+    await this.enable()
+    if (this.context) this.playSound(track, this.context.currentTime)
   }
 
   /** Schedules one step and queues the next tick from audio-clock time. */
