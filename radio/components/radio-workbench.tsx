@@ -10,18 +10,21 @@ export function RadioWorkbench() {
 
   return (
     <main className="workbench">
-      <header className="masthead">
-        <p className="station-mark">COSMIC RADIO / 001</p>
-        <h1>宇宙电台实验台</h1>
-        <p>先调好这一条信号，再决定它是否值得被听见。</p>
+      <header className="page-header">
+        <div>
+          <h1>宇宙电台</h1>
+          <p>节目内容管理与调试后台</p>
+        </div>
       </header>
 
-      <section className="console" aria-labelledby="compose-heading">
-        <div className="console-heading">
-          <p className="section-label">节目配方</p>
-          <h2 id="compose-heading">调谐新的节目</h2>
+      <section className="panel create-panel" aria-labelledby="compose-heading">
+        <div className="panel-heading">
+          <div>
+            <h2 id="compose-heading">新建节目</h2>
+            <p>设置节目参数后生成。生成能力将在后续阶段接入。</p>
+          </div>
         </div>
-        <div className="form-grid">
+        <div className="form-grid" role="group" aria-label="节目参数">
           <fieldset>
             <legend>节目形式</legend>
             <div className="format-options">
@@ -48,35 +51,57 @@ export function RadioWorkbench() {
             <input onChange={(event) => setStyle(event.target.value)} value={style} />
           </label>
         </div>
-        <button className="tune-button" type="button">
-          生成节目（将在下一阶段接通）
+        <button className="primary-button" disabled type="button">
+          生成节目
         </button>
       </section>
 
-      <section className="listening-room" aria-labelledby="preview-heading">
-        <div className="paper-panel">
-          <p className="section-label">内容预览</p>
-          <h2 id="preview-heading">等待一条信号</h2>
-          <p>
-            已设为{language} {format === "news" ? "新闻" : "聊天"}，风格是“{style}”。
-            生成服务尚未接通，因此这里不会伪造稿件或生成结果。
-          </p>
-        </div>
-        <div className="audio-panel">
-          <p className="section-label">收听</p>
-          <div className="waveform" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /></div>
-          <p>没有可播放的节目</p>
-          <audio aria-label="节目音频播放器" controls />
-        </div>
-      </section>
+      <div className="management-grid">
+        <section className="panel program-list" aria-labelledby="library-heading">
+          <div className="panel-heading">
+            <div>
+              <h2 id="library-heading">节目列表</h2>
+              <p>生成并保存的节目会显示在这里。</p>
+            </div>
+            <span className="count" aria-label="节目数量">0 个节目</span>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">节目</th>
+                  <th scope="col">形式</th>
+                  <th scope="col">状态</th>
+                  <th scope="col">创建时间</th>
+                  <th scope="col"><span className="sr-only">操作</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="empty-row">
+                  <td colSpan={5}>暂无节目。生成服务接通后，可在此查看状态、试听、稿件和删除节目。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-      <section className="program-list" aria-labelledby="library-heading">
-        <div>
-          <p className="section-label">节目列表</p>
-          <h2 id="library-heading">档案仍然为空</h2>
-        </div>
-        <p>第一条节目生成并保存后，会在这里出现。</p>
-      </section>
+        <aside className="panel detail-panel" aria-labelledby="detail-heading">
+          <div className="panel-heading">
+            <div>
+              <h2 id="detail-heading">节目详情</h2>
+              <p>从节目列表选择一条节目后查看。</p>
+            </div>
+          </div>
+          <div className="detail-section">
+            <h3>稿件</h3>
+            <p>尚未选择节目</p>
+          </div>
+          <div className="detail-section">
+            <h3>音频</h3>
+            <p>尚无可试听的音频</p>
+          </div>
+        </aside>
+      </div>
     </main>
   );
 }
