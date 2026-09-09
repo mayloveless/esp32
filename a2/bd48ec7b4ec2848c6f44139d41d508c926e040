@@ -1,0 +1,56 @@
+radio/program/service.ts
+  s_1bfd675b83ce48::t_4473394781137e 1-63,65-76
+  s_1bfd675b83ce48::t_d0551e1b7766d6 64
+radio/app/api/programs/[id]/route.ts
+  s_1bfd675b83ce48::t_4473394781137e 1-21
+radio/app/api/programs/route.ts
+  s_1bfd675b83ce48::t_4473394781137e 1-15
+radio/app/api/programs/[id]/audio-url/route.ts
+  s_1bfd675b83ce48::t_97dc3afce2076b 1-16
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_695151d572d934 1-64,73-103
+  s_1bfd675b83ce48::t_c84026bf4c3747 65-72
+radio/app/page.tsx
+  s_1bfd675b83ce48::t_695151d572d934 1,4
+radio/app/globals.css
+  s_1bfd675b83ce48::t_a425b7ff11e288 28,39-48
+radio/lib/supabase-server.ts
+  s_1bfd675b83ce48::t_340c9592ebf8c2 1-16
+radio/README.md
+  s_1bfd675b83ce48::t_f10a43f1aa49a6 7,29
+radio/.env.example
+  s_1bfd675b83ce48::t_f10a43f1aa49a6 1-7
+  s_1bfd675b83ce48::t_06a3bb1b602a7e 8
+radio/app/api/programs/[id]/audio/route.ts
+  s_1bfd675b83ce48::t_97dc3afce2076b 1-17
+radio/program/validation.ts
+  s_1bfd675b83ce48::t_340c9592ebf8c2 1-29,35-37
+  s_1bfd675b83ce48::t_d0551e1b7766d6 30-34
+radio/program/types.ts
+  s_1bfd675b83ce48::t_340c9592ebf8c2 7-25
+radio/package.json
+  s_1bfd675b83ce48::t_d6432fc1f458da 14
+radio/pnpm-lock.yaml
+  s_1bfd675b83ce48::t_519d7e2f56e8ff 11-13,421-452,1161-1164,2159-2190,3070-3071
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "a2bd48ec7b4ec2848c6f44139d41d508c926e040",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
