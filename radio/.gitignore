@@ -1,0 +1,11 @@
+/node_modules
+/.next
+/out
+.env*
+!.env.example
+/storage
+*.mp3
+*.wav
+*.ogg
+*.tsbuildinfo
+next-env.d.ts
