@@ -1,5 +1,5 @@
-import { RadioWorkbench } from "../components/radio-workbench";
+import { RadioManagement } from "../components/radio-management";
 
 export default function Home() {
-  return <RadioWorkbench />;
+  return <RadioManagement />;
 }
