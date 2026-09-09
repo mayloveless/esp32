@@ -13,7 +13,7 @@ h1, h2, h3, p { margin-top: 0; }
 .panel-heading h2 { font-size: 1.05rem; line-height: 1.4; margin-bottom: 4px; }
 .form-grid { display: grid; grid-template-columns: 1.25fr .8fr 1.25fr; gap: 16px; margin: 20px 0; }
 fieldset, label { border: 0; margin: 0; min-width: 0; padding: 0; }
-legend, label > span { color: #38465a; display: block; font-size: .85rem; font-weight: 600; margin-bottom: 8px; }
+legend, .form-grid > label > span { color: #38465a; display: block; font-size: .85rem; font-weight: 600; margin-bottom: 8px; }
 .format-options { display: flex; gap: 8px; }
 .format-option { align-items: center; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; display: flex; gap: 7px; min-height: 38px; padding: 0 11px; }
 .format-option:has(input:checked) { border-color: #2769c7; background: #f0f6ff; color: #174d98; }
