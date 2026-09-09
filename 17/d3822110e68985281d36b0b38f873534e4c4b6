@@ -1,0 +1,28 @@
+radio/app/globals.css
+  s_1bfd675b83ce48::t_fc8f0a64465cbb 1,5-40
+radio/components/radio-workbench.tsx
+  s_1bfd675b83ce48::t_fc8f0a64465cbb 13-17,20-25,27,54-55,59-86,88-104
+radio/pnpm-lock.yaml
+  s_1bfd675b83ce48::t_1d85abe674efd5 2661,2694,2709
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "17d3822110e68985281d36b0b38f873534e4c4b6",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
