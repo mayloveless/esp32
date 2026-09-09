@@ -8,10 +8,18 @@ export async function POST(request: Request, { params }: Context) {
   try {
     assertLocalDevelopmentRequest(request);
     const audio = (await request.formData()).get("audio");
-    if (!(audio instanceof File)) return Response.json({ error: "audio must be a file." }, { status: 400 });
+    if (!(audio instanceof File))
+      return Response.json({ error: "audio 必须是文件。" }, { status: 400 });
     const program = await uploadProgramAudio((await params).id, audio);
-    return program ? Response.json({ program }) : Response.json({ error: "Program not found." }, { status: 404 });
+    return program
+      ? Response.json({ program })
+      : Response.json({ error: "节目不存在。" }, { status: 404 });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Unable to upload audio." }, { status: 400 });
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : "无法上传音频。",
+      },
+      { status: 400 },
+    );
   }
 }

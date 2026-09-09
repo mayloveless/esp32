@@ -7,7 +7,9 @@ export const metadata: Metadata = {
   description: "为第一条可收听的宇宙节目准备的实验台。",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="zh-CN">
       <body>{children}</body>

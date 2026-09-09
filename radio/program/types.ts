@@ -5,7 +5,12 @@ export const programFormats = [
 
 export type ProgramFormat = (typeof programFormats)[number]["value"];
 
-export const programStatuses = ["queued", "generating", "ready", "failed"] as const;
+export const programStatuses = [
+  "queued",
+  "generating",
+  "ready",
+  "failed",
+] as const;
 export type ProgramStatus = (typeof programStatuses)[number];
 export type JsonObject = Record<string, unknown>;
 

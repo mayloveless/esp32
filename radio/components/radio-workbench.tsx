@@ -44,11 +44,17 @@ export function RadioWorkbench() {
           </fieldset>
           <label>
             <span>语言</span>
-            <input onChange={(event) => setLanguage(event.target.value)} value={language} />
+            <input
+              onChange={(event) => setLanguage(event.target.value)}
+              value={language}
+            />
           </label>
           <label>
             <span>风格</span>
-            <input onChange={(event) => setStyle(event.target.value)} value={style} />
+            <input
+              onChange={(event) => setStyle(event.target.value)}
+              value={style}
+            />
           </label>
         </div>
         <button className="primary-button" disabled type="button">
@@ -57,13 +63,18 @@ export function RadioWorkbench() {
       </section>
 
       <div className="management-grid">
-        <section className="panel program-list" aria-labelledby="library-heading">
+        <section
+          className="panel program-list"
+          aria-labelledby="library-heading"
+        >
           <div className="panel-heading">
             <div>
               <h2 id="library-heading">节目列表</h2>
               <p>生成并保存的节目会显示在这里。</p>
             </div>
-            <span className="count" aria-label="节目数量">0 个节目</span>
+            <span className="count" aria-label="节目数量">
+              0 个节目
+            </span>
           </div>
           <div className="table-wrap">
             <table>
@@ -73,12 +84,16 @@ export function RadioWorkbench() {
                   <th scope="col">形式</th>
                   <th scope="col">状态</th>
                   <th scope="col">创建时间</th>
-                  <th scope="col"><span className="sr-only">操作</span></th>
+                  <th scope="col">
+                    <span className="sr-only">操作</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="empty-row">
-                  <td colSpan={5}>暂无节目。生成服务接通后，可在此查看状态、试听、稿件和删除节目。</td>
+                  <td colSpan={5}>
+                    暂无节目。生成服务接通后，可在此查看状态、试听、稿件和删除节目。
+                  </td>
                 </tr>
               </tbody>
             </table>
