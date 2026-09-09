@@ -1,0 +1,24 @@
+radio/app/globals.css
+  s_1bfd675b83ce48::t_3eac2830b79037 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "38b903f7179fbe1788cfb6779fba2b61c26218bd",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
