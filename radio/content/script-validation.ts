@@ -38,19 +38,30 @@ function object(value: unknown): JsonObject {
   return value as JsonObject;
 }
 
-function parseSegments(value: unknown): BroadcastSegment[] {
-  if (!Array.isArray(value) || value.length < 2 || value.length > maximumSegments)
+function parseSegments(value: unknown, format: ProgramFormat): BroadcastSegment[] {
+  const minimumSegments = format === "news" ? 1 : 2;
+  if (
+    !Array.isArray(value) ||
+    value.length < minimumSegments ||
+    value.length > maximumSegments
+  )
     throw new ScriptGenerationError(
-      `segments 必须包含 2 到 ${maximumSegments} 个片段。`,
+      `${format} 的 segments 必须包含 ${minimumSegments} 到 ${maximumSegments} 个片段。`,
       "output",
     );
-  return value.map((segment) => {
+  const segments = value.map((segment) => {
     const item = object(segment);
     return {
       speaker: text(item.speaker, "segment.speaker", 40),
       text: text(item.text, "segment.text", 900),
     };
   });
+  if (format === "chat" && new Set(segments.map((segment) => segment.speaker)).size < 2)
+    throw new ScriptGenerationError(
+      "chat 的 segments 至少需要两位不同的 speaker。",
+      "output",
+    );
+  return segments;
 }
 
 function parseSources(value: unknown) {
@@ -80,7 +91,7 @@ export function parseBroadcastScript(
     throw new ScriptGenerationError("模型返回的语言与请求不一致。", "output");
   if (script.fictional !== true)
     throw new ScriptGenerationError("稿件必须明确标记为虚构内容。", "output");
-  const segments = parseSegments(script.segments);
+  const segments = parseSegments(script.segments, format);
   const totalCharacters = segments.reduce(
     (total, segment) => total + segment.text.length,
     0,

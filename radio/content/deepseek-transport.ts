@@ -19,13 +19,13 @@ function buildMessages(input: GenerateScriptInput) {
     : "主题留空，请自行选择一个有趣、具体、可理解的宇宙主题。";
   const formatInstruction =
     input.format === "news"
-      ? "新闻要有具体虚构事件、背景与细节，不能冒充现实新闻。"
-      : "聊天至少使用两位不同说话者，以对话推进一个具体话题。";
+      ? "新闻可以使用 1 到 12 个 segments；单段新闻也必须有具体虚构事件、背景与细节，不能冒充现实新闻。"
+      : "聊天必须使用 2 到 12 个 segments，且至少有两位不同说话者，以对话推进一个具体话题。";
   return [
     {
       role: "system",
       content:
-        "你是宇宙电台的中文脚本编辑。所有内容必须明确为虚构，且不能把编造内容包装成真实新闻。仅输出一个 JSON 对象，不要 Markdown。JSON 结构示例：{\"title\":\"标题\",\"format\":\"news\",\"language\":\"中文\",\"fictional\":true,\"segments\":[{\"speaker\":\"播音员\",\"text\":\"正文\"}],\"sources\":[]}。没有真实检索来源时 sources 必须为 []。",
+        "你是宇宙电台的中文脚本编辑。所有内容必须明确为虚构，且不能把编造内容包装成真实新闻。仅输出一个 JSON 对象，不要 Markdown。JSON 基础结构：{\"title\":\"标题\",\"format\":\"news 或 chat\",\"language\":\"中文\",\"fictional\":true,\"segments\":[{\"speaker\":\"播音员\",\"text\":\"正文\"}],\"sources\":[]}。news 可有 1 到 12 个 segments，单段示例为 [{\"speaker\":\"播音员\",\"text\":\"一整段新闻正文\"}]。chat 必须有 2 到 12 个 segments，且至少两位不同 speaker，例如 [{\"speaker\":\"星港主持人\",\"text\":\"提问\"},{\"speaker\":\"观测员\",\"text\":\"回应\"}]。没有真实检索来源时 sources 必须为 []。",
     },
     {
       role: "user",
