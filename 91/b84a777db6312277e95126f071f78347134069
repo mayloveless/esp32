@@ -1,0 +1,29 @@
+radio/content/deepseek-transport.ts
+  s_1bfd675b83ce48::t_93f5b61ca0b454 22-23,28
+radio/content/script-validation.ts
+  s_1bfd675b83ce48::t_93f5b61ca0b454 41-47,49,52,59-64,94
+radio/content/script-validation.test.ts
+  s_1bfd675b83ce48::t_93f5b61ca0b454 9-12,43-100
+  s_1bfd675b83ce48::t_eca62f283227a8 101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "91b84a777db6312277e95126f071f78347134069",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
