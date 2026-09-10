@@ -363,7 +363,20 @@ export function RadioManagement() {
                 )}
                 {!loading &&
                   programs.map((program) => (
-                    <tr key={program.id}>
+                    <tr
+                      aria-label={`查看节目：${program.title || "未命名节目"}`}
+                      className={`program-row${selected?.id === program.id ? " is-selected" : ""}`}
+                      key={program.id}
+                      onClick={() => void selectProgram(program.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          void selectProgram(program.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <td>{program.title || "未命名节目"}</td>
                       <td>{program.format}</td>
                       <td>
@@ -376,16 +389,12 @@ export function RadioManagement() {
                       </td>
                       <td className="row-actions">
                         <button
-                          className="text-button"
-                          onClick={() => void selectProgram(program.id)}
-                          type="button"
-                        >
-                          查看
-                        </button>
-                        <button
                           className="text-button danger-button"
                           disabled={saving}
-                          onClick={() => void deleteProgram(program.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void deleteProgram(program.id);
+                          }}
                           type="button"
                         >
                           删除

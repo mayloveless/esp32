@@ -186,6 +186,17 @@ td {
   color: #4a586c;
   font-size: 0.9rem;
 }
+.program-row {
+  cursor: pointer;
+}
+.program-row:hover td,
+.program-row.is-selected td {
+  background: #f6f9fd;
+}
+.program-row:focus-visible {
+  outline: 3px solid #b9d5fb;
+  outline-offset: -3px;
+}
 .empty-row td {
   color: #6d7a8d;
   padding: 34px 20px;
