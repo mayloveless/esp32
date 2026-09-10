@@ -65,7 +65,7 @@ p {
 }
 .form-grid {
   display: grid;
-  grid-template-columns: 1.25fr 0.8fr 1.25fr;
+  grid-template-columns: 1.25fr 0.8fr 1.1fr 1.2fr;
   gap: 16px;
   margin: 20px 0;
 }
@@ -218,6 +218,22 @@ td {
   overflow: auto;
   padding: 9px;
   white-space: pre-wrap;
+}
+.script-preview {
+  color: #4a586c;
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+.script-preview p {
+  margin-bottom: 9px;
+}
+.script-preview p:first-child {
+  color: #637083;
+  font-size: 0.78rem;
+}
+.program-error {
+  color: #b42318 !important;
+  margin-top: 6px;
 }
 .detail-section audio {
   margin-top: 8px;

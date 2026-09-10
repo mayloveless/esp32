@@ -14,6 +14,20 @@ export const programStatuses = [
 export type ProgramStatus = (typeof programStatuses)[number];
 export type JsonObject = Record<string, unknown>;
 
+export type BroadcastSegment = {
+  speaker: string;
+  text: string;
+};
+
+export type BroadcastScript = {
+  title: string;
+  format: ProgramFormat;
+  language: string;
+  fictional: true;
+  segments: BroadcastSegment[];
+  sources: string[];
+};
+
 export type RadioProgram = {
   id: string;
   status: ProgramStatus;

@@ -3,7 +3,7 @@ import {
   type JsonObject,
   type ProgramFormat,
   type ProgramStatus,
-} from "./types";
+} from "./types.ts";
 
 const formats = new Set<ProgramFormat | "music">(["news", "chat", "music"]);
 const statuses = new Set<ProgramStatus>(programStatuses);
@@ -14,6 +14,7 @@ export type CreateProgramInput = {
   recipe: JsonObject;
   content: JsonObject;
   captions: unknown[];
+  status?: ProgramStatus;
 };
 export type UpdateProgramInput = Partial<{
   status: ProgramStatus;
@@ -33,6 +34,44 @@ function parseTitle(value: unknown, fallback: string) {
   if (typeof value !== "string" || value.length > 200)
     throw new Error("节目标题必须是长度不超过 200 的字符串。");
   return value;
+}
+
+function parseShortText(
+  value: unknown,
+  field: string,
+  maximumLength: number,
+  optional = false,
+) {
+  if (value === undefined && optional) return null;
+  if (typeof value !== "string")
+    throw new Error(`${field}必须是字符串。`);
+  const text = value.trim();
+  if (!text && !optional) throw new Error(`${field}不能为空。`);
+  if (text.length > maximumLength)
+    throw new Error(`${field}长度不能超过 ${maximumLength} 个字符。`);
+  return text || null;
+}
+
+export type GenerateScriptInput = {
+  format: ProgramFormat;
+  language: string;
+  style: string;
+  topic: string | null;
+};
+
+export function parseGenerateScript(value: unknown): GenerateScriptInput {
+  if (!isJsonObject(value)) throw new Error("请求体必须是对象。");
+  if (!formats.has(value.format as ProgramFormat) || value.format === "music")
+    throw new Error("生成稿件只支持 news 或 chat 形式。");
+  const language = parseShortText(value.language, "语言", 40);
+  const style = parseShortText(value.style, "风格", 120);
+  const topic = parseShortText(value.topic, "主题", 240, true);
+  return {
+    format: value.format as ProgramFormat,
+    language: language ?? "",
+    style: style ?? "",
+    topic,
+  };
 }
 
 export function parseCreateProgram(value: unknown): CreateProgramInput {

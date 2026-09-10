@@ -63,6 +63,31 @@ export async function createProgram(
   return data as RadioProgram;
 }
 
+export async function createGeneratingProgram(input: {
+  format: "news" | "chat";
+  language: string;
+  style: string;
+  topic: string | null;
+  model: string;
+}): Promise<RadioProgram> {
+  return createProgram({
+    status: "generating",
+    format: input.format,
+    title: "正在生成稿件",
+    recipe: {
+      format: input.format,
+      language: input.language,
+      style: input.style,
+      topic: input.topic,
+      text_provider: "deepseek",
+      text_model: input.model,
+      fictional: true,
+    },
+    content: {},
+    captions: [],
+  });
+}
+
 export async function updateProgram(
   id: string,
   input: UpdateProgramInput,

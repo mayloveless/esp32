@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:checkpoint-b": "node --experimental-strip-types --experimental-default-type=module --test content/script-validation.test.ts content/deepseek-config.test.ts content/deepseek-transport.test.ts content/generation-lock.test.ts program/validation.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

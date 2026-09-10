@@ -3,6 +3,7 @@
 import { type ChangeEvent, useEffect, useState } from "react";
 import {
   programFormats,
+  type BroadcastScript,
   type ProgramFormat,
   type RadioProgram,
 } from "../program/types";
@@ -24,10 +25,42 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeStyle: "short",
 });
 
+function asBroadcastScript(content: RadioProgram["content"]): BroadcastScript | null {
+  if (
+    typeof content.title !== "string" ||
+    (content.format !== "news" && content.format !== "chat") ||
+    typeof content.language !== "string" ||
+    content.fictional !== true ||
+    !Array.isArray(content.segments) ||
+    !Array.isArray(content.sources)
+  )
+    return null;
+  const segments = content.segments.filter(
+    (segment): segment is { speaker: string; text: string } =>
+      typeof segment === "object" &&
+      segment !== null &&
+      typeof (segment as { speaker?: unknown }).speaker === "string" &&
+      typeof (segment as { text?: unknown }).text === "string",
+  );
+  return segments.length === content.segments.length
+    ? {
+        title: content.title,
+        format: content.format,
+        language: content.language,
+        fictional: true,
+        segments,
+        sources: content.sources.filter(
+          (source): source is string => typeof source === "string",
+        ),
+      }
+    : null;
+}
+
 export function RadioManagement() {
   const [format, setFormat] = useState<ProgramFormat>("news");
   const [language, setLanguage] = useState("中文");
   const [style, setStyle] = useState("冷静、略带未知感");
+  const [topic, setTopic] = useState("");
   const [programs, setPrograms] = useState<RadioProgram[]>([]);
   const [selected, setSelected] = useState<RadioProgram | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -35,6 +68,9 @@ export function RadioManagement() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [audioRefreshAttempted, setAudioRefreshAttempted] = useState(false);
+  const selectedScript = selected ? asBroadcastScript(selected.content) : null;
 
   async function loadPrograms() {
     try {
@@ -57,6 +93,7 @@ export function RadioManagement() {
       setSelected(program);
       setAudioFile(null);
       setAudioUrl(null);
+      setAudioRefreshAttempted(false);
       if (program.audio_path) await refreshAudioUrl(id);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法读取节目详情。");
@@ -74,6 +111,48 @@ export function RadioManagement() {
       setMessage(
         error instanceof Error ? error.message : "无法刷新音频试听地址。",
       );
+    }
+  }
+
+  function handleAudioError() {
+    if (!selected) return;
+    if (audioRefreshAttempted) {
+      setAudioUrl(null);
+      setMessage("音频试听失败，已自动刷新一次地址，请稍后重新选择节目再试。");
+      return;
+    }
+    setAudioRefreshAttempted(true);
+    setMessage("音频播放失败，正在自动刷新一次试听地址…");
+    void refreshAudioUrl(selected.id);
+  }
+
+  async function generateScript() {
+    try {
+      setGenerating(true);
+      setMessage(null);
+      const response = await fetch("/api/programs/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format, language, style, topic }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        program?: RadioProgram;
+      };
+      if (body.program) {
+        setSelected(body.program);
+        setAudioFile(null);
+        setAudioUrl(null);
+        setAudioRefreshAttempted(false);
+        await loadPrograms();
+      }
+      if (!response.ok)
+        throw new Error(body.error ?? "无法生成稿件。");
+      setMessage("稿件已保存，等待后续语音合成。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法生成稿件。");
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -161,7 +240,7 @@ export function RadioManagement() {
         <div className="panel-heading">
           <div>
             <h2 id="compose-heading">新建节目</h2>
-            <p>设置节目参数后生成。生成能力将在后续阶段接入。</p>
+            <p>设置节目参数后生成稿件；不会自动调用文本或语音服务。</p>
           </div>
         </div>
         <div className="form-grid" role="group" aria-label="节目参数">
@@ -196,9 +275,22 @@ export function RadioManagement() {
               value={style}
             />
           </label>
+          <label>
+            <span>主题（可选）</span>
+            <input
+              onChange={(event) => setTopic(event.target.value)}
+              placeholder="留空时由模型自行决定"
+              value={topic}
+            />
+          </label>
         </div>
-        <button className="primary-button" disabled type="button">
-          生成节目
+        <button
+          className="primary-button"
+          disabled={generating}
+          onClick={() => void generateScript()}
+          type="button"
+        >
+          {generating ? "正在生成稿件…" : "生成稿件"}
         </button>
       </section>
       <div className="management-grid">
@@ -290,11 +382,22 @@ export function RadioManagement() {
           <div className="detail-section">
             <h3>状态</h3>
             <p>{selected?.status ?? "尚未选择节目"}</p>
+            {selected?.error && <p className="program-error">{selected.error}</p>}
           </div>
           <div className="detail-section">
             <h3>稿件</h3>
-            {selected ? (
-              <pre>{JSON.stringify(selected.content, null, 2)}</pre>
+            {selectedScript ? (
+              <div className="script-preview">
+                <p>虚构广播 · {selectedScript.language}</p>
+                {selectedScript.segments.map((segment, index) => (
+                  <p key={`${segment.speaker}-${index}`}>
+                    <strong>{segment.speaker}：</strong>
+                    {segment.text}
+                  </p>
+                ))}
+              </div>
+            ) : selected ? (
+              <p>稿件尚未生成。</p>
             ) : (
               <p>尚未选择节目</p>
             )}
@@ -305,7 +408,7 @@ export function RadioManagement() {
               <audio
                 aria-label="节目音频播放器"
                 controls
-                onError={() => selected && void refreshAudioUrl(selected.id)}
+                onError={handleAudioError}
                 src={audioUrl}
               />
             ) : (
