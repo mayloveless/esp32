@@ -1,6 +1,6 @@
 # 宇宙电台：架构与实现进展
 
-> 本文对应当前 `radio/` 工作树。Task 003 检查点 A 已实现、尚待 review；它不包含 `/receiver` 页面或缓存。
+> 本文对应当前 `radio/` 工作树。Task 003 检查点 B 已实现、尚待 review；经明确授权，另增加了一个不使用队列的接收机主动补充库存流程和一条下一节目 Blob 预加载。
 
 ## 先看结论
 
@@ -9,14 +9,14 @@
 1. **内容管理后台**：人工发起稿件生成、语音合成、试听、下线和恢复。
 2. **接收机协议**：未来 Web Receiver 与 ESP32 都只消费 `tune` / `completed` API，不需要知道 Supabase、DeepSeek 或 TTS 的内部细节。
 
-目前真实音频和节目记录存于 Supabase；DeepSeek 与硅基流动的代码链路已经具备，但默认禁用，只有用户显式配置并点击操作才会产生付费调用。
+目前真实音频和节目记录存于 Supabase；DeepSeek 与硅基流动的代码链路已经具备，默认禁用。启用后，管理后台的显式操作以及接收机的受控库存补充都可能产生付费调用。
 
 ## 系统全景
 
 ```mermaid
 flowchart LR
   Admin[本机浏览器\n管理后台] -->|同源 POST / GET| Next[Next.js App Router\n服务端 API]
-  Receiver[未来 Receiver\nWeb / ESP32] -->|tune / completed| Next
+  Receiver[未来 Receiver\nWeb / ESP32] -->|tune / completed / replenish| Next
 
   Next --> Program[program\n节目、音频、库存生命周期]
   Next --> Content[content\nDeepSeek 稿件生成与结构校验]
@@ -29,7 +29,7 @@ flowchart LR
   TTS -.仅显式点击且启用.-> SiliconFlow[硅基流动 API]
 ```
 
-虚线表示可能产生费用的外部调用。它们没有在页面加载、刷新或 Receiver 调台时自动发生。
+虚线表示可能产生费用的外部调用。它们不会在页面加载或刷新时发生；接收机仅在当前节目之外没有 ready 库存时，才会主动触发一次补充。
 
 ## 模块职责
 
@@ -188,6 +188,35 @@ sequenceDiagram
 
 `completed` 只应在播放器真正触发 `ended` 后调用。切台、暂停、页面关闭和加载失败都不应调用它。接口使用 `retired_at IS NULL` 的条件更新，因此重复或并发回调中只有一次会实际下线。
 
+## 授权后的自动补播
+
+这不是常驻 worker 或预取缓存：Web Receiver 在某节目真正开始播放后，以 `POST /api/receiver/replenish` 检查一次库存。它优先保留已有节目；只有“当前播放节目之外没有 active ready 节目”时，才顺序执行 DeepSeek 稿件生成和硅基流动语音合成，最后写入同一张 `radio_programs` 表和私有 bucket。
+
+```mermaid
+sequenceDiagram
+  participant R as Web Receiver
+  participant API as Receiver API
+  participant DB as Supabase
+  participant AI as DeepSeek / 硅基流动
+
+  R->>API: 播放开始后 POST /receiver/replenish
+  API->>DB: 查询当前节目之外的 active ready 库存
+  alt 已有下一节目
+    API-->>R: inventory_available，不调用付费服务
+  else 库存为空
+    API->>AI: 生成稿件，再合成 MP3
+    AI-->>API: 稿件与音频
+    API->>DB: 保存 ready 节目与私有对象
+    API-->>R: replenished
+  end
+  R->>API: 当前音频 ended + completed
+  R->>API: 自动 tune 下一节目
+```
+
+自动生成沿用当前节目的 `format`、`language`、`style`，主题留空；没有可用 recipe 时回退为“中文、冷静略带未知感的 news”。单进程锁只允许一轮补充，不自动重试、不批量生成。生成或合成失败会保存为 `failed`，当前节目结束后页面显示明确原因，而不是反复发起付费请求。
+
+接收机还会在当前节目开始播放后请求一条不同节目，并把实际音频下载为内存 `Blob`（单条最多 12 MB）。节目结束时优先消费这份本地字节，不重新依赖已过期的签名 URL，且自动顺播始终从 `0:00` 开始；只有用户手动调台才使用临场切入偏移。缓存不足时才回退到即时调台；连续调台只排除当前和最近切走的两条，避免小库存被历史排除列表耗尽。
+
 ## 安全与资源边界
 
 ```mermaid
@@ -214,9 +243,9 @@ flowchart TB
 | Task 002 A：可靠性与本机保护 | 已完成 | 同源保护、私有对象清理补偿、签名 URL 刷新 | 生产鉴权 |
 | Task 002 B：文本生成 | 代码已实现，默认不产生费用 | DeepSeek 配置、输入/输出校验、生成锁、稿件预览 | 自动生成、真实新闻检索 |
 | Task 002 C：TTS | 代码已实现，默认不产生费用 | 硅基流动 CosyVoice2、MP3/时长校验、合成锁、私有上传 | 多音色混音、音乐、音效 |
-| Task 003 A：库存与 Receiver API | 已实现，待 review | `retired_at` 迁移、active inventory、tune/completed、后台下线恢复 | `/receiver` 页面、缓存、ESP32 接入 |
-| Task 003 B | 未开始 | — | 浏览器 Receiver 播放器与 ended 逻辑 |
-| Task 003 C | 未开始 | — | 2 条内存预取缓存、快速连续调台处理 |
+| Task 003 A：库存与 Receiver API | 已完成 | `retired_at` 迁移、active inventory、tune/completed、后台下线恢复 | `/receiver` 页面、缓存、ESP32 接入 |
+| Task 003 B + 授权补播 | 已实现，待 review | `/receiver`、本地调谐静电、音频偏移播放、`ended` completed 回调、快速调台失效保护、优先既有库存的单条自动补播 | 预取缓存、常驻 worker、ESP32 接入 |
+| Task 003 C（部分） | 已实现，待 review | 1 条 Blob 音频预加载、缓存优先播放、快速调台中止旧预取 | 2 条缓存与总字节上限策略 |
 
 ## 已验证与下一步
 
@@ -224,9 +253,9 @@ flowchart TB
 
 - 迁移 `20260910070120_add_radio_program_retired_at` 已应用到远端 Supabase。
 - 临时、可清理节目验证了 inventory、`no_signal`、manifest、下线、恢复，以及 completed 并发幂等；测试数据已清理。
-- `pnpm test:checkpoint-b`（25 项）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 均通过。
+- `pnpm test:checkpoint-b`（31 项）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 均通过。
 
-下一步在 review 通过后才进入 Task 003 检查点 B：新增 `/receiver` 页面，消费现有 Receiver API，并只在音频真正结束时发送 `completed`。不应在该检查点之前实现缓存或开放设备访问。
+下一步在 review 通过后才进入 Task 003 检查点 C：以最多 2 条未来节目为上限实现浏览器内存预取缓存。此前不应实现缓存，也不应开放设备访问。
 
 ## 代码导航
 
@@ -236,5 +265,7 @@ flowchart TB
 - [TTS 入口](../tts/siliconflow.ts)
 - [Receiver manifest 与偏移算法](../receiver/manifest.ts)
 - [Receiver 调台接口](../app/api/receiver/tune/route.ts)
+- [Receiver 自动补播接口](../app/api/receiver/replenish/route.ts)
+- [自动补播服务](../receiver/auto-replenish.ts)
 - [Receiver 完成回调](../app/api/receiver/programs/[id]/completed/route.ts)
 - [本机保护与 Supabase 服务端客户端](../lib/supabase-server.ts)

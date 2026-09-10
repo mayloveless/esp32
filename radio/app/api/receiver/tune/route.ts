@@ -9,6 +9,7 @@ import {
 } from "../../../../program/service";
 import {
   calculateStartOffsetMs,
+  findManifestCandidate,
   parseTuneRequest,
   type ReceiverManifest,
 } from "../../../../receiver/manifest";
@@ -20,13 +21,11 @@ export async function POST(request: Request) {
     assertLocalDevelopmentRequest(request);
     const { excludeProgramIds } = parseTuneRequest(await readJsonBody(request));
     const candidates = await listActiveReadyPrograms();
-    const program = candidates.find(
-      (candidate) => !excludeProgramIds.includes(candidate.id),
-    );
+    const program = findManifestCandidate(candidates, excludeProgramIds);
     if (!program)
       return Response.json({ result: "no_signal" as const });
     const audio = await createProgramAudioUrl(program);
-    if (!audio || !program.audio_path || program.duration_ms === null)
+    if (!audio || !program.audio_path)
       return Response.json({ result: "no_signal" as const });
     const manifest: ReceiverManifest = {
       programId: program.id,

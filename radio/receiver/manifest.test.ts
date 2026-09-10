@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   calculateStartOffsetMs,
+  findManifestCandidate,
   parseTuneRequest,
 } from "./manifest.ts";
+import type { RadioProgram } from "../program/types.ts";
 
 test("极短节目从开头播放", () => {
   assert.equal(calculateStartOffsetMs(20_000), 0);
@@ -28,5 +30,18 @@ test("调台排除列表限制长度与格式", () => {
   assert.throws(
     () => parseTuneRequest({ excludeProgramIds: ["invalid"] }),
     /无效节目 ID/,
+  );
+});
+
+test("调台会跳过无法生成完整 manifest 的无效时长节目", () => {
+  const candidates = [
+    { id: "missing-duration", duration_ms: null },
+    { id: "zero-duration", duration_ms: 0 },
+    { id: "valid-duration", duration_ms: 60_000 },
+  ] as RadioProgram[];
+
+  assert.equal(
+    findManifestCandidate(candidates, []).id,
+    "valid-duration",
   );
 });

@@ -14,6 +14,23 @@ export type ReceiverManifest = {
   retireOnComplete: true;
 };
 
+type ManifestCandidate = RadioProgram & { duration_ms: number };
+
+export function findManifestCandidate(
+  candidates: RadioProgram[],
+  excludeProgramIds: string[],
+): ManifestCandidate | null {
+  return (
+    candidates.find(
+      (candidate): candidate is ManifestCandidate =>
+        !excludeProgramIds.includes(candidate.id) &&
+        typeof candidate.duration_ms === "number" &&
+        Number.isSafeInteger(candidate.duration_ms) &&
+        candidate.duration_ms > 0,
+    ) ?? null
+  );
+}
+
 export function parseTuneRequest(value: unknown) {
   if (value === undefined || value === null) return { excludeProgramIds: [] };
   if (typeof value !== "object" || Array.isArray(value))
