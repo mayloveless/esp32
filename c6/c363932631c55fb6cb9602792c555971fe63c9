@@ -1,0 +1,77 @@
+radio/app/api/receiver/tune/route.ts
+  s_1bfd675b83ce48::t_f378fb42e73ac5 12,24,28
+radio/receiver/manifest.test.ts
+  s_1bfd675b83ce48::t_f378fb42e73ac5 5,8,35-45
+  s_1bfd675b83ce48::t_54a0bf92062d21 46-47
+radio/components/receiver-simulator.tsx
+  s_1bfd675b83ce48::t_36714bd602d50e 254,331
+  s_1bfd675b83ce48::t_d750d428505526 8,96-97,99-100,109-110,151,338,437-438,444-445,451-455,459-460,465-469,474-475,479,632-641
+  s_1bfd675b83ce48::t_0c3ae43110bd4e 239-249
+  s_1bfd675b83ce48::t_6030d422b6b342 281-295,297-302,493,506-510,550-551,609,613-622
+  s_1bfd675b83ce48::t_726a47a2c44aec 256-278,296,315-318,320-323
+  s_1bfd675b83ce48::t_5b8a2cadcdad2a 3,563,565
+  s_1bfd675b83ce48::t_8e566c22a1871c 147,253,255,279-280,303-314
+  s_1bfd675b83ce48::t_4601b3db3a7ee2 227
+  s_1bfd675b83ce48::t_a2c7b1ab29a80b 456-458,461-463,470-472
+  s_1bfd675b83ce48::t_b69f5ed7bc3592 9,319,324,352-358,398-404,530
+  s_1bfd675b83ce48::t_2b99b256de97bf 1-2,4-7,10-16,35-89,91,93-95,101-107,111-119,121-125,127,129-132,134-139,148-150,152-159,163-171,173,200-203,251-252,327-329,333-337,339-342,346-348,395-396,406-412,415-423,425-426,428-429,431-432,434-435,447-450,480-485,487-492,494-505,531-549,552-562,564,566-608,610-612,623-631,642-660
+  s_1bfd675b83ce48::t_ba7acf00b60e4d 90,92,98,108,120,128,204-210,332,343-345,424,430,436,439-443,446,464,473,476-478
+  s_1bfd675b83ce48::t_479b6a4d43666b 126
+  s_1bfd675b83ce48::t_9855e8ec8e3852 26-34,133,145-146,162,172,174-199
+  s_1bfd675b83ce48::t_7233cbf6aa00f4 17-25,140-144,211-226,228-238,250,325,375-394,486,511-529
+  s_1bfd675b83ce48::t_788c069c933fc4 160-161,326,330,349-351,359-374,397,405,413-414,427,433
+radio/receiver/runtime.test.ts
+  s_1bfd675b83ce48::t_d750d428505526 1-2,8-18,23-25,31
+  s_1bfd675b83ce48::t_b69f5ed7bc3592 3-7,26-30
+  s_1bfd675b83ce48::t_9344d2a9c95aae 19-22
+radio/app/receiver/page.tsx
+  s_1bfd675b83ce48::t_fc06b109b8d5fe 1-5
+radio/package.json
+  s_1bfd675b83ce48::t_71f59e5b186d66 12
+radio/docs/architecture.md
+  s_1bfd675b83ce48::t_e49aa3446c42be 246,258
+  s_1bfd675b83ce48::t_d8b19bb441f183 218
+  s_1bfd675b83ce48::t_4f5ecdc21b4330 3,219,248
+  s_1bfd675b83ce48::t_fbfd6245151fa7 12,19,32,191-217,247,256,268-269
+radio/receiver/runtime.ts
+  s_1bfd675b83ce48::t_d750d428505526 2-14,20,22-32
+  s_1bfd675b83ce48::t_9344d2a9c95aae 1,15-19,21
+  s_1bfd675b83ce48::t_b69f5ed7bc3592 33-39
+radio/app/api/receiver/replenish/route.ts
+  s_1bfd675b83ce48::t_6e98dd111b83d3 5,16,25
+  s_1bfd675b83ce48::t_71f59e5b186d66 1-4,6-15,17-24,26-50
+radio/receiver/replenishment.test.ts
+  s_1bfd675b83ce48::t_71f59e5b186d66 1-45
+radio/receiver/replenishment.ts
+  s_1bfd675b83ce48::t_71f59e5b186d66 1-48
+radio/receiver/auto-replenish.ts
+  s_1bfd675b83ce48::t_71f59e5b186d66 1-19,21-61,63-127
+  s_1bfd675b83ce48::t_7233cbf6aa00f4 20,62
+radio/app/globals.css
+  s_1bfd675b83ce48::t_64c7fc96c754bf 370-484,490-505
+  s_1bfd675b83ce48::t_d750d428505526 485-489
+radio/receiver/manifest.ts
+  s_1bfd675b83ce48::t_f378fb42e73ac5 17-26,28-33
+  s_1bfd675b83ce48::t_f3ac5ed51ca792 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c6c363932631c55fb6cb9602792c555971fe63c9",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
