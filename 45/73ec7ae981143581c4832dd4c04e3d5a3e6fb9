@@ -1,0 +1,26 @@
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_7328d3c4f49d29 366-379,394-397
+radio/app/globals.css
+  s_1bfd675b83ce48::t_7328d3c4f49d29 189-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4573ec7ae981143581c4832dd4c04e3d5a3e6fb9",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
