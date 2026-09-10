@@ -158,6 +158,64 @@ export async function uploadProgramAudio(
   return { program: data as RadioProgram, cleanupWarning };
 }
 
+export async function saveSynthesizedProgramAudio(
+  id: string,
+  audioBytes: Uint8Array,
+  durationMs: number,
+  tts: { model: string; provider: string; traceId: string | null; voice: string },
+): Promise<{ program: RadioProgram; cleanupWarning: string | null } | null> {
+  const current = await getProgram(id);
+  if (!current) return null;
+  if (current.status !== "generating")
+    throw new Error("节目当前不处于语音合成状态。");
+  if (!Number.isInteger(durationMs) || durationMs <= 0)
+    throw new Error("合成音频时长无效。");
+
+  const audioPath = `${id}/${crypto.randomUUID()}.mp3`;
+  const client = getSupabaseServerClient();
+  const { error: uploadError } = await client.storage
+    .from(bucket)
+    .upload(audioPath, audioBytes, {
+      contentType: "audio/mpeg",
+      upsert: false,
+    });
+  throwIfError(uploadError);
+
+  const { data, error } = await client
+    .from(table)
+    .update({
+      audio_path: audioPath,
+      duration_ms: durationMs,
+      status: "ready",
+      error: null,
+      recipe: {
+        ...current.recipe,
+        tts_provider: tts.provider,
+        tts_model: tts.model,
+        tts_voice: tts.voice,
+        tts_response_format: "mp3",
+        tts_sample_rate: 32_000,
+        tts_trace_id: tts.traceId,
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) {
+    const cleanupWarning = await cleanupAudioObject(audioPath);
+    throw new Error(
+      cleanupWarning
+        ? `数据库未保存合成音频，且${cleanupWarning}`
+        : `数据库未保存合成音频：${error.message}`,
+    );
+  }
+  const cleanupWarning = current.audio_path
+    ? await cleanupAudioObject(current.audio_path)
+    : null;
+  return { program: data as RadioProgram, cleanupWarning };
+}
+
 export async function createProgramAudioUrl(program: RadioProgram) {
   if (!program.audio_path) return null;
   const { data, error } = await getSupabaseServerClient()

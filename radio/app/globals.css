@@ -286,6 +286,16 @@ td {
   gap: 8px;
   margin-top: 12px;
 }
+.synthesis-controls {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.synthesis-controls p {
+  color: #637083;
+  font-size: 0.78rem;
+  margin: 0;
+}
 .upload-controls input {
   font-size: 0.78rem;
   min-height: 0;

@@ -69,6 +69,7 @@ export function RadioManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [synthesizing, setSynthesizing] = useState(false);
   const [audioRefreshAttempted, setAudioRefreshAttempted] = useState(false);
   const selectedScript = selected ? asBroadcastScript(selected.content) : null;
 
@@ -153,6 +154,34 @@ export function RadioManagement() {
       setMessage(error instanceof Error ? error.message : "无法生成稿件。");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function synthesizeSpeech() {
+    if (!selected) return;
+    try {
+      setSynthesizing(true);
+      setMessage(null);
+      const response = await fetch(`/api/programs/${selected.id}/synthesize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        cleanupWarning?: string | null;
+        error?: string;
+        program?: RadioProgram;
+      };
+      if (body.program) {
+        await selectProgram(body.program.id);
+        await loadPrograms();
+      }
+      if (!response.ok)
+        throw new Error(body.error ?? "无法合成语音。");
+      setMessage(body.cleanupWarning ?? "语音已合成并保存，可开始试听。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法合成语音。");
+    } finally {
+      setSynthesizing(false);
     }
   }
 
@@ -414,6 +443,20 @@ export function RadioManagement() {
             ) : (
               <p>尚无可试听的音频</p>
             )}
+            {selectedScript &&
+              (selected?.status === "queued" || selected?.status === "failed") && (
+                <div className="synthesis-controls">
+                  <p>将按稿件顺序使用单个内置中文音色合成。</p>
+                  <button
+                    className="text-button"
+                    disabled={synthesizing}
+                    onClick={() => void synthesizeSpeech()}
+                    type="button"
+                  >
+                    {synthesizing ? "正在合成语音…" : "合成语音"}
+                  </button>
+                </div>
+              )}
             {selected && (
               <div className="upload-controls">
                 <input
