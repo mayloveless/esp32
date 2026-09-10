@@ -39,6 +39,7 @@ export type RadioProgram = {
   audio_path: string | null;
   duration_ms: number | null;
   error: string | null;
+  retired_at: string | null;
   created_at: string;
   updated_at: string;
 };

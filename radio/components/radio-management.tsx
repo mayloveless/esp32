@@ -185,6 +185,25 @@ export function RadioManagement() {
     }
   }
 
+  async function changeInventory(id: string, action: "retire" | "restore") {
+    try {
+      setSaving(true);
+      const { program } = await request<{ program: RadioProgram }>(
+        `/api/programs/${id}/${action}`,
+        { method: "POST" },
+      );
+      if (selected?.id === id) setSelected(program);
+      await loadPrograms();
+      setMessage(
+        action === "retire" ? "节目已下线。" : "节目已恢复到播出池。",
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法更新节目播出状态。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function deleteProgram(id: string) {
     if (!window.confirm("删除节目及其音频文件？此操作不可恢复。")) return;
     try {
@@ -383,11 +402,34 @@ export function RadioManagement() {
                         <span className={`status status-${program.status}`}>
                           {program.status}
                         </span>
+                        <span className="inventory-status">
+                          {program.status === "ready"
+                            ? program.retired_at
+                              ? "已下线"
+                              : "可播"
+                            : "不可播"}
+                        </span>
                       </td>
                       <td>
                         {dateFormatter.format(new Date(program.created_at))}
                       </td>
                       <td className="row-actions">
+                        {program.status === "ready" && (
+                          <button
+                            className="text-button"
+                            disabled={saving}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void changeInventory(
+                                program.id,
+                                program.retired_at ? "restore" : "retire",
+                              );
+                            }}
+                            type="button"
+                          >
+                            {program.retired_at ? "恢复" : "下线"}
+                          </button>
+                        )}
                         <button
                           className="text-button danger-button"
                           disabled={saving}
@@ -419,7 +461,15 @@ export function RadioManagement() {
           </div>
           <div className="detail-section">
             <h3>状态</h3>
-            <p>{selected?.status ?? "尚未选择节目"}</p>
+            <p>
+              {!selected
+                ? "尚未选择节目"
+                : selected.status !== "ready"
+                  ? `${selected.status} · 不可播`
+                  : selected.retired_at
+                    ? "ready · 已下线"
+                    : "ready · 可播"}
+            </p>
             {selected?.error && <p className="program-error">{selected.error}</p>}
           </div>
           <div className="detail-section">

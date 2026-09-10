@@ -51,6 +51,62 @@ export async function getProgram(id: string): Promise<RadioProgram | null> {
   return data as RadioProgram | null;
 }
 
+export async function listActiveReadyPrograms(): Promise<RadioProgram[]> {
+  const { data, error } = await getSupabaseServerClient()
+    .from(table)
+    .select("*")
+    .eq("status", "ready")
+    .is("retired_at", null)
+    .not("audio_path", "is", null)
+    .order("created_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []) as RadioProgram[];
+}
+
+export async function retireProgram(
+  id: string,
+): Promise<{ changed: boolean; program: RadioProgram | null }> {
+  const current = await getProgram(id);
+  if (!current) return { changed: false, program: null };
+  if (current.status !== "ready")
+    throw new Error("只有资源已就绪的节目可以下线。");
+  if (current.retired_at) return { changed: false, program: current };
+  const retiredAt = new Date().toISOString();
+  const { data, error } = await getSupabaseServerClient()
+    .from(table)
+    .update({ retired_at: retiredAt, updated_at: retiredAt })
+    .eq("id", id)
+    .eq("status", "ready")
+    .is("retired_at", null)
+    .select()
+    .maybeSingle();
+  throwIfError(error);
+  if (data) return { changed: true, program: data as RadioProgram };
+
+  const latest = await getProgram(id);
+  if (!latest) return { changed: false, program: null };
+  if (latest.status !== "ready")
+    throw new Error("只有资源已就绪的节目可以下线。");
+  return { changed: false, program: latest };
+}
+
+export async function restoreProgram(id: string): Promise<RadioProgram | null> {
+  const current = await getProgram(id);
+  if (!current) return null;
+  if (current.status !== "ready")
+    throw new Error("只有资源已就绪的节目可以恢复到播出池。");
+  if (!current.retired_at) return current;
+  const updatedAt = new Date().toISOString();
+  const { data, error } = await getSupabaseServerClient()
+    .from(table)
+    .update({ retired_at: null, updated_at: updatedAt })
+    .eq("id", id)
+    .select()
+    .single();
+  throwIfError(error);
+  return data as RadioProgram;
+}
+
 export async function createProgram(
   input: CreateProgramInput,
 ): Promise<RadioProgram> {
