@@ -1,4 +1,7 @@
-import { assertLocalDevelopmentRequest } from "../../../../../lib/supabase-server";
+import {
+  assertLocalDevelopmentRequest,
+  getRequestErrorStatus,
+} from "../../../../../lib/supabase-server";
 import {
   createProgramAudioUrl,
   getProgram,
@@ -13,14 +16,16 @@ export async function GET(request: Request, { params }: Context) {
     const program = await getProgram((await params).id);
     if (!program)
       return Response.json({ error: "节目不存在。" }, { status: 404 });
-    return Response.json({ signedUrl: await createProgramAudioUrl(program) });
+    return Response.json(await createProgramAudioUrl(program), {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     return Response.json(
       {
         error:
           error instanceof Error ? error.message : "无法创建音频试听地址。",
       },
-      { status: 500 },
+      { status: getRequestErrorStatus(error, 500) },
     );
   }
 }

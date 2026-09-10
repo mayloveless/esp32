@@ -1,4 +1,8 @@
-import { assertLocalDevelopmentRequest } from "../../../lib/supabase-server";
+import {
+  assertLocalDevelopmentRequest,
+  getRequestErrorStatus,
+  readJsonBody,
+} from "../../../lib/supabase-server";
 import { createProgram, listPrograms } from "../../../program/service";
 import { parseCreateProgram } from "../../../program/validation";
 
@@ -13,7 +17,7 @@ export async function GET(request: Request) {
       {
         error: error instanceof Error ? error.message : "无法读取节目列表。",
       },
-      { status: 500 },
+      { status: getRequestErrorStatus(error, 500) },
     );
   }
 }
@@ -23,7 +27,9 @@ export async function POST(request: Request) {
     assertLocalDevelopmentRequest(request);
     return Response.json(
       {
-        program: await createProgram(parseCreateProgram(await request.json())),
+        program: await createProgram(
+          parseCreateProgram(await readJsonBody(request)),
+        ),
       },
       { status: 201 },
     );
@@ -32,7 +38,7 @@ export async function POST(request: Request) {
       {
         error: error instanceof Error ? error.message : "无法创建节目。",
       },
-      { status: 400 },
+      { status: getRequestErrorStatus(error, 400) },
     );
   }
 }

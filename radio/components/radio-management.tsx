@@ -57,16 +57,23 @@ export function RadioManagement() {
       setSelected(program);
       setAudioFile(null);
       setAudioUrl(null);
-      if (program.audio_path)
-        setAudioUrl(
-          (
-            await request<{ signedUrl: string | null }>(
-              `/api/programs/${id}/audio-url`,
-            )
-          ).signedUrl,
-        );
+      if (program.audio_path) await refreshAudioUrl(id);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法读取节目详情。");
+    }
+  }
+
+  async function refreshAudioUrl(id: string) {
+    try {
+      const { signedUrl } = await request<{ signedUrl: string }>(
+        `/api/programs/${id}/audio-url`,
+      );
+      setAudioUrl(signedUrl);
+    } catch (error) {
+      setAudioUrl(null);
+      setMessage(
+        error instanceof Error ? error.message : "无法刷新音频试听地址。",
+      );
     }
   }
 
@@ -74,13 +81,16 @@ export function RadioManagement() {
     if (!window.confirm("删除节目及其音频文件？此操作不可恢复。")) return;
     try {
       setSaving(true);
-      await request(`/api/programs/${id}`, { method: "DELETE" });
+      const { cleanupWarning } = await request<{
+        cleanupWarning: string | null;
+      }>(`/api/programs/${id}`, { method: "DELETE" });
       if (selected?.id === id) {
         setSelected(null);
         setAudioUrl(null);
         setAudioFile(null);
       }
       await loadPrograms();
+      if (cleanupWarning) setMessage(cleanupWarning);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法删除节目。");
     } finally {
@@ -100,13 +110,14 @@ export function RadioManagement() {
       });
       const body = (await response.json().catch(() => ({}))) as {
         program?: RadioProgram;
+        cleanupWarning?: string | null;
         error?: string;
       };
       if (!response.ok || !body.program)
         throw new Error(body.error ?? "无法上传音频。");
       await selectProgram(body.program.id);
       await loadPrograms();
-      setMessage("测试音频已上传。");
+      setMessage(body.cleanupWarning ?? "测试音频已上传。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法上传音频。");
     } finally {
@@ -291,7 +302,12 @@ export function RadioManagement() {
           <div className="detail-section">
             <h3>音频</h3>
             {audioUrl ? (
-              <audio aria-label="节目音频播放器" controls src={audioUrl} />
+              <audio
+                aria-label="节目音频播放器"
+                controls
+                onError={() => selected && void refreshAudioUrl(selected.id)}
+                src={audioUrl}
+              />
             ) : (
               <p>尚无可试听的音频</p>
             )}

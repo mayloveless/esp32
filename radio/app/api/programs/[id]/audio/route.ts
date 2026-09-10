@@ -1,4 +1,7 @@
-import { assertLocalDevelopmentRequest } from "../../../../../lib/supabase-server";
+import {
+  assertLocalDevelopmentRequest,
+  getRequestErrorStatus,
+} from "../../../../../lib/supabase-server";
 import { uploadProgramAudio } from "../../../../../program/service";
 
 export const runtime = "nodejs";
@@ -10,16 +13,16 @@ export async function POST(request: Request, { params }: Context) {
     const audio = (await request.formData()).get("audio");
     if (!(audio instanceof File))
       return Response.json({ error: "audio 必须是文件。" }, { status: 400 });
-    const program = await uploadProgramAudio((await params).id, audio);
-    return program
-      ? Response.json({ program })
+    const result = await uploadProgramAudio((await params).id, audio);
+    return result
+      ? Response.json(result)
       : Response.json({ error: "节目不存在。" }, { status: 404 });
   } catch (error) {
     return Response.json(
       {
         error: error instanceof Error ? error.message : "无法上传音频。",
       },
-      { status: 400 },
+      { status: getRequestErrorStatus(error, 400) },
     );
   }
 }

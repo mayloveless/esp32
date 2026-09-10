@@ -26,4 +26,4 @@ pnpm build
 
 复制 `.env.example` 为 `.env.local` 后，只在本机填写服务端凭据。`SUPABASE_SERVICE_ROLE_KEY` 和任何 AI 密钥绝不能使用 `NEXT_PUBLIC_` 前缀或提交到 Git。
 
-管理 API 仅接受本机开发主机请求；生产部署前会拒绝所有管理 API，直到接入明确的鉴权方案。第三阶段才会接通文本生成和 TTS。
+开发服务固定绑定 `127.0.0.1`。管理 API 会校验本机 Host、同源 Origin 与 Fetch Metadata；生产环境会拒绝管理 API，直到接入明确的鉴权方案。私有音频通过 15 分钟的服务端签名 URL 试听，播放器请求失败时会重新获取 URL。第三阶段才会接通文本生成和 TTS。

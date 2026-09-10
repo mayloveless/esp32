@@ -5,6 +5,7 @@ import type { CreateProgramInput, UpdateProgramInput } from "./validation";
 
 const table = "radio_programs";
 const bucket = "radio-audio";
+export const audioUrlExpiresInSeconds = 15 * 60;
 const extensions = {
   "audio/mpeg": "mp3",
   "audio/wav": "wav",
@@ -15,6 +16,20 @@ const extensions = {
 
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
+}
+
+async function cleanupAudioObject(path: string) {
+  let lastError: { message: string } | null = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { error } = await getSupabaseServerClient()
+      .storage.from(bucket)
+      .remove([path]);
+    if (!error) return null;
+    lastError = error;
+  }
+  const message = `音频对象清理失败：${lastError?.message ?? "未知错误"}`;
+  console.error(message, { path });
+  return message;
 }
 
 export async function listPrograms(): Promise<RadioProgram[]> {
@@ -54,6 +69,12 @@ export async function updateProgram(
 ): Promise<RadioProgram | null> {
   const current = await getProgram(id);
   if (!current) return null;
+  if (
+    current.status === "ready" &&
+    Object.keys(input).some((key) => key !== "title")
+  ) {
+    throw new Error("已完成的节目只能修改标题，不能被普通更新覆盖。");
+  }
   if ((input.status ?? current.status) === "ready" && !current.audio_path)
     throw new Error("状态为 ready 的节目必须关联音频文件。");
   const { data, error } = await getSupabaseServerClient()
@@ -69,7 +90,7 @@ export async function updateProgram(
 export async function uploadProgramAudio(
   id: string,
   file: File,
-): Promise<RadioProgram | null> {
+): Promise<{ program: RadioProgram; cleanupWarning: string | null } | null> {
   const current = await getProgram(id);
   if (!current) return null;
   const extension = extensions[file.type as keyof typeof extensions];
@@ -77,11 +98,16 @@ export async function uploadProgramAudio(
   if (file.size === 0 || file.size > 52_428_800)
     throw new Error("音频大小必须介于 1 字节和 50 MB 之间。");
 
+  const audioBytes = new Uint8Array(await file.arrayBuffer());
+  if (!hasExpectedAudioSignature(file.type, audioBytes)) {
+    throw new Error("音频内容与声明的文件类型不匹配。");
+  }
+
   const audioPath = `${id}/${crypto.randomUUID()}.${extension}`;
   const client = getSupabaseServerClient();
   const { error: uploadError } = await client.storage
     .from(bucket)
-    .upload(audioPath, new Uint8Array(await file.arrayBuffer()), {
+    .upload(audioPath, audioBytes, {
       contentType: file.type,
       upsert: false,
     });
@@ -94,35 +120,65 @@ export async function uploadProgramAudio(
     .select()
     .single();
   if (error) {
-    await client.storage.from(bucket).remove([audioPath]);
-    throwIfError(error);
+    const cleanupWarning = await cleanupAudioObject(audioPath);
+    throw new Error(
+      cleanupWarning
+        ? `数据库未保存新音频，且${cleanupWarning}`
+        : `数据库未保存新音频：${error.message}`,
+    );
   }
-  if (current.audio_path)
-    await client.storage.from(bucket).remove([current.audio_path]);
-  return data as RadioProgram;
+  const cleanupWarning = current.audio_path
+    ? await cleanupAudioObject(current.audio_path)
+    : null;
+  return { program: data as RadioProgram, cleanupWarning };
 }
 
 export async function createProgramAudioUrl(program: RadioProgram) {
   if (!program.audio_path) return null;
   const { data, error } = await getSupabaseServerClient()
     .storage.from(bucket)
-    .createSignedUrl(program.audio_path, 60);
+    .createSignedUrl(program.audio_path, audioUrlExpiresInSeconds);
   throwIfError(error);
   if (!data) throw new Error("Supabase 未返回音频签名 URL。");
-  return data.signedUrl;
+  return {
+    signedUrl: data.signedUrl,
+    expiresAt: new Date(
+      Date.now() + audioUrlExpiresInSeconds * 1000,
+    ).toISOString(),
+  };
 }
 
-export async function deleteProgram(id: string): Promise<boolean> {
+export async function deleteProgram(
+  id: string,
+): Promise<{ deleted: boolean; cleanupWarning: string | null }> {
   const current = await getProgram(id);
-  if (!current) return false;
+  if (!current) return { deleted: false, cleanupWarning: null };
   const client = getSupabaseServerClient();
-  if (current.audio_path) {
-    const { error } = await client.storage
-      .from(bucket)
-      .remove([current.audio_path]);
-    throwIfError(error);
-  }
   const { error } = await client.from(table).delete().eq("id", id);
   throwIfError(error);
-  return true;
+  return {
+    deleted: true,
+    cleanupWarning: current.audio_path
+      ? await cleanupAudioObject(current.audio_path)
+      : null,
+  };
+}
+
+function hasExpectedAudioSignature(contentType: string, bytes: Uint8Array) {
+  if (bytes.length < 12) return false;
+  if (contentType === "audio/wav") {
+    return textAt(bytes, 0, 4) === "RIFF" && textAt(bytes, 8, 4) === "WAVE";
+  }
+  if (contentType === "audio/ogg") return textAt(bytes, 0, 4) === "OggS";
+  if (contentType === "audio/mp4") return textAt(bytes, 4, 4) === "ftyp";
+  if (contentType === "audio/aac")
+    return bytes[0] === 0xff && (bytes[1] & 0xf6) === 0xf0;
+  return (
+    textAt(bytes, 0, 3) === "ID3" ||
+    (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)
+  );
+}
+
+function textAt(bytes: Uint8Array, start: number, length: number) {
+  return new TextDecoder().decode(bytes.slice(start, start + length));
 }
