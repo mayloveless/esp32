@@ -1,0 +1,55 @@
+radio/tts/synthesis-lock.test.ts
+  s_1bfd675b83ce48::t_618404e152a942 1-22
+radio/README.md
+  s_1bfd675b83ce48::t_de5538b0f9ed54 7,29,32-33
+radio/tts/siliconflow-transport.ts
+  s_1bfd675b83ce48::t_53f7cbcf7de262 1-51,56-73
+  s_1bfd675b83ce48::t_7165487faecea1 52-55
+radio/tts/siliconflow-transport.test.ts
+  s_1bfd675b83ce48::t_618404e152a942 1-46
+radio/app/globals.css
+  s_1bfd675b83ce48::t_de5538b0f9ed54 289-298
+radio/.env.example
+  s_1bfd675b83ce48::t_de5538b0f9ed54 14-20
+radio/package.json
+  s_1bfd675b83ce48::t_618404e152a942 12
+radio/tts/siliconflow.ts
+  s_1bfd675b83ce48::t_53f7cbcf7de262 1-28
+radio/program/service.ts
+  s_1bfd675b83ce48::t_87c806c9be2a5f 161-218
+radio/tts/validation.test.ts
+  s_1bfd675b83ce48::t_618404e152a942 1-44
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_de5538b0f9ed54 72,160-187,446-459
+radio/tts/config.ts
+  s_1bfd675b83ce48::t_53f7cbcf7de262 1-50
+radio/tts/synthesis-lock.ts
+  s_1bfd675b83ce48::t_53f7cbcf7de262 1-17
+radio/tts/validation.ts
+  s_1bfd675b83ce48::t_53f7cbcf7de262 1-125
+radio/tts/config.test.ts
+  s_1bfd675b83ce48::t_618404e152a942 1-29
+radio/app/api/programs/[id]/synthesize/route.ts
+  s_1bfd675b83ce48::t_87c806c9be2a5f 1-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4c002d523ae53f083e64c0e10148ebdc3c2a10f1",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
