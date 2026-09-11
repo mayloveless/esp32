@@ -1,0 +1,65 @@
+radio/renderer/render.ts
+  s_1bfd675b83ce48::t_e455a4eca2efc6 7,12
+  s_1bfd675b83ce48::t_f6312203c16046 1-6,8-11,13-111
+radio/tts/config.test.ts
+  s_1bfd675b83ce48::t_b87de8e0f07c9e 11,13,26-38
+radio/tts/speech.ts
+  s_1bfd675b83ce48::t_b87de8e0f07c9e 1-6,14,17-18
+  s_1bfd675b83ce48::t_11711a4e319004 7-13,15-16,19-22
+radio/.env.example
+  s_1bfd675b83ce48::t_a0c6e2a17c3f5e 20-21
+radio/renderer/wav.test.ts
+  s_1bfd675b83ce48::t_1e7d5a7e731a80 1-64
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_62973cf4309ded 705
+radio/package.json
+  s_1bfd675b83ce48::t_1e7d5a7e731a80 12
+radio/tts/siliconflow-transport.ts
+  s_1bfd675b83ce48::t_b87de8e0f07c9e 10-11,16-17,39-40,66-67
+radio/renderer/render.test.ts
+  s_1bfd675b83ce48::t_1e7d5a7e731a80 1-58,65,67-69,82-100
+  s_1bfd675b83ce48::t_62973cf4309ded 59-64,66,70-81
+radio/receiver/auto-replenish.ts
+  s_1bfd675b83ce48::t_a2d86f8994c483 97-98,107
+radio/tts/siliconflow-transport.test.ts
+  s_1bfd675b83ce48::t_b87de8e0f07c9e 13-14
+radio/renderer/wav.ts
+  s_1bfd675b83ce48::t_1709df6cce92aa 1
+  s_1bfd675b83ce48::t_f6312203c16046 2-197
+radio/tts/siliconflow.ts
+  s_1bfd675b83ce48::t_a8276005254a8c 32-34,37-45,50
+  s_1bfd675b83ce48::t_b87de8e0f07c9e 3-13,21-24,26-28
+radio/program/service.ts
+  s_1bfd675b83ce48::t_a8276005254a8c 34-40,241-242,245,250-256,258-277
+  s_1bfd675b83ce48::t_09c580b02efccd 17-24,26-33,243-244,282,284-288,290,294-295,305,310-312,315-317
+  s_1bfd675b83ce48::t_c4952999010a61 25,304
+radio/app/api/programs/[id]/synthesize/route.ts
+  s_1bfd675b83ce48::t_cde8fc7b182437 10-14,42-43,52-59,63-75
+radio/tts/config.ts
+  s_1bfd675b83ce48::t_b87de8e0f07c9e 20,22,34-45
+radio/README.md
+  s_1bfd675b83ce48::t_a0c6e2a17c3f5e 33
+radio/tts/validation.ts
+  s_1bfd675b83ce48::t_b87de8e0f07c9e 34-41,47-58,63-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ea90ac5882bd6edc8dabdaa82aa5d2e57d4053e0",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
