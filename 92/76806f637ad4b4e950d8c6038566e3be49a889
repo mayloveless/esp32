@@ -1,0 +1,64 @@
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_3d7840bac1bf4d 11-16,110-111,119-121,225,250-253,771,773-786
+  s_1bfd675b83ce48::t_c6af0a92748c7d 75-80
+  s_1bfd675b83ce48::t_d416142f2f8936 81-95,116-118,169-171,712-716,719-729
+  s_1bfd675b83ce48::t_2f739426e29188 717-718,738,742,752,763,766-770,772
+  s_1bfd675b83ce48::t_684924e21c4c3f 104,122-127,175,183,193-194,228,380,416,700-702,730,732-736,793-797
+  s_1bfd675b83ce48::t_ca2719d057e476 226
+radio/program/synthesis-metadata.ts
+  s_1bfd675b83ce48::t_c7a99b9633a912 1-38
+radio/app/globals.css
+  s_1bfd675b83ce48::t_3d7840bac1bf4d 373-393
+  s_1bfd675b83ce48::t_d416142f2f8936 363-372
+radio/tts/siliconflow-transport.ts
+  s_1bfd675b83ce48::t_5fa647bdf0047b 5-6,11,15,24-44,52-53,64,69
+radio/renderer/render.ts
+  s_1bfd675b83ce48::t_0894da1dbfa4b5 64
+  s_1bfd675b83ce48::t_133996dfcc7274 18-23,35,95-96,99,114,124,148,151,165
+radio/program/synthesis-metadata.test.ts
+  s_1bfd675b83ce48::t_2f739426e29188 18,24
+  s_1bfd675b83ce48::t_c7a99b9633a912 1-17,19-23,25-26
+radio/tts/siliconflow.ts
+  s_1bfd675b83ce48::t_5fa647bdf0047b 9,12
+radio/renderer/delivery.ts
+  s_1bfd675b83ce48::t_2f739426e29188 24,31,38
+  s_1bfd675b83ce48::t_c7a99b9633a912 1-23,25-30,32-37,39-68
+radio/program/synthesis-state.ts
+  s_1bfd675b83ce48::t_e960d3499ce71a 1-13
+radio/renderer/render.test.ts
+  s_1bfd675b83ce48::t_2f739426e29188 80,102,111
+  s_1bfd675b83ce48::t_133996dfcc7274 65,75-79,81-82,85,88,98-99,107-108,121,139-159
+  s_1bfd675b83ce48::t_46d3fc1d390306 160
+radio/program/synthesis-state.test.ts
+  s_1bfd675b83ce48::t_e960d3499ce71a 1-27
+radio/app/api/programs/[id]/synthesize/route.ts
+  s_1bfd675b83ce48::t_684924e21c4c3f 80-87,129-133
+  s_1bfd675b83ce48::t_cb7017a891ff83 16-19,39-46,50-62,68,96,109,116
+  s_1bfd675b83ce48::t_e960d3499ce71a 11,73-74,76
+radio/package.json
+  s_1bfd675b83ce48::t_e960d3499ce71a 12
+radio/tts/siliconflow-transport.test.ts
+  s_1bfd675b83ce48::t_5fa647bdf0047b 49-91
+radio/renderer/delivery.test.ts
+  s_1bfd675b83ce48::t_c7a99b9633a912 1-17,24-38
+  s_1bfd675b83ce48::t_2f739426e29188 18-23
+radio/program/service.ts
+  s_1bfd675b83ce48::t_684924e21c4c3f 291-292
+  s_1bfd675b83ce48::t_0894da1dbfa4b5 3,5,30,37,278,285,319-331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9276806f637ad4b4e950d8c6038566e3be49a889",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
