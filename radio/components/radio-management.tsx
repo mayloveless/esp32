@@ -126,11 +126,23 @@ function getAlienDialectLabel(dialect: AlienDialect) {
   );
 }
 
+function getMusicMetadata(recipe: RadioProgram["recipe"]) {
+  return {
+    description: typeof recipe.description === "string" ? recipe.description : null,
+    style: typeof recipe.style === "string" ? recipe.style : null,
+  };
+}
+
 export function RadioManagement() {
   const [format, setFormat] = useState<ProgramFormat>("news");
   const [language, setLanguage] = useState("中文");
   const [style, setStyle] = useState("冷静、略带未知感");
   const [topic, setTopic] = useState("");
+  const [musicTitle, setMusicTitle] = useState("");
+  const [musicDescription, setMusicDescription] = useState("");
+  const [musicStyle, setMusicStyle] = useState("");
+  const [musicFile, setMusicFile] = useState<File | null>(null);
+  const [uploadingMusic, setUploadingMusic] = useState(false);
   const [programs, setPrograms] = useState<RadioProgram[]>([]);
   const [selected, setSelected] = useState<RadioProgram | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -150,9 +162,13 @@ export function RadioManagement() {
   const [audioRefreshAttempted, setAudioRefreshAttempted] = useState(false);
   const [checkedProgramIds, setCheckedProgramIds] = useState<string[]>([]);
   const selectedProgramIdRef = useRef<string | null>(null);
+  const musicFileInputRef = useRef<HTMLInputElement>(null);
   const selectedScript = selected ? asBroadcastScript(selected.content) : null;
   const savedDeliverySettings = selected
     ? getSavedDeliverySettings(selected.recipe)
+    : null;
+  const selectedMusicMetadata = selected?.format === "music"
+    ? getMusicMetadata(selected.recipe)
     : null;
   const effectiveDeliveryProfile =
     deliveryProfile ??
@@ -293,6 +309,52 @@ export function RadioManagement() {
       setMessage(error instanceof Error ? error.message : "无法生成稿件。");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function createMusicProgram() {
+    if (!musicFile) {
+      setMessage("请先选择自己有权使用的 MP3 或 PCM WAV 文件。");
+      return;
+    }
+    try {
+      setUploadingMusic(true);
+      setMessage(null);
+      const formData = new FormData();
+      formData.set("title", musicTitle);
+      formData.set("description", musicDescription);
+      formData.set("style", musicStyle);
+      formData.set("audio", musicFile);
+      const response = await fetch("/api/programs/music", {
+        body: formData,
+        method: "POST",
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        cleanupWarning?: string | null;
+        error?: string;
+        program?: RadioProgram;
+      };
+      if (!response.ok)
+        throw new Error(body.error ?? "无法创建音乐节目。");
+      if (!body.program) throw new Error("服务端未返回已创建的音乐节目。");
+
+      selectedProgramIdRef.current = body.program.id;
+      setSelected(body.program);
+      setAudioUrl(null);
+      setAudioLoading(false);
+      setAudioRefreshAttempted(false);
+      setMusicTitle("");
+      setMusicDescription("");
+      setMusicStyle("");
+      setMusicFile(null);
+      if (musicFileInputRef.current) musicFileInputRef.current.value = "";
+      await selectProgram(body.program.id);
+      await loadPrograms();
+      setMessage(body.cleanupWarning ?? "音乐节目已保存到播出池，可开始试听。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法创建音乐节目。");
+    } finally {
+      setUploadingMusic(false);
     }
   }
 
@@ -602,6 +664,53 @@ export function RadioManagement() {
         >
           {generating ? "正在生成稿件…" : "生成稿件"}
         </button>
+        <div className="music-upload-form">
+          <div>
+            <h3>添加音乐节目</h3>
+            <p>仅上传自己有权使用的 MP3 或 PCM WAV；不会经过 AI、TTS 或 Renderer。</p>
+          </div>
+          <div className="form-grid" role="group" aria-label="音乐节目参数">
+            <label>
+              <span>标题</span>
+              <input
+                onChange={(event) => setMusicTitle(event.target.value)}
+                placeholder="例如：星港夜航主题曲"
+                value={musicTitle}
+              />
+            </label>
+            <label>
+              <span>说明（可选）</span>
+              <input
+                onChange={(event) => setMusicDescription(event.target.value)}
+                value={musicDescription}
+              />
+            </label>
+            <label>
+              <span>风格（可选）</span>
+              <input
+                onChange={(event) => setMusicStyle(event.target.value)}
+                value={musicStyle}
+              />
+            </label>
+            <label>
+              <span>音频文件</span>
+              <input
+                accept="audio/mpeg,audio/wav,.mp3,.wav"
+                onChange={(event) => setMusicFile(event.target.files?.[0] ?? null)}
+                ref={musicFileInputRef}
+                type="file"
+              />
+            </label>
+          </div>
+          <button
+            className="primary-button"
+            disabled={uploadingMusic}
+            onClick={() => void createMusicProgram()}
+            type="button"
+          >
+            {uploadingMusic ? "正在验证并上传音乐…" : "创建音乐节目"}
+          </button>
+        </div>
       </section>
       <div className="management-grid">
         <section
@@ -842,6 +951,15 @@ export function RadioManagement() {
                 </p>
               )}
           </div>
+          {selected?.format === "music" && (
+            <div className="detail-section">
+              <h3>音乐信息</h3>
+              <p>{selectedMusicMetadata?.description ?? "未填写说明"}</p>
+              {selectedMusicMetadata?.style && (
+                <p>风格：{selectedMusicMetadata.style}</p>
+              )}
+            </div>
+          )}
           {canSynthesizeAudio && (
             <div className="detail-section">
               <h3>

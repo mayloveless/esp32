@@ -32,6 +32,16 @@ function text(value: unknown, field: string, maximumLength: number) {
   return result;
 }
 
+function spokenSegmentText(value: unknown) {
+  const result = text(value, "segment.text", 900);
+  if (/[()\[\]（）【】]/u.test(result))
+    throw new ScriptGenerationError(
+      "segment.text 不能包含括号或括号内说明；只保留可直接朗读的正文。",
+      "output",
+    );
+  return result;
+}
+
 function object(value: unknown): JsonObject {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new ScriptGenerationError("模型返回的 JSON 根节点必须是对象。", "output");
@@ -53,7 +63,7 @@ function parseSegments(value: unknown, format: ProgramFormat): BroadcastSegment[
     const item = object(segment);
     return {
       speaker: text(item.speaker, "segment.speaker", 40),
-      text: text(item.text, "segment.text", 900),
+      text: spokenSegmentText(item.text),
     };
   });
   if (format === "chat" && new Set(segments.map((segment) => segment.speaker)).size < 2)

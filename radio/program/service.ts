@@ -2,6 +2,7 @@ import "server-only";
 import { getSupabaseServerClient } from "../lib/supabase-server";
 import type { DeliveryProfileId } from "../renderer/delivery";
 import type { RenderMode } from "../renderer/render";
+import type { ManualMusicUpload } from "./music-upload";
 import { buildSynthesisRecipe } from "./synthesis-metadata";
 import type { RadioProgram } from "./types";
 import type { CreateProgramInput, UpdateProgramInput } from "./validation";
@@ -149,6 +150,57 @@ export async function createProgram(
     .single();
   throwIfError(error);
   return data as RadioProgram;
+}
+
+/**
+ * 创建一条可直接播出的手动音乐节目。先上传新对象；数据库写入失败时清理该对象。
+ */
+export async function createManualMusicProgram(
+  input: ManualMusicUpload,
+): Promise<{ program: RadioProgram; cleanupWarning: string | null }> {
+  const id = crypto.randomUUID();
+  const audioPath = `${id}/${crypto.randomUUID()}.${input.extension}`;
+  const client = getSupabaseServerClient();
+  const { error: uploadError } = await client.storage
+    .from(bucket)
+    .upload(audioPath, input.audioBytes, {
+      contentType: input.contentType,
+      upsert: false,
+    });
+  throwIfError(uploadError);
+
+  const { data, error } = await client
+    .from(table)
+    .insert({
+      id,
+      audio_path: audioPath,
+      captions: [],
+      content: {},
+      duration_ms: input.durationMs,
+      error: null,
+      format: "music",
+      recipe: {
+        audio_content_type: input.contentType,
+        audio_source: "manual_upload",
+        description: input.description,
+        format: "music",
+        style: input.style,
+      },
+      retired_at: null,
+      status: "ready",
+      title: input.title,
+    })
+    .select()
+    .single();
+  if (error) {
+    const cleanupWarning = await cleanupAudioObject(audioPath);
+    throw new Error(
+      cleanupWarning
+        ? `数据库未保存音乐节目，且${cleanupWarning}`
+        : `数据库未保存音乐节目：${error.message}`,
+    );
+  }
+  return { program: data as RadioProgram, cleanupWarning: null };
 }
 
 export async function createGeneratingProgram(input: {

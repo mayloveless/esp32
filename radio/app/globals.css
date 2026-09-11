@@ -52,6 +52,26 @@ p {
 .create-panel {
   padding: 22px;
 }
+
+.music-upload-form {
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+.music-upload-form h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.music-upload-form p {
+  color: var(--muted);
+  margin: 0.35rem 0 1rem;
+}
+
+.music-upload-form .primary-button {
+  margin-top: 1rem;
+}
 .panel-heading {
   align-items: start;
   display: flex;

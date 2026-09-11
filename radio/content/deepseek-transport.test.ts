@@ -37,3 +37,14 @@ test("超时会返回可诊断错误", async () => {
       error instanceof ScriptGenerationError && error.kind === "timeout",
   );
 });
+
+test("提示词要求正文仅包含可直接朗读的内容", async () => {
+  let body: unknown;
+  await requestDeepSeekScript(request, async (_url, init) => {
+    body = JSON.parse(String(init?.body));
+    return Response.json({ choices: [{ message: { content: "{}" } }] });
+  });
+  const messages = (body as { messages: Array<{ content: string }> }).messages;
+  assert.match(messages[0].content, /不要使用圆括号、方括号/);
+  assert.match(messages[0].content, /可直接朗读/);
+});

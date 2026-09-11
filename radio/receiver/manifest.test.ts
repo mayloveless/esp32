@@ -45,3 +45,14 @@ test("调台会跳过无法生成完整 manifest 的无效时长节目", () => {
     "valid-duration",
   );
 });
+
+test("music 与广播节目使用相同的调台候选和开始偏移规则", () => {
+  const music = {
+    id: "music-duration",
+    duration_ms: 60_000,
+    format: "music",
+  } as RadioProgram;
+  assert.equal(findManifestCandidate([music], []).id, music.id);
+  const offset = calculateStartOffsetMs(music.duration_ms, () => 0.5);
+  assert.ok(offset >= 4_000 && offset <= 15_000);
+});

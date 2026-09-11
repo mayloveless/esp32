@@ -116,3 +116,21 @@ test("过长的用户无关模型正文会被拒绝", () => {
       error instanceof ScriptGenerationError && error.kind === "output",
   );
 });
+
+test("稿件正文拒绝括号中的舞台或音效说明", () => {
+  assert.throws(
+    () =>
+      parseBroadcastScript(
+        scriptPayload({
+          segments: [
+            {
+              speaker: "播音员",
+              text: `（远处传来警报）${"观测站确认冰海信号正在接近。".repeat(8)}`,
+            },
+          ],
+        }),
+        input,
+      ),
+    /不能包含括号或括号内说明/,
+  );
+});
