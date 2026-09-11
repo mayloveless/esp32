@@ -14,6 +14,30 @@ const extensions = {
   "audio/aac": "aac",
 } as const;
 
+type SynthesizedAudioAsset = {
+  audioBytes: Uint8Array;
+  contentType: "audio/mpeg" | "audio/wav";
+  durationMs: number;
+  sampleRate: number;
+};
+
+type SynthesizedAudioMetadata = {
+  captions: unknown[];
+  model: string;
+  provider: string;
+  responseFormat: "mp3" | "wav";
+  sampleRate: number;
+  speakerVoices: Record<string, string>;
+  traceIds: Array<string | null>;
+};
+
+type LegacySynthesizedAudioMetadata = {
+  model: string;
+  provider: string;
+  traceId: string | null;
+  voice: string;
+};
+
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
@@ -216,23 +240,59 @@ export async function uploadProgramAudio(
 
 export async function saveSynthesizedProgramAudio(
   id: string,
+  asset: SynthesizedAudioAsset,
+  tts: SynthesizedAudioMetadata,
+): Promise<{ program: RadioProgram; cleanupWarning: string | null } | null>;
+export async function saveSynthesizedProgramAudio(
+  id: string,
   audioBytes: Uint8Array,
   durationMs: number,
-  tts: { model: string; provider: string; traceId: string | null; voice: string },
+  tts: LegacySynthesizedAudioMetadata,
+): Promise<{ program: RadioProgram; cleanupWarning: string | null } | null>;
+export async function saveSynthesizedProgramAudio(
+  id: string,
+  assetOrAudioBytes: SynthesizedAudioAsset | Uint8Array,
+  ttsOrDuration: SynthesizedAudioMetadata | number,
+  legacyTts?: LegacySynthesizedAudioMetadata,
 ): Promise<{ program: RadioProgram; cleanupWarning: string | null } | null> {
+  const asset: SynthesizedAudioAsset =
+    assetOrAudioBytes instanceof Uint8Array
+      ? {
+          audioBytes: assetOrAudioBytes,
+          contentType: "audio/mpeg",
+          durationMs: ttsOrDuration as number,
+          sampleRate: 32_000,
+        }
+      : assetOrAudioBytes;
+  const tts: SynthesizedAudioMetadata = legacyTts
+    ? {
+        captions: [],
+        model: legacyTts.model,
+        provider: legacyTts.provider,
+        responseFormat: "mp3",
+        sampleRate: 32_000,
+        speakerVoices: { 播音员: legacyTts.voice },
+        traceIds: [legacyTts.traceId],
+      }
+    : (ttsOrDuration as SynthesizedAudioMetadata);
   const current = await getProgram(id);
   if (!current) return null;
   if (current.status !== "generating")
     throw new Error("节目当前不处于语音合成状态。");
-  if (!Number.isInteger(durationMs) || durationMs <= 0)
+  if (!Number.isInteger(asset.durationMs) || asset.durationMs <= 0)
     throw new Error("合成音频时长无效。");
+  if (!Number.isInteger(asset.sampleRate) || asset.sampleRate <= 0)
+    throw new Error("合成音频采样率无效。");
+  const extension = extensions[asset.contentType];
+  if (!extension || !hasExpectedAudioSignature(asset.contentType, asset.audioBytes))
+    throw new Error("合成音频格式无效。");
 
-  const audioPath = `${id}/${crypto.randomUUID()}.mp3`;
+  const audioPath = `${id}/${crypto.randomUUID()}.${extension}`;
   const client = getSupabaseServerClient();
   const { error: uploadError } = await client.storage
     .from(bucket)
-    .upload(audioPath, audioBytes, {
-      contentType: "audio/mpeg",
+    .upload(audioPath, asset.audioBytes, {
+      contentType: asset.contentType,
       upsert: false,
     });
   throwIfError(uploadError);
@@ -241,17 +301,20 @@ export async function saveSynthesizedProgramAudio(
     .from(table)
     .update({
       audio_path: audioPath,
-      duration_ms: durationMs,
+      captions: tts.captions,
+      duration_ms: asset.durationMs,
       status: "ready",
       error: null,
       recipe: {
         ...current.recipe,
+        audio_content_type: asset.contentType,
+        renderer: "segment-wav-v1",
+        speaker_voice_map: tts.speakerVoices,
         tts_provider: tts.provider,
         tts_model: tts.model,
-        tts_voice: tts.voice,
-        tts_response_format: "mp3",
-        tts_sample_rate: 32_000,
-        tts_trace_id: tts.traceId,
+        tts_response_format: tts.responseFormat,
+        tts_sample_rate: tts.sampleRate,
+        tts_trace_ids: tts.traceIds,
       },
       updated_at: new Date().toISOString(),
     })

@@ -31,28 +31,42 @@ type ProgramForSynthesis = {
   format: ProgramFormat | "music";
 };
 
-export function getSynthesisText(program: ProgramForSynthesis) {
+export type SynthesisSegment = {
+  speaker: string;
+  text: string;
+};
+
+export function getSynthesisSegments(
+  program: ProgramForSynthesis,
+): SynthesisSegment[] {
   if (program.format !== "news" && program.format !== "chat")
     throw new TtsError("只有新闻或聊天节目可以合成语音。", "input");
   const segments = program.content.segments;
   if (!Array.isArray(segments) || segments.length === 0)
     throw new TtsError("节目没有可合成的已保存稿件。", "input");
-  const text = segments
-    .map((segment) => {
-      if (typeof segment !== "object" || segment === null)
-        throw new TtsError("稿件片段格式无效。", "input");
-      const value = (segment as { text?: unknown }).text;
-      if (typeof value !== "string" || !value.trim())
-        throw new TtsError("稿件片段缺少可播报文字。", "input");
-      return value.trim();
-    })
-    .join("\n");
-  if (text.length > maximumTtsInputCharacters)
+  const parsed = segments.map((segment) => {
+    if (typeof segment !== "object" || segment === null)
+      throw new TtsError("稿件片段格式无效。", "input");
+    const { speaker, text } = segment as { speaker?: unknown; text?: unknown };
+    if (typeof speaker !== "string" || !speaker.trim())
+      throw new TtsError("稿件片段缺少说话者。", "input");
+    if (typeof text !== "string" || !text.trim())
+      throw new TtsError("稿件片段缺少可播报文字。", "input");
+    return { speaker: speaker.trim(), text: text.trim() };
+  });
+  const length = parsed.reduce((total, segment) => total + segment.text.length, 0);
+  if (length > maximumTtsInputCharacters)
     throw new TtsError(
       `单次语音合成稿件不能超过 ${maximumTtsInputCharacters} 个字符。`,
       "input",
     );
-  return text;
+  return parsed;
+}
+
+export function getSynthesisText(program: ProgramForSynthesis) {
+  return getSynthesisSegments(program)
+    .map((segment) => segment.text)
+    .join("\n");
 }
 
 const bitrateByVersionAndLayer: Record<string, number[]> = {

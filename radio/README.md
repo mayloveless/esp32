@@ -30,4 +30,4 @@ pnpm build
 
 稿件生成配置以 `DEEPSEEK_*` 为准，默认模型为 `deepseek-v4-flash`、官方地址为 `https://api.deepseek.com`。`OPENAI_TEXT_MODEL` 仅作为旧模型名的兼容回退，DeepSeek 密钥不会回退或发送给其他供应商。只有在 review 后将 `DEEPSEEK_ENABLED=true` 并填入 `DEEPSEEK_API_KEY` 时，点击“生成稿件”才会发生实际收费调用。
 
-语音合成当前只支持 `TTS_PROVIDER=siliconflow`、`FunAudioLLM/CosyVoice2-0.5B` 与内置中文音色（默认 `FunAudioLLM/CosyVoice2-0.5B:alex`）。成功后以 MP3 写入私有 `radio-audio` bucket，并保存实际可解析的时长。只有在 review 后将 `TTS_ENABLED=true` 并填入 `TTS_API_KEY` 时，点击“合成语音”才会发生实际收费调用；失败会保留已保存稿件以便再次合成，不会重新生成文本。
+语音合成当前只支持 `TTS_PROVIDER=siliconflow`、`FunAudioLLM/CosyVoice2-0.5B` 与内置中文音色。`TTS_VOICE_PRIMARY` 与 `TTS_VOICE_SECONDARY` 必须配置为不同的 CosyVoice2 内置音色；聊天节目会按说话者稳定分配两种音色。多段节目会以 WAV 32kHz 合并后写入私有 `radio-audio` bucket，并保存实际时长、字幕和音色映射；单段兼容路径仍支持 MP3。只有在 review 后将 `TTS_ENABLED=true` 并填入 `TTS_API_KEY` 时，点击“合成语音”才会发生实际收费调用；失败会保留已保存稿件以便再次合成，不会重新生成文本。

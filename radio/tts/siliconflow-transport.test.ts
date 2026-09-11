@@ -10,6 +10,8 @@ const request: SiliconFlowRequest = {
   apiKey: "test-key",
   baseUrl: "https://api.siliconflow.cn/v1",
   model: "FunAudioLLM/CosyVoice2-0.5B",
+  responseFormat: "mp3",
+  sampleRate: 32_000,
   text: "这是测试稿件。",
   voice: "FunAudioLLM/CosyVoice2-0.5B:alex",
 };

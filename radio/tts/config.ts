@@ -17,8 +17,9 @@ export type TtsSettings = {
   baseUrl: string;
   enabled: boolean;
   model: string;
+  primaryVoice: string;
   provider: string;
-  voice: string;
+  secondaryVoice: string;
 };
 
 export function assertTtsReady(settings: TtsSettings) {
@@ -30,11 +31,18 @@ export function assertTtsReady(settings: TtsSettings) {
     throw new TtsError("未配置 TTS_API_KEY。", "configuration");
   if (settings.model !== model)
     throw new TtsError(`当前仅支持 ${model}。`, "configuration");
-  if (
-    !builtInVoices.has(settings.voice.replace(`${model}:`, "")) ||
-    !settings.voice.startsWith(`${model}:`)
-  )
-    throw new TtsError("TTS_VOICE 必须是 CosyVoice2 的内置音色。", "configuration");
+  for (const [name, voice] of [
+    ["TTS_VOICE_PRIMARY", settings.primaryVoice],
+    ["TTS_VOICE_SECONDARY", settings.secondaryVoice],
+  ] as const) {
+    if (
+      !builtInVoices.has(voice.replace(`${model}:`, "")) ||
+      !voice.startsWith(`${model}:`)
+    )
+      throw new TtsError(`${name} 必须是 CosyVoice2 的内置音色。`, "configuration");
+  }
+  if (settings.primaryVoice === settings.secondaryVoice)
+    throw new TtsError("TTS_VOICE_PRIMARY 与 TTS_VOICE_SECONDARY 必须不同。", "configuration");
   let url: URL;
   try {
     url = new URL(settings.baseUrl);

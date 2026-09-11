@@ -94,6 +94,8 @@ export async function replenishReceiverInventory(
           if (!synthesizing) throw new Error("自动补充的节目已不存在。");
           try {
             const speech = await synthesizeWithSiliconFlow(text);
+            if (speech.durationMs === null)
+              throw new Error("自动补充未收到可解析的 MP3 音频时长。");
             const saved = await saveSynthesizedProgramAudio(
               created.id,
               speech.audioBytes,
@@ -102,7 +104,7 @@ export async function replenishReceiverInventory(
                 model: speech.settings.model,
                 provider: speech.settings.provider,
                 traceId: speech.traceId,
-                voice: speech.settings.voice,
+                voice: speech.settings.primaryVoice,
               },
             );
             if (!saved) throw new Error("自动补充的节目已不存在。");

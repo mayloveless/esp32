@@ -8,8 +8,9 @@ const settings: TtsSettings = {
   baseUrl: "https://api.siliconflow.cn/v1",
   enabled: true,
   model: "FunAudioLLM/CosyVoice2-0.5B",
+  primaryVoice: "FunAudioLLM/CosyVoice2-0.5B:alex",
   provider: "siliconflow",
-  voice: "FunAudioLLM/CosyVoice2-0.5B:alex",
+  secondaryVoice: "FunAudioLLM/CosyVoice2-0.5B:anna",
 };
 
 test("缺少 TTS 密钥时停止在供应商请求之前", () => {
@@ -22,7 +23,19 @@ test("缺少 TTS 密钥时停止在供应商请求之前", () => {
 
 test("只接受硅基流动的内置 CosyVoice2 音色", () => {
   assert.throws(
-    () => assertTtsReady({ ...settings, voice: "unknown" }),
+    () => assertTtsReady({ ...settings, primaryVoice: "unknown" }),
+    (error: unknown) =>
+      error instanceof TtsError && error.kind === "configuration",
+  );
+});
+
+test("双人播报需要两种不同的内置音色", () => {
+  assert.throws(
+    () =>
+      assertTtsReady({
+        ...settings,
+        secondaryVoice: settings.primaryVoice,
+      }),
     (error: unknown) =>
       error instanceof TtsError && error.kind === "configuration",
   );

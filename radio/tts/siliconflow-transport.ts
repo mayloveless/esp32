@@ -7,9 +7,13 @@ export type SiliconFlowRequest = {
   apiKey: string;
   baseUrl: string;
   model: string;
+  responseFormat: TtsResponseFormat;
+  sampleRate: number;
   text: string;
   voice: string;
 };
+
+export type TtsResponseFormat = "mp3" | "wav";
 
 export type FetchImplementation = typeof fetch;
 
@@ -32,8 +36,8 @@ export async function requestSiliconFlowSpeech(
           model: request.model,
           input: request.text,
           voice: request.voice,
-          response_format: "mp3",
-          sample_rate: 32_000,
+          response_format: request.responseFormat,
+          sample_rate: request.sampleRate,
           stream: false,
           speed: 1,
           gain: 0,
@@ -59,7 +63,8 @@ export async function requestSiliconFlowSpeech(
       throw new TtsError("硅基流动返回的音频大小无效。", "audio");
     return {
       audioBytes,
-      durationMs: readMp3Duration(audioBytes),
+      durationMs:
+        request.responseFormat === "mp3" ? readMp3Duration(audioBytes) : null,
       traceId: response.headers.get("x-siliconcloud-trace-id"),
     };
   } catch (error) {

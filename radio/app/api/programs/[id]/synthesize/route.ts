@@ -7,8 +7,11 @@ import {
   saveSynthesizedProgramAudio,
   updateProgram,
 } from "../../../../../program/service";
-import { getSynthesisText, TtsError } from "../../../../../tts/validation";
-import { synthesizeWithSiliconFlow } from "../../../../../tts/siliconflow";
+import { renderProgramAudio } from "../../../../../renderer/render";
+import { assertTtsReady } from "../../../../../tts/config";
+import { getTtsSettings } from "../../../../../tts/siliconflow";
+import { synthesizeSpeech } from "../../../../../tts/speech";
+import { TtsError } from "../../../../../tts/validation";
 import {
   SynthesisInProgressError,
   withSynthesisLock,
@@ -36,7 +39,8 @@ export async function POST(request: Request, { params }: Context) {
       !(current.status === "failed" && current.content.segments)
     )
       throw new TtsError("只有已保存稿件的节目可以合成语音。", "input");
-    const text = getSynthesisText(current);
+    const settings = getTtsSettings();
+    assertTtsReady(settings);
     return await withSynthesisLock(async () => {
       const generating = await updateProgram(id, {
         status: "generating",
@@ -45,16 +49,30 @@ export async function POST(request: Request, { params }: Context) {
       if (!generating)
         return Response.json({ error: "节目不存在。" }, { status: 404 });
       try {
-        const result = await synthesizeWithSiliconFlow(text);
+        const rendered = await renderProgramAudio(
+          current,
+          {
+            primaryVoice: settings.primaryVoice,
+            secondaryVoice: settings.secondaryVoice,
+          },
+          synthesizeSpeech,
+        );
         const saved = await saveSynthesizedProgramAudio(
           id,
-          result.audioBytes,
-          result.durationMs,
           {
-            model: result.settings.model,
-            provider: result.settings.provider,
-            traceId: result.traceId,
-            voice: result.settings.voice,
+            audioBytes: rendered.audioBytes,
+            contentType: "audio/wav",
+            durationMs: rendered.durationMs,
+            sampleRate: rendered.sampleRate,
+          },
+          {
+            captions: rendered.captions,
+            model: settings.model,
+            provider: settings.provider,
+            responseFormat: "wav",
+            sampleRate: rendered.sampleRate,
+            speakerVoices: rendered.speakerVoices,
+            traceIds: rendered.traceIds,
           },
         );
         if (!saved)

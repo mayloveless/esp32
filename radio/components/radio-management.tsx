@@ -702,7 +702,7 @@ export function RadioManagement() {
             {selectedScript &&
               (selected?.status === "queued" || selected?.status === "failed") && (
                 <div className="synthesis-controls">
-                  <p>将按稿件顺序使用单个内置中文音色合成。</p>
+                  <p>将由 Renderer 按说话者自动分配内置中文音色。</p>
                   <button
                     className="text-button"
                     disabled={synthesizing}
