@@ -1,0 +1,35 @@
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_6e6559b43b8b4a 28-31,78,80-92,97-106,233-289,437-460,471-479,490,495,514-526
+radio/app/api/programs/inventory/route.ts
+  s_1bfd675b83ce48::t_fa2a3718ebdc15 1-47
+radio/app/globals.css
+  s_1bfd675b83ce48::t_6e6559b43b8b4a 157-168,180-194
+radio/program/inventory-batch.test.ts
+  s_1bfd675b83ce48::t_fa2a3718ebdc15 1-31
+radio/program/inventory-batch.ts
+  s_1bfd675b83ce48::t_fa2a3718ebdc15 1-24,26-30
+  s_1bfd675b83ce48::t_6e6559b43b8b4a 25
+radio/package.json
+  s_1bfd675b83ce48::t_fa2a3718ebdc15 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "17e75fc147cf460180647fff646f027dd9c1fd17",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
