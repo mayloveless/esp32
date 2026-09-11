@@ -1,0 +1,41 @@
+radio/program/inventory-batch.ts
+  s_1bfd675b83ce48::t_6e6559b43b8b4a 29
+  s_1bfd675b83ce48::t_f019622b08e09c 6,12-16
+  s_1bfd675b83ce48::t_fa2a3718ebdc15 1-5,7-11,17-28,30-34
+radio/app/api/programs/inventory/route.ts
+  s_1bfd675b83ce48::t_8a2eb80ff558d7 26
+  s_1bfd675b83ce48::t_fa2a3718ebdc15 1-7,9-23,29-38,45-53,58-61
+  s_1bfd675b83ce48::t_f019622b08e09c 8,24-25,27-28,39-44,54-57
+radio/package.json
+  s_1bfd675b83ce48::t_fa2a3718ebdc15 12
+radio/app/globals.css
+  s_1bfd675b83ce48::t_6e6559b43b8b4a 157-168,180-194
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_6e6559b43b8b4a 28,35-36,83,86,90-96,104-109,111,238-243,245,247-275,277-289,346-350,498-499,501,503-519,528-529,540-541,546-548,559,564,583-586,588-595
+  s_1bfd675b83ce48::t_8a2eb80ff558d7 110
+  s_1bfd675b83ce48::t_f019622b08e09c 29-34,85,87-89,97-99,244,246,276,290-345,500,502,520-527,542-545,587
+radio/program/inventory-batch.test.ts
+  s_1bfd675b83ce48::t_f019622b08e09c 18-21
+  s_1bfd675b83ce48::t_fa2a3718ebdc15 1-17,22-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8ecdc8c79087452e71ef0d45a82e3d9ec084f963",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": null
+    }
+  }
+}
