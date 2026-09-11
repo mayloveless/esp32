@@ -202,7 +202,7 @@ export async function renderProgramAudio(
     speechAudioBytes,
     background?.audioBytes ?? null,
     {
-      baseGain: background ? getBackgroundBedGain() : 0,
+      baseGain: background ? getBackgroundBedGain(plan.backgroundBed) : 0,
       captions: merged.captions,
     },
   );
@@ -212,7 +212,7 @@ export async function renderProgramAudio(
     audioEffect: applyMachineEffect ? machineRadioEffect : null,
     alienDialect: plan.alienDialect,
     backgroundBed: plan.backgroundBed,
-    backgroundBedGain: background ? getBackgroundBedGain() : 0,
+    backgroundBedGain: background ? getBackgroundBedGain(plan.backgroundBed) : 0,
     backgroundBedGenerator: background ? backgroundBedGenerator : null,
     backgroundBedSeed,
     delivery: plan.delivery,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildPcmWav, parsePcmWav, type WavPcmFormat } from "./wav.ts";
 import {
+  getBackgroundBedGain,
   getDefaultBackgroundBed,
   synthesizeBackgroundBed,
 } from "./background-bed.ts";
@@ -65,4 +66,9 @@ test("machine-1 默认使用神秘背景，其余正常播报使用氛围背景"
     getDefaultBackgroundBed({ alienDialect: null, mode: "normal" }),
     "ambient",
   );
+});
+
+test("脉冲背景保留最高的混音电平，避免节拍被人声完全掩盖", () => {
+  assert.ok(getBackgroundBedGain("pulse") > getBackgroundBedGain("ambient"));
+  assert.ok(getBackgroundBedGain("pulse") > getBackgroundBedGain("mysterious"));
 });

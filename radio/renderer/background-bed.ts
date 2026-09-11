@@ -12,7 +12,7 @@ export const backgroundBedGenerator = "procedural-bed-v1";
 export const backgroundBedOptions = [
   { label: "无", value: "none" },
   { label: "氛围", value: "ambient" },
-  { label: "脉冲（节奏明显）", value: "pulse" },
+  { label: "脉冲（120 BPM）", value: "pulse" },
   { label: "神秘", value: "mysterious" },
 ] as const;
 
@@ -24,8 +24,13 @@ export type GeneratedBackgroundBed = {
   seed: string;
 };
 
-// 保持低于人声，但让背景在普通电脑和小型扬声器上仍能被明确听见。
-const backgroundGain = 0.18;
+// 各 preset 在人声下的可听度不同；pulse 保留更高电平，确保节拍不会被朗读完全掩盖。
+const backgroundGains: Record<BackgroundBed, number> = {
+  ambient: 0.22,
+  mysterious: 0.24,
+  none: 0,
+  pulse: 0.3,
+};
 
 export function isBackgroundBed(value: unknown): value is BackgroundBed {
   return typeof value === "string" && backgroundBedOptions.some((option) => option.value === value);
@@ -45,8 +50,8 @@ export function getDefaultBackgroundBed(options: {
     : "ambient";
 }
 
-export function getBackgroundBedGain() {
-  return backgroundGain;
+export function getBackgroundBedGain(bed: BackgroundBed) {
+  return backgroundGains[bed];
 }
 
 function assertBedFormat(format: WavPcmFormat) {

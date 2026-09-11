@@ -51,7 +51,7 @@ export function mixSpeechWithBackground(
     throw new TtsError("语音与背景音乐时长必须完全一致。", "audio");
   if (!Number.isFinite(options.baseGain) || options.baseGain < 0 || options.baseGain > 0.25)
     throw new TtsError("背景音乐音量无效。", "input");
-  const duckedGain = options.duckedGain ?? options.baseGain * 0.7;
+  const duckedGain = options.duckedGain ?? options.baseGain * 0.82;
   if (!Number.isFinite(duckedGain) || duckedGain < 0 || duckedGain > options.baseGain)
     throw new TtsError("背景音乐压低音量无效。", "input");
 
