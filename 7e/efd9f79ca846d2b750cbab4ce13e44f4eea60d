@@ -1,0 +1,74 @@
+radio/program/synthesis-state.test.ts
+  s_1bfd675b83ce48::t_e960d3499ce71a 1-27
+radio/program/service.ts
+  s_1bfd675b83ce48::t_0894da1dbfa4b5 3,5,30,37,278,285,319-331
+  s_1bfd675b83ce48::t_684924e21c4c3f 291-292
+radio/program/synthesis-state.ts
+  s_1bfd675b83ce48::t_e960d3499ce71a 1-13
+radio/renderer/render.test.ts
+  s_1bfd675b83ce48::t_46d3fc1d390306 160
+  s_1bfd675b83ce48::t_133996dfcc7274 65,75-79,81-82,85,88,98-99,107-108,121,139-159
+  s_1bfd675b83ce48::t_2f739426e29188 80,102,111
+radio/app/api/programs/[id]/synthesize/route.ts
+  s_1bfd675b83ce48::t_684924e21c4c3f 80-87,129-133
+  s_1bfd675b83ce48::t_b545982503be54 41,61
+  s_1bfd675b83ce48::t_cb7017a891ff83 16-19,39-40,42-46,50-60,62,68,96,109,116
+  s_1bfd675b83ce48::t_e960d3499ce71a 11,73-74,76
+radio/renderer/delivery.test.ts
+  s_1bfd675b83ce48::t_c7a99b9633a912 1-17,24-38
+  s_1bfd675b83ce48::t_2f739426e29188 18-23
+radio/renderer/delivery.ts
+  s_1bfd675b83ce48::t_2f739426e29188 24,31,38
+  s_1bfd675b83ce48::t_c7a99b9633a912 1-23,25-30,32-37,39-68
+radio/tts/siliconflow-transport.ts
+  s_1bfd675b83ce48::t_5fa647bdf0047b 5-6,11,15,24-44,52-53,64,69
+radio/app/globals.css
+  s_1bfd675b83ce48::t_3d7840bac1bf4d 393-413
+  s_1bfd675b83ce48::t_02671f7ba1d186 230-254,432
+  s_1bfd675b83ce48::t_d416142f2f8936 383-392
+radio/package.json
+  s_1bfd675b83ce48::t_e960d3499ce71a 12
+radio/program/synthesis-metadata.test.ts
+  s_1bfd675b83ce48::t_c7a99b9633a912 1-17,19-23,25-26
+  s_1bfd675b83ce48::t_2f739426e29188 18,24
+radio/renderer/render.ts
+  s_1bfd675b83ce48::t_133996dfcc7274 18-23,35,95-96,99,114,124,148,151,165
+  s_1bfd675b83ce48::t_0894da1dbfa4b5 64
+radio/tts/siliconflow-transport.test.ts
+  s_1bfd675b83ce48::t_5fa647bdf0047b 49-91
+radio/program/synthesis-metadata.ts
+  s_1bfd675b83ce48::t_c7a99b9633a912 1-38
+radio/tts/siliconflow.ts
+  s_1bfd675b83ce48::t_5fa647bdf0047b 9,12
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_b46a542b34b0fe 35-46,641,649,654,700
+  s_1bfd675b83ce48::t_b545982503be54 3,125-127,133,147-149,186,191,219,222-227,229,259,280,282,284,299-300,317-319,427,464,832,860
+  s_1bfd675b83ce48::t_3d7840bac1bf4d 11-16,128-129,138-140,261,287-288,290,839,865
+  s_1bfd675b83ce48::t_d416142f2f8936 93-105,135-137,193-195,795-798,800-807,809
+  s_1bfd675b83ce48::t_4a199f39c38aa8 808,818-831,833-838,840-859,861-864,866-882,884
+  s_1bfd675b83ce48::t_03c14139f4e572 106,108-111,278,289,298,302-306,310-313,799
+  s_1bfd675b83ce48::t_695151d572d934 511
+  s_1bfd675b83ce48::t_684924e21c4c3f 120,141-146,199,215,228,264,430,467,783-785
+  s_1bfd675b83ce48::t_02671f7ba1d186 205-212,498-510,741-746,907-908
+  s_1bfd675b83ce48::t_c6af0a92748c7d 87-92
+  s_1bfd675b83ce48::t_ca2719d057e476 262
+  s_1bfd675b83ce48::t_027d56b2e31c34 747-766,906
+  s_1bfd675b83ce48::t_7b62fdbf97cd28 812-817,883,885-887
+  s_1bfd675b83ce48::t_3991a0e522a19e 107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7eefd9f79ca846d2b750cbab4ce13e44f4eea60d",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": null
+    }
+  }
+}
