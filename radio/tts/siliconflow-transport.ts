@@ -2,13 +2,17 @@ import { readMp3Duration, TtsError } from "./validation.ts";
 
 const maximumAudioBytes = 52_428_800;
 const requestTimeoutMs = 45_000;
+export const minimumTtsSpeed = 0.25;
+export const maximumTtsSpeed = 4;
 
 export type SiliconFlowRequest = {
   apiKey: string;
   baseUrl: string;
+  instruction?: string;
   model: string;
   responseFormat: TtsResponseFormat;
   sampleRate: number;
+  speed?: number;
   text: string;
   voice: string;
 };
@@ -17,6 +21,27 @@ export type TtsResponseFormat = "mp3" | "wav";
 
 export type FetchImplementation = typeof fetch;
 
+function getInput(request: SiliconFlowRequest) {
+  const instruction = request.instruction?.trim();
+  return instruction
+    ? `${instruction}<|endofprompt|>${request.text}`
+    : request.text;
+}
+
+function getSpeed(request: SiliconFlowRequest) {
+  const speed = request.speed ?? 1;
+  if (
+    !Number.isFinite(speed) ||
+    speed < minimumTtsSpeed ||
+    speed > maximumTtsSpeed
+  )
+    throw new TtsError(
+      `TTS 语速必须介于 ${minimumTtsSpeed} 和 ${maximumTtsSpeed} 之间。`,
+      "input",
+    );
+  return speed;
+}
+
 export async function requestSiliconFlowSpeech(
   request: SiliconFlowRequest,
   fetchImplementation: FetchImplementation = fetch,
@@ -24,6 +49,8 @@ export async function requestSiliconFlowSpeech(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
   try {
+    const input = getInput(request);
+    const speed = getSpeed(request);
     const response = await fetchImplementation(
       `${request.baseUrl.replace(/\/$/, "")}/audio/speech`,
       {
@@ -34,12 +61,12 @@ export async function requestSiliconFlowSpeech(
         },
         body: JSON.stringify({
           model: request.model,
-          input: request.text,
+          input,
           voice: request.voice,
           response_format: request.responseFormat,
           sample_rate: request.sampleRate,
           stream: false,
-          speed: 1,
+          speed,
           gain: 0,
         }),
         signal: controller.signal,

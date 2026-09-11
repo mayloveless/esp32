@@ -62,6 +62,7 @@ test("normal 与 alien Render Plan 分别保留原文和生成确定性播报文
   const alien = createRenderPlan(chatProgram, voices, { mode: "alien" });
 
   assert.equal(normal.mode, "normal");
+  assert.equal(normal.delivery.id, "lively");
   assert.equal(normal.alienDialect, null);
   assert.equal(normal.units[0].spokenText, "第一段。\n第二段。");
   assert.equal(alien.mode, "alien");
@@ -71,10 +72,20 @@ test("normal 与 alien Render Plan 分别保留原文和生成确定性播报文
   assert.equal(alien.units[0].text, normal.units[0].text);
 });
 
+test("手动 delivery profile 会覆盖按节目形式选择的默认值", () => {
+  const plan = createRenderPlan(chatProgram, voices, {
+    deliveryProfile: "urgent",
+  });
+  assert.equal(plan.delivery.id, "urgent");
+  assert.equal(plan.delivery.speed, 1.3);
+});
+
 test("聊天节目会对合并后的单元真实请求两种音色", async () => {
   const requests: Array<{
+    instruction?: string;
     responseFormat: string;
     sampleRate: number;
+    speed?: number;
     text: string;
     voice: string;
   }> = [];
@@ -84,14 +95,20 @@ test("聊天节目会对合并后的单元真实请求两种音色", async () =>
   });
   assert.deepEqual(requests, [
     {
+      instruction:
+        "请以自然的电台对话方式表达，反应明确，轻松，有情绪起伏，避免主持稿朗读腔。",
       responseFormat: "wav",
       sampleRate: 32_000,
+      speed: 1.25,
       text: "第一段。\n第二段。",
       voice: voices.primaryVoice,
     },
     {
+      instruction:
+        "请以自然的电台对话方式表达，反应明确，轻松，有情绪起伏，避免主持稿朗读腔。",
       responseFormat: "wav",
       sampleRate: 32_000,
+      speed: 1.25,
       text: "第三段。",
       voice: voices.secondaryVoice,
     },
@@ -101,7 +118,7 @@ test("聊天节目会对合并后的单元真实请求两种音色", async () =>
 });
 
 test("alien TTS 接收 spokenText，但 caption 保存中文原文", async () => {
-  const requests: Array<{ text: string }> = [];
+  const requests: Array<{ instruction?: string; speed?: number; text: string }> = [];
   const result = await renderProgramAudio(
     chatProgram,
     voices,
@@ -117,6 +134,28 @@ test("alien TTS 接收 spokenText，但 caption 保存中文原文", async () =>
   assert.equal(result.captions[0].text, "第一段。\n第二段。");
   assert.equal(result.mode, "alien");
   assert.equal(result.alienDialect, "cosmic-1");
+});
+
+test("delivery 不会修改 normal 原文或 alien 的确定性 spokenText", async () => {
+  const normalRequests: Array<{ text: string }> = [];
+  const alienRequests: Array<{ text: string }> = [];
+  await renderProgramAudio(chatProgram, voices, async (request) => {
+    normalRequests.push(request);
+    return { audioBytes: wav(), traceId: null };
+  });
+  await renderProgramAudio(
+    chatProgram,
+    voices,
+    async (request) => {
+      alienRequests.push(request);
+      return { audioBytes: wav(), traceId: null };
+    },
+    { deliveryProfile: "mysterious", mode: "alien" },
+  );
+
+  assert.equal(normalRequests[0].text, "第一段。\n第二段。");
+  assert.match(alienRequests[0].text, /^[a-z ,.?!;:]+$/);
+  assert.notEqual(alienRequests[0].text, normalRequests[0].text);
 });
 
 test("中途 TTS 失败时不会产出可保存的半成品", async () => {

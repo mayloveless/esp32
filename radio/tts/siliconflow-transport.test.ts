@@ -46,3 +46,46 @@ test("非法音频响应会被拒绝", async () => {
     (error: unknown) => error instanceof TtsError && error.kind === "audio",
   );
 });
+
+test("自然语言 instruction 和 speed 会转换为 SiliconFlow 请求字段", async () => {
+  let requestBody: Record<string, unknown> | null = null;
+  await requestSiliconFlowSpeech(
+    {
+      ...request,
+      instruction: "请用利落的电台主播语气播报。",
+      responseFormat: "wav",
+      speed: 1.15,
+    },
+    async (_url, init) => {
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(new Uint8Array([1]), {
+        headers: { "Content-Type": "audio/wav" },
+      });
+    },
+  );
+  assert.deepEqual(requestBody, {
+    model: request.model,
+    input: "请用利落的电台主播语气播报。<|endofprompt|>这是测试稿件。",
+    voice: request.voice,
+    response_format: "wav",
+    sample_rate: request.sampleRate,
+    stream: false,
+    speed: 1.15,
+    gain: 0,
+  });
+});
+
+test("超出范围的 speed 会在请求前被拒绝", async () => {
+  let fetchCalled = false;
+  await assert.rejects(
+    requestSiliconFlowSpeech(
+      { ...request, speed: 4.01 },
+      async () => {
+        fetchCalled = true;
+        return new Response();
+      },
+    ),
+    (error: unknown) => error instanceof TtsError && error.kind === "input",
+  );
+  assert.equal(fetchCalled, false);
+});

@@ -15,6 +15,12 @@ import {
   toAlienSpokenText,
   type AlienDialect,
 } from "./alien-language.ts";
+import {
+  getDefaultDeliveryProfileId,
+  getDeliveryProfile,
+  type DeliveryProfile,
+  type DeliveryProfileId,
+} from "./delivery.ts";
 
 export type RendererVoices = {
   primaryVoice: string;
@@ -26,6 +32,7 @@ export type RenderMode = (typeof renderModes)[number];
 
 export type RenderOptions = {
   alienDialect?: AlienDialect;
+  deliveryProfile?: DeliveryProfileId;
   mode?: RenderMode;
 };
 
@@ -54,6 +61,7 @@ export function mergeAdjacentSpeakerSegments(
   speakerVoices: Record<string, string>,
   options: Required<RenderOptions> = {
     alienDialect: defaultAlienDialect,
+    deliveryProfile: "broadcast",
     mode: "normal",
   },
 ): RenderUnit[] {
@@ -84,8 +92,11 @@ export function createRenderPlan(
 ) {
   const renderOptions: Required<RenderOptions> = {
     alienDialect: options.alienDialect ?? defaultAlienDialect,
+    deliveryProfile:
+      options.deliveryProfile ?? getDefaultDeliveryProfileId(program.format),
     mode: options.mode ?? "normal",
   };
+  const delivery = getDeliveryProfile(renderOptions.deliveryProfile);
   const segments = getSynthesisSegments(program);
   const speakerVoices = mapSpeakerVoices(segments, voices);
   if (program.format === "news") {
@@ -100,6 +111,7 @@ export function createRenderPlan(
   return {
     alienDialect:
       renderOptions.mode === "alien" ? renderOptions.alienDialect : null,
+    delivery,
     mode: renderOptions.mode,
     speakerVoices,
     units: mergeAdjacentSpeakerSegments(segments, speakerVoices, renderOptions),
@@ -109,6 +121,7 @@ export function createRenderPlan(
 export type RenderedProgramAudio = {
   audioBytes: Uint8Array;
   captions: Caption[];
+  delivery: DeliveryProfile;
   durationMs: number;
   sampleRate: number;
   speakerVoices: Record<string, string>;
@@ -132,8 +145,10 @@ export async function renderProgramAudio(
   const traceIds: Array<string | null> = [];
   for (const unit of plan.units) {
     const result = await synthesize({
+      instruction: plan.delivery.instruction,
       responseFormat: "wav",
       sampleRate: wavSampleRate,
+      speed: plan.delivery.speed,
       text: unit.spokenText,
       voice: unit.voice,
     });
@@ -147,6 +162,7 @@ export async function renderProgramAudio(
   return {
     ...mergeWavSegments(renderedSegments),
     alienDialect: plan.alienDialect,
+    delivery: plan.delivery,
     mode: plan.mode,
     speakerVoices: plan.speakerVoices,
     traceIds,

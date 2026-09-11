@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   programFormats,
   type BroadcastScript,
@@ -8,6 +8,12 @@ import {
   type RadioProgram,
 } from "../program/types";
 import type { RenderMode } from "../renderer/render";
+import {
+  deliveryProfileIds,
+  getDefaultDeliveryProfileId,
+  getDeliveryProfile,
+  type DeliveryProfileId,
+} from "../renderer/delivery";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -25,6 +31,18 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
   dateStyle: "short",
   timeStyle: "short",
 });
+
+function formatDuration(durationMs: number | null) {
+  if (!durationMs || !Number.isFinite(durationMs) || durationMs <= 0) return "—";
+  const totalSeconds = Math.round(durationMs / 1000);
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  const paddedSeconds = String(seconds).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${paddedSeconds}`
+    : `${minutes}:${paddedSeconds}`;
+}
 
 type InventoryBatchResult =
   | {
@@ -66,6 +84,31 @@ function asBroadcastScript(content: RadioProgram["content"]): BroadcastScript | 
     : null;
 }
 
+function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
+  deliveryProfile: DeliveryProfileId | null;
+  renderMode: RenderMode | null;
+  speed: number | null;
+} {
+  const renderMode: RenderMode | null =
+    recipe.render_mode === "normal" || recipe.render_mode === "alien"
+      ? recipe.render_mode
+      : null;
+  const deliveryProfile =
+    typeof recipe.delivery_profile === "string" &&
+    deliveryProfileIds.includes(recipe.delivery_profile as DeliveryProfileId)
+      ? (recipe.delivery_profile as DeliveryProfileId)
+      : null;
+  const speed =
+    typeof recipe.tts_speed === "number" && Number.isFinite(recipe.tts_speed)
+      ? recipe.tts_speed
+      : null;
+  return { deliveryProfile, renderMode, speed };
+}
+
+function getRenderModeLabel(renderMode: RenderMode) {
+  return renderMode === "alien" ? "外星伪语播报" : "中文原文播报";
+}
+
 export function RadioManagement() {
   const [format, setFormat] = useState<ProgramFormat>("news");
   const [language, setLanguage] = useState("中文");
@@ -74,15 +117,36 @@ export function RadioManagement() {
   const [programs, setPrograms] = useState<RadioProgram[]>([]);
   const [selected, setSelected] = useState<RadioProgram | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [synthesizing, setSynthesizing] = useState(false);
+  const [synthesizingProgramId, setSynthesizingProgramId] = useState<
+    string | null
+  >(null);
+  const [deliveryProfile, setDeliveryProfile] =
+    useState<DeliveryProfileId | null>(null);
   const [renderMode, setRenderMode] = useState<RenderMode>("normal");
   const [audioRefreshAttempted, setAudioRefreshAttempted] = useState(false);
   const [checkedProgramIds, setCheckedProgramIds] = useState<string[]>([]);
+  const selectedProgramIdRef = useRef<string | null>(null);
   const selectedScript = selected ? asBroadcastScript(selected.content) : null;
+  const savedDeliverySettings = selected
+    ? getSavedDeliverySettings(selected.recipe)
+    : null;
+  const effectiveDeliveryProfile =
+    deliveryProfile ??
+    getDefaultDeliveryProfileId(selected?.format ?? format);
+  const canSynthesizeAudio = Boolean(
+    selectedScript &&
+      (selected?.status === "queued" ||
+        selected?.status === "failed" ||
+        selected?.status === "ready"),
+  );
+  const isSynthesisInProgress = synthesizingProgramId !== null;
+  const isSelectedProgramSynthesizing =
+    selected?.id === synthesizingProgramId;
   const checkedPrograms = programs.filter((program) =>
     checkedProgramIds.includes(program.id),
   );
@@ -119,30 +183,50 @@ export function RadioManagement() {
   }
 
   async function selectProgram(id: string) {
+    selectedProgramIdRef.current = id;
     try {
       const program = (
         await request<{ program: RadioProgram }>(`/api/programs/${id}`)
       ).program;
+      if (selectedProgramIdRef.current !== id) return;
       setSelected(program);
+      const savedSettings = getSavedDeliverySettings(program.recipe);
+      setDeliveryProfile(savedSettings.deliveryProfile);
+      setRenderMode(savedSettings.renderMode ?? "normal");
       setAudioUrl(null);
       setAudioRefreshAttempted(false);
       if (program.audio_path) await refreshAudioUrl(id);
+      else setAudioLoading(false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法读取节目详情。");
     }
   }
 
+  function closeProgramDetail() {
+    selectedProgramIdRef.current = null;
+    setSelected(null);
+    setAudioUrl(null);
+    setAudioLoading(false);
+    setAudioRefreshAttempted(false);
+  }
+
   async function refreshAudioUrl(id: string) {
     try {
+      setAudioLoading(true);
       const { signedUrl } = await request<{ signedUrl: string }>(
         `/api/programs/${id}/audio-url`,
       );
+      if (selectedProgramIdRef.current !== id) return;
       setAudioUrl(signedUrl);
     } catch (error) {
-      setAudioUrl(null);
-      setMessage(
-        error instanceof Error ? error.message : "无法刷新音频试听地址。",
-      );
+      if (selectedProgramIdRef.current === id) {
+        setAudioUrl(null);
+        setMessage(
+          error instanceof Error ? error.message : "无法刷新音频试听地址。",
+        );
+      }
+    } finally {
+      if (selectedProgramIdRef.current === id) setAudioLoading(false);
     }
   }
 
@@ -172,8 +256,12 @@ export function RadioManagement() {
         program?: RadioProgram;
       };
       if (body.program) {
+        selectedProgramIdRef.current = body.program.id;
         setSelected(body.program);
+        setDeliveryProfile(null);
+        setRenderMode("normal");
         setAudioUrl(null);
+        setAudioLoading(false);
         setAudioRefreshAttempted(false);
         await loadPrograms();
       }
@@ -187,15 +275,19 @@ export function RadioManagement() {
     }
   }
 
-  async function synthesizeSpeech() {
+  async function synthesizeSpeech(requestedRenderMode: RenderMode) {
     if (!selected) return;
+    const synthesisProgramId = selected.id;
     try {
-      setSynthesizing(true);
+      setSynthesizingProgramId(synthesisProgramId);
       setMessage(null);
-      const response = await fetch(`/api/programs/${selected.id}/synthesize`, {
+      const response = await fetch(`/api/programs/${synthesisProgramId}/synthesize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ renderMode }),
+        body: JSON.stringify({
+          deliveryProfile: effectiveDeliveryProfile,
+          renderMode: requestedRenderMode,
+        }),
       });
       const body = (await response.json().catch(() => ({}))) as {
         cleanupWarning?: string | null;
@@ -203,16 +295,28 @@ export function RadioManagement() {
         program?: RadioProgram;
       };
       if (body.program) {
-        await selectProgram(body.program.id);
+        const savedSettings = getSavedDeliverySettings(body.program.recipe);
+        if (selectedProgramIdRef.current === synthesisProgramId)
+          await selectProgram(body.program.id);
         await loadPrograms();
+        if (
+          response.ok &&
+          savedSettings.renderMode !== requestedRenderMode
+        )
+          throw new Error("语音已保存，但保存的播报模式与本次请求不一致。");
       }
       if (!response.ok)
         throw new Error(body.error ?? "无法合成语音。");
-      setMessage(body.cleanupWarning ?? "语音已合成并保存，可开始试听。");
+      setMessage(
+        body.cleanupWarning ??
+          `已按${getRenderModeLabel(requestedRenderMode)}合成并保存，可开始试听。`,
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法合成语音。");
     } finally {
-      setSynthesizing(false);
+      setSynthesizingProgramId((current) =>
+        current === synthesisProgramId ? null : current,
+      );
     }
   }
 
@@ -320,8 +424,10 @@ export function RadioManagement() {
       );
       const successfulIds = successfulResults.map((result) => result.id);
       if (selected && successfulIds.includes(selected.id)) {
+        selectedProgramIdRef.current = null;
         setSelected(null);
         setAudioUrl(null);
+        setAudioLoading(false);
       }
       setCheckedProgramIds((ids) =>
         ids.filter((id) => !successfulIds.includes(id)),
@@ -355,8 +461,10 @@ export function RadioManagement() {
         cleanupWarning: string | null;
       }>(`/api/programs/${id}`, { method: "DELETE" });
       if (selected?.id === id) {
+        selectedProgramIdRef.current = null;
         setSelected(null);
         setAudioUrl(null);
+        setAudioLoading(false);
       }
       await loadPrograms();
       if (cleanupWarning) setMessage(cleanupWarning);
@@ -386,6 +494,20 @@ export function RadioManagement() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!selected) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      selectedProgramIdRef.current = null;
+      setSelected(null);
+      setAudioUrl(null);
+      setAudioLoading(false);
+      setAudioRefreshAttempted(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selected]);
 
   return (
     <main className="workbench">
@@ -516,6 +638,7 @@ export function RadioManagement() {
                   <th scope="col">节目</th>
                   <th scope="col">形式</th>
                   <th scope="col">状态</th>
+                  <th scope="col">时长</th>
                   <th scope="col">创建时间</th>
                   <th scope="col">操作</th>
                 </tr>
@@ -523,12 +646,12 @@ export function RadioManagement() {
               <tbody>
                 {loading && (
                   <tr className="empty-row">
-                    <td colSpan={6}>正在读取节目…</td>
+                    <td colSpan={7}>正在读取节目…</td>
                   </tr>
                 )}
                 {!loading && programs.length === 0 && (
                   <tr className="empty-row">
-                    <td colSpan={6}>暂无节目。当前没有伪造的示例数据。</td>
+                    <td colSpan={7}>暂无节目。当前没有伪造的示例数据。</td>
                   </tr>
                 )}
                 {!loading &&
@@ -574,6 +697,7 @@ export function RadioManagement() {
                             : "不可播"}
                         </span>
                       </td>
+                      <td>{formatDuration(program.duration_ms)}</td>
                       <td>
                         {dateFormatter.format(new Date(program.created_at))}
                       </td>
@@ -614,17 +738,33 @@ export function RadioManagement() {
             </table>
           </div>
         </section>
-        <aside className="panel detail-panel" aria-labelledby="detail-heading">
-          <div className="panel-heading">
-            <div>
-              <h2 id="detail-heading">节目详情</h2>
-              <p>
-                {selected
-                  ? selected.title || "未命名节目"
-                  : "从节目列表选择一条节目后查看。"}
-              </p>
+      </div>
+      {selected && (
+        <div
+          className="detail-drawer-backdrop"
+          onMouseDown={closeProgramDetail}
+        >
+          <aside
+            aria-labelledby="detail-heading"
+            aria-modal="true"
+            className="panel detail-panel"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="panel-heading">
+              <div>
+                <h2 id="detail-heading">节目详情</h2>
+                <p>{selected.title || "未命名节目"}</p>
+              </div>
+              <button
+                aria-label="关闭节目详情"
+                className="text-button drawer-close-button"
+                onClick={closeProgramDetail}
+                type="button"
+              >
+                关闭
+              </button>
             </div>
-          </div>
           <div className="detail-section">
             <h3>状态</h3>
             <p>
@@ -640,7 +780,9 @@ export function RadioManagement() {
           </div>
           <div className="detail-section">
             <h3>音频</h3>
-            {audioUrl ? (
+            {audioLoading ? (
+              <p>正在加载音频资源…</p>
+            ) : audioUrl ? (
               <audio
                 aria-label="节目音频播放器"
                 controls
@@ -650,50 +792,99 @@ export function RadioManagement() {
             ) : (
               <p>尚无可试听的音频</p>
             )}
-            {selectedScript &&
-              (selected?.status === "queued" || selected?.status === "failed") && (
-                <div className="synthesis-controls">
-                  <p>将由 Renderer 按说话者自动分配内置中文音色。</p>
-                  <div
-                    aria-label="播报模式"
-                    className="synthesis-mode"
-                    role="radiogroup"
-                  >
-                    <span>播报模式</span>
-                    <label>
-                      <input
-                        checked={renderMode === "normal"}
-                        disabled={synthesizing}
-                        name="render-mode"
-                        onChange={() => setRenderMode("normal")}
-                        type="radio"
-                        value="normal"
-                      />
-                      normal
-                    </label>
-                    <label>
-                      <input
-                        checked={renderMode === "alien"}
-                        disabled={synthesizing}
-                        name="render-mode"
-                        onChange={() => setRenderMode("alien")}
-                        type="radio"
-                        value="alien"
-                      />
-                      alien
-                    </label>
-                  </div>
-                  <button
-                    className="text-button"
-                    disabled={synthesizing}
-                    onClick={() => void synthesizeSpeech()}
-                    type="button"
-                  >
-                    {synthesizing ? "正在合成语音…" : "合成语音"}
-                  </button>
-                </div>
+            {selected?.status === "ready" &&
+              savedDeliverySettings?.renderMode && (
+                <p className="audio-delivery-summary">
+                  当前已保存：
+                  {getRenderModeLabel(savedDeliverySettings.renderMode)}
+                  {selectedScript
+                    ? ` · ${selectedScript.language} 稿件与字幕`
+                    : ""}
+                  {savedDeliverySettings.deliveryProfile
+                    ? ` · ${getDeliveryProfile(savedDeliverySettings.deliveryProfile).label}`
+                    : ""}
+                  {savedDeliverySettings.speed
+                    ? ` · ${savedDeliverySettings.speed}×`
+                    : ""}
+                </p>
               )}
           </div>
+          {canSynthesizeAudio && (
+            <div className="detail-section">
+              <h3>
+                {selected?.status === "ready" ? "重新生成音频" : "合成语音"}
+              </h3>
+              <div className="synthesis-controls">
+                <p>
+                  {selected?.status === "ready"
+                    ? "将根据现有稿件重新构建音频；新音频成功保存后才会替换当前资源。"
+                    : "将由 Renderer 按说话者自动分配内置中文音色。"}
+                </p>
+                <div
+                  aria-label="语音语言模式"
+                  className="synthesis-mode"
+                  role="radiogroup"
+                >
+                  <span>语音语言模式</span>
+                  <label>
+                    <input
+                      checked={renderMode === "normal"}
+                      disabled={isSynthesisInProgress}
+                      name="render-mode"
+                      onChange={() => setRenderMode("normal")}
+                      type="radio"
+                      value="normal"
+                    />
+                    中文原文播报
+                  </label>
+                  <label>
+                    <input
+                      checked={renderMode === "alien"}
+                      disabled={isSynthesisInProgress}
+                      name="render-mode"
+                      onChange={() => setRenderMode("alien")}
+                      type="radio"
+                      value="alien"
+                    />
+                    外星伪语播报
+                  </label>
+                </div>
+                <p className="synthesis-mode-note">
+                  {renderMode === "alien"
+                    ? "本次实际合成会将外星伪语发送给 TTS；中文只保留在稿件与字幕中。"
+                    : "本次实际合成会将中文稿件发送给 TTS。"}
+                </p>
+                <label className="synthesis-profile">
+                  <span>表现风格</span>
+                  <select
+                    disabled={isSynthesisInProgress}
+                    onChange={(event) =>
+                      setDeliveryProfile(event.target.value as DeliveryProfileId)
+                    }
+                    value={effectiveDeliveryProfile}
+                  >
+                    {deliveryProfileIds.map((id) => (
+                      <option key={id} value={id}>
+                        {getDeliveryProfile(id).label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="text-button"
+                  disabled={isSynthesisInProgress}
+                  onClick={() => void synthesizeSpeech(renderMode)}
+                  type="button"
+                >
+                  {isSelectedProgramSynthesizing
+                    ? "正在合成语音…"
+                    : selected?.status === "ready"
+                      ? `以${getRenderModeLabel(renderMode)}重新生成音频`
+                      : `以${getRenderModeLabel(renderMode)}合成语音`}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="detail-section">
             <h3>稿件</h3>
             {selectedScript ? (
@@ -712,8 +903,9 @@ export function RadioManagement() {
               <p>尚未选择节目</p>
             )}
           </div>
-        </aside>
-      </div>
+          </aside>
+        </div>
+      )}
     </main>
   );
 }

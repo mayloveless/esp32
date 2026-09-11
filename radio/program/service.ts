@@ -1,6 +1,8 @@
 import "server-only";
 import { getSupabaseServerClient } from "../lib/supabase-server";
+import type { DeliveryProfileId } from "../renderer/delivery";
 import type { RenderMode } from "../renderer/render";
+import { buildSynthesisRecipe } from "./synthesis-metadata";
 import type { RadioProgram } from "./types";
 import type { CreateProgramInput, UpdateProgramInput } from "./validation";
 
@@ -25,12 +27,14 @@ type SynthesizedAudioAsset = {
 type SynthesizedAudioMetadata = {
   alienDialect: string | null;
   captions: unknown[];
+  deliveryProfile: DeliveryProfileId | null;
   model: string;
   provider: string;
   renderMode: RenderMode;
   responseFormat: "mp3" | "wav";
   sampleRate: number;
   speakerVoices: Record<string, string>;
+  speed: number | null;
   traceIds: Array<string | null>;
 };
 
@@ -271,19 +275,21 @@ export async function saveSynthesizedProgramAudio(
       ? {
         alienDialect: null,
         captions: [],
+        deliveryProfile: null,
         model: legacyTts.model,
         provider: legacyTts.provider,
         renderMode: "normal",
         responseFormat: "mp3",
         sampleRate: 32_000,
         speakerVoices: { 播音员: legacyTts.voice },
+        speed: null,
         traceIds: [legacyTts.traceId],
       }
     : (ttsOrDuration as SynthesizedAudioMetadata);
   const current = await getProgram(id);
   if (!current) return null;
-  if (current.status !== "generating")
-    throw new Error("节目当前不处于语音合成状态。");
+  if (current.status !== "generating" && current.status !== "ready")
+    throw new Error("节目当前不处于可保存的语音合成状态。");
   if (!Number.isInteger(asset.durationMs) || asset.durationMs <= 0)
     throw new Error("合成音频时长无效。");
   if (!Number.isInteger(asset.sampleRate) || asset.sampleRate <= 0)
@@ -310,19 +316,19 @@ export async function saveSynthesizedProgramAudio(
       duration_ms: asset.durationMs,
       status: "ready",
       error: null,
-      recipe: {
-        ...current.recipe,
-        audio_content_type: asset.contentType,
-        alien_dialect: tts.alienDialect,
-        render_mode: tts.renderMode,
-        renderer: "segment-wav-v1",
-        speaker_voice_map: tts.speakerVoices,
-        tts_provider: tts.provider,
-        tts_model: tts.model,
-        tts_response_format: tts.responseFormat,
-        tts_sample_rate: tts.sampleRate,
-        tts_trace_ids: tts.traceIds,
-      },
+      recipe: buildSynthesisRecipe(current.recipe, {
+        alienDialect: tts.alienDialect,
+        audioContentType: asset.contentType,
+        deliveryProfile: tts.deliveryProfile,
+        model: tts.model,
+        provider: tts.provider,
+        renderMode: tts.renderMode,
+        responseFormat: tts.responseFormat,
+        sampleRate: tts.sampleRate,
+        speakerVoices: tts.speakerVoices,
+        speed: tts.speed,
+        traceIds: tts.traceIds,
+      }),
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)

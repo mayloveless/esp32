@@ -6,8 +6,10 @@ import {
 } from "./siliconflow-transport";
 
 export type SingleSpeechRequest = {
+  instruction?: string;
   responseFormat: TtsResponseFormat;
   sampleRate: number;
+  speed?: number;
   text: string;
   voice: string;
 };
