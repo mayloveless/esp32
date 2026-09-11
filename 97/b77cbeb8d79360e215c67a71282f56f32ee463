@@ -1,0 +1,50 @@
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_70738416305038 739-741,783
+  s_1bfd675b83ce48::t_1f933afe971d64 23-26,150-152,368-400,707,709-710,712-738
+radio/program/ready-music.ts
+  s_1bfd675b83ce48::t_2e7ff305b24947 1-94
+radio/package.json
+  s_1bfd675b83ce48::t_fb1bd1d320cbd7 12
+radio/music/types.ts
+  s_1bfd675b83ce48::t_261ac37b7025af 1-28
+radio/app/globals.css
+  s_1bfd675b83ce48::t_1f933afe971d64 56,63,74,76,82,86-93,95-96
+  s_1bfd675b83ce48::t_70738416305038 64,66,68,72
+  s_1bfd675b83ce48::t_c728c2e326f782 75
+  s_1bfd675b83ce48::t_a9aafd85dba3b2 58,65,73,78,94
+radio/music/random.ts
+  s_1bfd675b83ce48::t_261ac37b7025af 1-24
+radio/music/synth.test.ts
+  s_1bfd675b83ce48::t_a9aafd85dba3b2 39-54
+  s_1bfd675b83ce48::t_9a9530b77fb67a 55-70
+  s_1bfd675b83ce48::t_261ac37b7025af 1-38,71-97
+radio/music/recipe.ts
+  s_1bfd675b83ce48::t_70738416305038 28-30
+  s_1bfd675b83ce48::t_261ac37b7025af 1-27,31-89
+radio/app/api/programs/music/generate/route.ts
+  s_1bfd675b83ce48::t_1f933afe971d64 1-33
+radio/music/synth.ts
+  s_1bfd675b83ce48::t_9a9530b77fb67a 102-103,111,113,115
+  s_1bfd675b83ce48::t_70738416305038 125-126,133,135,137
+  s_1bfd675b83ce48::t_261ac37b7025af 1-101,104-110,112,114,116-124,127-132,134,136,138-208
+radio/program/service.ts
+  s_1bfd675b83ce48::t_2e7ff305b24947 5-8,10-14,167-187,191-193,195-196,205-235
+radio/program/ready-music.test.ts
+  s_1bfd675b83ce48::t_2e7ff305b24947 1-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "97b77cbeb8d79360e215c67a71282f56f32ee463",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": null
+    }
+  }
+}
