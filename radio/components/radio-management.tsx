@@ -21,6 +21,12 @@ import {
   type DeliveryProfileId,
 } from "../renderer/delivery";
 import {
+  backgroundBedOptions,
+  getDefaultBackgroundBed,
+  isBackgroundBed,
+  type BackgroundBed,
+} from "../renderer/background-bed";
+import {
   proceduralMusicStyleOptions,
   type ProceduralMusicStyleRequest,
 } from "../music/types";
@@ -96,6 +102,7 @@ function asBroadcastScript(content: RadioProgram["content"]): BroadcastScript | 
 
 function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
   alienDialect: AlienDialect | null;
+  backgroundBed: BackgroundBed | null;
   deliveryProfile: DeliveryProfileId | null;
   renderMode: RenderMode | null;
   speed: number | null;
@@ -107,6 +114,9 @@ function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
   const alienDialect = isAlienDialect(recipe.alien_dialect)
     ? recipe.alien_dialect
     : null;
+  const backgroundBed = isBackgroundBed(recipe.background_bed)
+    ? recipe.background_bed
+    : null;
   const deliveryProfile =
     typeof recipe.delivery_profile === "string" &&
     deliveryProfileIds.includes(recipe.delivery_profile as DeliveryProfileId)
@@ -116,7 +126,7 @@ function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
     typeof recipe.tts_speed === "number" && Number.isFinite(recipe.tts_speed)
       ? recipe.tts_speed
       : null;
-  return { alienDialect, deliveryProfile, renderMode, speed };
+  return { alienDialect, backgroundBed, deliveryProfile, renderMode, speed };
 }
 
 function getRenderModeLabel(renderMode: RenderMode) {
@@ -128,6 +138,10 @@ function getAlienDialectLabel(dialect: AlienDialect) {
     alienDialectOptions.find((option) => option.value === dialect)?.label ??
     dialect
   );
+}
+
+function getBackgroundBedLabel(bed: BackgroundBed) {
+  return backgroundBedOptions.find((option) => option.value === bed)?.label ?? bed;
 }
 
 function getMusicMetadata(recipe: RadioProgram["recipe"]) {
@@ -166,6 +180,7 @@ export function RadioManagement() {
   const [alienDialect, setAlienDialect] =
     useState<AlienDialect>(defaultAlienDialect);
   const [renderMode, setRenderMode] = useState<RenderMode>("normal");
+  const [backgroundBed, setBackgroundBed] = useState<BackgroundBed | null>(null);
   const [audioRefreshAttempted, setAudioRefreshAttempted] = useState(false);
   const [checkedProgramIds, setCheckedProgramIds] = useState<string[]>([]);
   const selectedProgramIdRef = useRef<string | null>(null);
@@ -180,6 +195,12 @@ export function RadioManagement() {
   const effectiveDeliveryProfile =
     deliveryProfile ??
     getDefaultDeliveryProfileId(selected?.format ?? format);
+  const effectiveBackgroundBed =
+    backgroundBed ??
+    getDefaultBackgroundBed({
+      alienDialect: renderMode === "alien" ? alienDialect : null,
+      mode: renderMode,
+    });
   const canSynthesizeAudio = Boolean(
     selectedScript &&
       (selected?.status === "queued" ||
@@ -236,6 +257,7 @@ export function RadioManagement() {
       setAlienDialect(savedSettings.alienDialect ?? defaultAlienDialect);
       setDeliveryProfile(savedSettings.deliveryProfile);
       setRenderMode(savedSettings.renderMode ?? "normal");
+      setBackgroundBed(savedSettings.backgroundBed);
       setAudioUrl(null);
       setAudioRefreshAttempted(false);
       if (program.audio_path) await refreshAudioUrl(id);
@@ -411,6 +433,7 @@ export function RadioManagement() {
           deliveryProfile: effectiveDeliveryProfile,
           alienDialect:
             requestedRenderMode === "alien" ? alienDialect : undefined,
+          backgroundBed: effectiveBackgroundBed,
           renderMode: requestedRenderMode,
         }),
       });
@@ -435,6 +458,11 @@ export function RadioManagement() {
           savedSettings.alienDialect !== alienDialect
         )
           throw new Error("语音已保存，但保存的外星方言与本次请求不一致。");
+        if (
+          response.ok &&
+          savedSettings.backgroundBed !== effectiveBackgroundBed
+        )
+          throw new Error("语音已保存，但保存的背景音乐与本次请求不一致。");
       }
       if (!response.ok)
         throw new Error(body.error ?? "无法合成语音。");
@@ -1018,6 +1046,9 @@ export function RadioManagement() {
                   {savedDeliverySettings.speed
                     ? ` · ${savedDeliverySettings.speed}×`
                     : ""}
+                  {savedDeliverySettings.backgroundBed
+                    ? ` · 背景：${getBackgroundBedLabel(savedDeliverySettings.backgroundBed)}`
+                    : ""}
                 </p>
               )}
           </div>
@@ -1105,6 +1136,22 @@ export function RadioManagement() {
                     {deliveryProfileIds.map((id) => (
                       <option key={id} value={id}>
                         {getDeliveryProfile(id).label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="synthesis-profile">
+                  <span>背景音乐</span>
+                  <select
+                    disabled={isSynthesisInProgress}
+                    onChange={(event) =>
+                      setBackgroundBed(event.target.value as BackgroundBed)
+                    }
+                    value={effectiveBackgroundBed}
+                  >
+                    {backgroundBedOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>

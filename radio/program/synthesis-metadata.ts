@@ -6,6 +6,10 @@ export type SynthesisRecipeMetadata = {
   alienDialect: string | null;
   audioEffect: string | null;
   audioContentType: string;
+  backgroundBed: "none" | "ambient" | "pulse" | "mysterious";
+  backgroundBedGain: number;
+  backgroundBedGenerator: string | null;
+  backgroundBedSeed: string | null;
   deliveryProfile: DeliveryProfileId | null;
   model: string;
   provider: string;
@@ -26,6 +30,10 @@ export function buildSynthesisRecipe(
     audio_effect: metadata.audioEffect,
     audio_content_type: metadata.audioContentType,
     alien_dialect: metadata.alienDialect,
+    background_bed: metadata.backgroundBed,
+    background_bed_gain: metadata.backgroundBedGain,
+    background_bed_generator: metadata.backgroundBedGenerator,
+    background_bed_seed: metadata.backgroundBedSeed,
     delivery_profile: metadata.deliveryProfile,
     render_mode: metadata.renderMode,
     renderer: "segment-wav-v1",

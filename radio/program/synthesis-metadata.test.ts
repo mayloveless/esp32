@@ -9,6 +9,10 @@ test("recipe 保存实际的 delivery profile 和 TTS speed", () => {
       alienDialect: null,
       audioEffect: null,
       audioContentType: "audio/wav",
+      backgroundBed: "ambient",
+      backgroundBedGain: 0.18,
+      backgroundBedGenerator: "procedural-bed-v1",
+      backgroundBedSeed: "ambient-seed",
       deliveryProfile: "lively",
       model: "FunAudioLLM/CosyVoice2-0.5B",
       provider: "siliconflow",
@@ -23,6 +27,9 @@ test("recipe 保存实际的 delivery profile 和 TTS speed", () => {
 
   assert.equal(recipe.delivery_profile, "lively");
   assert.equal(recipe.tts_speed, 1.25);
+  assert.equal(recipe.background_bed, "ambient");
+  assert.equal(recipe.background_bed_gain, 0.18);
+  assert.equal(recipe.background_bed_generator, "procedural-bed-v1");
   assert.equal(recipe.format, "chat");
 });
 
@@ -33,6 +40,10 @@ test("machine-1 会在 recipe 中记录方言和机械后处理", () => {
       alienDialect: "machine-1",
       audioEffect: "machine-radio-v1",
       audioContentType: "audio/wav",
+      backgroundBed: "mysterious",
+      backgroundBedGain: 0.18,
+      backgroundBedGenerator: "procedural-bed-v1",
+      backgroundBedSeed: "machine-bed-seed",
       deliveryProfile: "urgent",
       model: "FunAudioLLM/CosyVoice2-0.5B",
       provider: "siliconflow",
@@ -48,4 +59,5 @@ test("machine-1 会在 recipe 中记录方言和机械后处理", () => {
   assert.equal(recipe.render_mode, "alien");
   assert.equal(recipe.alien_dialect, "machine-1");
   assert.equal(recipe.audio_effect, "machine-radio-v1");
+  assert.equal(recipe.background_bed, "mysterious");
 });

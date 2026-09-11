@@ -37,6 +37,10 @@ type SynthesizedAudioAsset = {
 type SynthesizedAudioMetadata = {
   alienDialect: string | null;
   audioEffect: string | null;
+  backgroundBed: "none" | "ambient" | "pulse" | "mysterious";
+  backgroundBedGain: number;
+  backgroundBedGenerator: string | null;
+  backgroundBedSeed: string | null;
   captions: unknown[];
   deliveryProfile: DeliveryProfileId | null;
   model: string;
@@ -360,6 +364,10 @@ export async function saveSynthesizedProgramAudio(
       ? {
         alienDialect: null,
         audioEffect: null,
+        backgroundBed: "none",
+        backgroundBedGain: 0,
+        backgroundBedGenerator: null,
+        backgroundBedSeed: null,
         captions: [],
         deliveryProfile: null,
         model: legacyTts.model,
@@ -406,6 +414,10 @@ export async function saveSynthesizedProgramAudio(
         alienDialect: tts.alienDialect,
         audioEffect: tts.audioEffect,
         audioContentType: asset.contentType,
+        backgroundBed: tts.backgroundBed,
+        backgroundBedGain: tts.backgroundBedGain,
+        backgroundBedGenerator: tts.backgroundBedGenerator,
+        backgroundBedSeed: tts.backgroundBedSeed,
         deliveryProfile: tts.deliveryProfile,
         model: tts.model,
         provider: tts.provider,

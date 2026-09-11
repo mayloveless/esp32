@@ -25,6 +25,14 @@ import {
   type DeliveryProfile,
   type DeliveryProfileId,
 } from "./delivery.ts";
+import {
+  backgroundBedGenerator,
+  getBackgroundBedGain,
+  getDefaultBackgroundBed,
+  synthesizeBackgroundBed,
+  type BackgroundBed,
+} from "./background-bed.ts";
+import { mixSpeechWithBackground } from "./pcm-mixer.ts";
 
 export type RendererVoices = {
   primaryVoice: string;
@@ -36,6 +44,8 @@ export type RenderMode = (typeof renderModes)[number];
 
 export type RenderOptions = {
   alienDialect?: AlienDialect;
+  backgroundBed?: BackgroundBed;
+  backgroundBedSeed?: string | null;
   deliveryProfile?: DeliveryProfileId;
   mode?: RenderMode;
 };
@@ -63,7 +73,7 @@ export function mapSpeakerVoices(
 export function mergeAdjacentSpeakerSegments(
   segments: SynthesisSegment[],
   speakerVoices: Record<string, string>,
-  options: Required<RenderOptions> = {
+  options: Pick<Required<RenderOptions>, "alienDialect" | "deliveryProfile" | "mode"> = {
     alienDialect: defaultAlienDialect,
     deliveryProfile: "broadcast",
     mode: "normal",
@@ -94,12 +104,17 @@ export function createRenderPlan(
   voices: RendererVoices,
   options: RenderOptions = {},
 ) {
-  const renderOptions: Required<RenderOptions> = {
+  const renderOptions = {
     alienDialect: options.alienDialect ?? defaultAlienDialect,
     deliveryProfile:
       options.deliveryProfile ?? getDefaultDeliveryProfileId(program.format),
     mode: options.mode ?? "normal",
   };
+  const backgroundBed = options.backgroundBed ?? getDefaultBackgroundBed({
+    alienDialect:
+      renderOptions.mode === "alien" ? renderOptions.alienDialect : null,
+    mode: renderOptions.mode,
+  });
   const delivery = getDeliveryProfile(renderOptions.deliveryProfile);
   const segments = getSynthesisSegments(program);
   const speakerVoices = mapSpeakerVoices(segments, voices);
@@ -115,6 +130,7 @@ export function createRenderPlan(
   return {
     alienDialect:
       renderOptions.mode === "alien" ? renderOptions.alienDialect : null,
+    backgroundBed,
     delivery,
     mode: renderOptions.mode,
     speakerVoices,
@@ -125,6 +141,10 @@ export function createRenderPlan(
 export type RenderedProgramAudio = {
   audioEffect: string | null;
   audioBytes: Uint8Array;
+  backgroundBed: BackgroundBed;
+  backgroundBedGain: number;
+  backgroundBedGenerator: string | null;
+  backgroundBedSeed: string | null;
   captions: Caption[];
   delivery: DeliveryProfile;
   durationMs: number;
@@ -167,14 +187,36 @@ export async function renderProgramAudio(
   const merged = mergeWavSegments(renderedSegments);
   const applyMachineEffect =
     plan.mode === "alien" && plan.alienDialect === "machine-1";
+  const speechAudioBytes = applyMachineEffect
+    ? applyMachineRadioEffect(merged.audioBytes)
+    : merged.audioBytes;
+  const backgroundBedSeed =
+    plan.backgroundBed === "none"
+      ? null
+      : (options.backgroundBedSeed ?? "background-bed-default");
+  const background =
+    plan.backgroundBed === "none" || backgroundBedSeed === null
+      ? null
+      : synthesizeBackgroundBed(speechAudioBytes, plan.backgroundBed, backgroundBedSeed);
+  const mixed = mixSpeechWithBackground(
+    speechAudioBytes,
+    background?.audioBytes ?? null,
+    {
+      baseGain: background ? getBackgroundBedGain() : 0,
+      captions: merged.captions,
+    },
+  );
   return {
     ...merged,
-    audioBytes: applyMachineEffect
-      ? applyMachineRadioEffect(merged.audioBytes)
-      : merged.audioBytes,
+    audioBytes: mixed.audioBytes,
     audioEffect: applyMachineEffect ? machineRadioEffect : null,
     alienDialect: plan.alienDialect,
+    backgroundBed: plan.backgroundBed,
+    backgroundBedGain: background ? getBackgroundBedGain() : 0,
+    backgroundBedGenerator: background ? backgroundBedGenerator : null,
+    backgroundBedSeed,
     delivery: plan.delivery,
+    durationMs: mixed.durationMs,
     mode: plan.mode,
     speakerVoices: plan.speakerVoices,
     traceIds,

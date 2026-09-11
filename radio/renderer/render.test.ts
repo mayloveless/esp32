@@ -173,6 +173,55 @@ test("仅 machine-1 会处理最终 WAV，且不改变字幕或时长", async ()
   assert.notDeepEqual(machine.audioBytes, cosmic.audioBytes);
 });
 
+test("none 背景保留合并后的语音，而背景混音不改变字幕", async () => {
+  const result = await renderProgramAudio(chatProgram, voices, async () => ({
+    audioBytes: signalWav(),
+    traceId: null,
+  }), {
+    backgroundBed: "none",
+  });
+  assert.equal(result.backgroundBed, "none");
+  assert.equal(result.backgroundBedGain, 0);
+  assert.equal(result.backgroundBedGenerator, null);
+  assert.deepEqual(result.captions, [
+    { endMs: 100, speaker: "观测员", startMs: 0, text: "第一段。\n第二段。" },
+    { endMs: 380, speaker: "导航员", startMs: 280, text: "第三段。" },
+  ]);
+  assert.equal(result.durationMs, 380);
+});
+
+test("machine-1 在混入神秘背景前先完成语音后处理，结果稳定且字幕不变", async () => {
+  const synthesize = async () => ({ audioBytes: signalWav(), traceId: null });
+  const options = {
+    alienDialect: "machine-1" as const,
+    backgroundBed: "mysterious" as const,
+    backgroundBedSeed: "machine-background-seed",
+    mode: "alien" as const,
+  };
+  const first = await renderProgramAudio(chatProgram, voices, synthesize, options);
+  const second = await renderProgramAudio(chatProgram, voices, synthesize, options);
+  assert.equal(first.audioEffect, "machine-radio-v4");
+  assert.equal(first.backgroundBed, "mysterious");
+  assert.equal(first.backgroundBedGenerator, "procedural-bed-v1");
+  assert.equal(first.backgroundBedSeed, "machine-background-seed");
+  assert.deepEqual(first.audioBytes, second.audioBytes);
+  assert.deepEqual(first.captions, second.captions);
+});
+
+test("背景生成失败时不会产出可保存的新音频", async () => {
+  let saveCalled = false;
+  await assert.rejects(async () => {
+    const rendered = await renderProgramAudio(
+      chatProgram,
+      voices,
+      async () => ({ audioBytes: signalWav(), traceId: null }),
+      { backgroundBed: "ambient", backgroundBedSeed: " " },
+    );
+    saveCalled = rendered.audioBytes.length > 0;
+  }, /seed 不能为空/);
+  assert.equal(saveCalled, false);
+});
+
 test("delivery 不会修改 normal 原文或 alien 的确定性 spokenText", async () => {
   const normalRequests: Array<{ text: string }> = [];
   const alienRequests: Array<{ text: string }> = [];

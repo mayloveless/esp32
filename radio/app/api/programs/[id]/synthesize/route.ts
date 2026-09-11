@@ -18,6 +18,11 @@ import {
   type RenderMode,
 } from "../../../../../renderer/render";
 import {
+  getDefaultBackgroundBed,
+  parseBackgroundBed,
+  type BackgroundBed,
+} from "../../../../../renderer/background-bed";
+import {
   parseDeliveryProfileId,
   type DeliveryProfileId,
 } from "../../../../../renderer/delivery";
@@ -42,6 +47,8 @@ function errorStatus(error: unknown) {
 
 type SynthesisRequestOptions = {
   alienDialect?: AlienDialect;
+  backgroundBed: BackgroundBed;
+  backgroundBedSeed: string | null;
   deliveryProfile?: DeliveryProfileId;
   mode: RenderMode;
 };
@@ -52,8 +59,9 @@ async function readSynthesisRequest(
   const body = await readJsonBody(request);
   if (typeof body !== "object" || body === null || Array.isArray(body))
     throw new TtsError("合成请求必须是对象。", "input");
-  const { alienDialect, deliveryProfile, renderMode } = body as {
+  const { alienDialect, backgroundBed, deliveryProfile, renderMode } = body as {
     alienDialect?: unknown;
+    backgroundBed?: unknown;
     deliveryProfile?: unknown;
     renderMode?: unknown;
   };
@@ -61,13 +69,22 @@ async function readSynthesisRequest(
     throw new TtsError("播报模式只能是 normal 或 alien。", "input");
   if (alienDialect !== undefined && !isAlienDialect(alienDialect))
     throw new TtsError("外星方言只能是 cosmic-1、machine-1 或 continental-1。", "input");
+  const mode = renderMode ?? "normal";
+  const resolvedAlienDialect = mode === "alien" ? alienDialect ?? "cosmic-1" : null;
+  const resolvedBackgroundBed =
+    backgroundBed === undefined
+      ? getDefaultBackgroundBed({ alienDialect: resolvedAlienDialect, mode })
+      : parseBackgroundBed(backgroundBed);
   return {
     alienDialect,
+    backgroundBed: resolvedBackgroundBed,
+    backgroundBedSeed:
+      resolvedBackgroundBed === "none" ? null : crypto.randomUUID(),
     deliveryProfile:
       deliveryProfile === undefined
         ? undefined
         : parseDeliveryProfileId(deliveryProfile),
-    mode: renderMode ?? "normal",
+    mode,
   };
 }
 
@@ -115,6 +132,10 @@ export async function POST(request: Request, { params }: Context) {
           {
             alienDialect: rendered.alienDialect,
             audioEffect: rendered.audioEffect,
+            backgroundBed: rendered.backgroundBed,
+            backgroundBedGain: rendered.backgroundBedGain,
+            backgroundBedGenerator: rendered.backgroundBedGenerator,
+            backgroundBedSeed: rendered.backgroundBedSeed,
             captions: rendered.captions,
             deliveryProfile: rendered.delivery.id,
             model: settings.model,
