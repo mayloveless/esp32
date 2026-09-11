@@ -1,0 +1,62 @@
+radio/package.json
+  s_1bfd675b83ce48::t_582fc1f27063cb 12
+radio/renderer/render.test.ts
+  s_1bfd675b83ce48::t_213fb728ac338e 47,53,60-73,103-120
+  s_1bfd675b83ce48::t_89b1bf73678315 121
+radio/renderer/alien-language.test.ts
+  s_1bfd675b83ce48::t_0e608286eeb660 1-31
+radio/app/api/programs/[id]/synthesize/route.ts
+  s_1bfd675b83ce48::t_9911cd4ee0b226 4,11-14,34-43,47,74,85,89
+radio/components/receiver-simulator.tsx
+  s_1bfd675b83ce48::t_4c69fe0f375cc5 12,154-156,428,595-600
+  s_1bfd675b83ce48::t_d534d5b38450e3 601-603
+radio/receiver/manifest.ts
+  s_1bfd675b83ce48::t_582fc1f27063cb 2,14
+radio/app/globals.css
+  s_1bfd675b83ce48::t_4c69fe0f375cc5 486-496
+  s_1bfd675b83ce48::t_fd16aa488ca283 205,283,286
+  s_1bfd675b83ce48::t_b6ae14d9852ba1 341-348,350-361
+radio/renderer/wav.ts
+  s_1bfd675b83ce48::t_98d51af1c5cc2d 65-68,99
+radio/receiver/captions.test.ts
+  s_1bfd675b83ce48::t_582fc1f27063cb 1-35
+radio/program/service.ts
+  s_1bfd675b83ce48::t_9911cd4ee0b226 3,26,30,271-272,276,316-317
+radio/renderer/alien-language.ts
+  s_1bfd675b83ce48::t_0e608286eeb660 1-133
+radio/renderer/render.ts
+  s_1bfd675b83ce48::t_23846fec19c49f 13-17,24-35,55-58,69,71-77,83,85-88,101-103,105,116-117,124,137,147-153
+  s_1bfd675b83ce48::t_de767ad3abe3e5 126
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_6ab5298d03e7f0 3
+  s_1bfd675b83ce48::t_1fcb68932445cb 580-597,599,603,607,609
+  s_1bfd675b83ce48::t_58353922a0f7cf 696-707,709-712
+  s_1bfd675b83ce48::t_b6ae14d9852ba1 10,82,198,657-685
+radio/app/api/receiver/tune/route.ts
+  s_1bfd675b83ce48::t_582fc1f27063cb 16,39
+radio/renderer/wav.test.ts
+  s_1bfd675b83ce48::t_98d51af1c5cc2d 32-40
+radio/receiver/captions.ts
+  s_1bfd675b83ce48::t_582fc1f27063cb 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bf0a6b9aa6192b20b354b1f02f6ce360a75dd1e5",
+  "prompts": {},
+  "humans": {
+    "h_26db57e01d6006": {
+      "author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
