@@ -99,7 +99,8 @@ function addRetroSynth(
   random: () => number,
   beatFrames: number,
 ) {
-  addDrone(mix, recipe, recipe.rootMidi - 12, 0.045);
+  // 保留复古的分步琶音，但用平滑波形避免锯齿波、方波和白噪声在扬声器上形成刺耳失真。
+  addDrone(mix, recipe, recipe.rootMidi - 12, 0.034);
   const stepFrames = beatFrames / 2;
   const steps = recipe.barCount * 8;
   for (let step = 0; step < steps; step += 1) {
@@ -107,11 +108,11 @@ function addRetroSynth(
     const chord = recipe.rootMidi + recipe.scale[(bar * 2) % recipe.scale.length];
     const degree = recipe.scale[(step + randomInteger(random, 0, 2)) % recipe.scale.length];
     const start = Math.round(step * stepFrames);
-    addTone(mix, start, Math.round(start + stepFrames * 0.82), midiToFrequency(chord + 12 + degree), 0.07, "saw");
+    addTone(mix, start, Math.round(start + stepFrames * 0.82), midiToFrequency(chord + 12 + degree), 0.055, "triangle");
     if (step % 2 === 0)
-      addTone(mix, start, Math.round(start + beatFrames * 0.72), midiToFrequency(chord - 12), 0.065, "square");
+      addTone(mix, start, Math.round(start + beatFrames * 0.72), midiToFrequency(chord - 12), 0.042, "sine");
     if (step % 4 === 0)
-      addNoiseHit(mix, start, Math.round(sampleRate * 0.04), 0.026, random);
+      addTone(mix, start, Math.round(start + stepFrames * 0.26), midiToFrequency(chord + 24), 0.021, "sine");
   }
 }
 

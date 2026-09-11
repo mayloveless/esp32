@@ -52,6 +52,22 @@ test("机械脉冲避免突变采样与硬削波", () => {
   assert.ok(maxAdjacentSampleDelta < 1_000);
 });
 
+test("复古合成器避免突变采样与硬削波", () => {
+  const asset = synthesizeProceduralMusic(
+    createProceduralMusicRecipe("retro_synth", "retro-continuity-fixture"),
+  );
+  const { data } = parsePcmWav(asset.audioBytes);
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  let maxAdjacentSampleDelta = 0;
+  for (let offset = 2; offset < data.length; offset += 2) {
+    maxAdjacentSampleDelta = Math.max(
+      maxAdjacentSampleDelta,
+      Math.abs(view.getInt16(offset, true) - view.getInt16(offset - 2, true)),
+    );
+  }
+  assert.ok(maxAdjacentSampleDelta < 1_000);
+});
+
 test("四种风格均输出合法、有时长且留有 headroom 的 32kHz mono PCM WAV", () => {
   for (const { value: style } of proceduralMusicStyleOptions) {
     const asset = synthesizeProceduralMusic(
