@@ -53,24 +53,46 @@ p {
   padding: 22px;
 }
 
+.music-generation-form,
 .music-upload-form {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid #dce3ed;
   margin-top: 1.5rem;
   padding-top: 1.5rem;
 }
 
-.music-upload-form h3 {
+.music-generation-form h3,
+.music-upload-form summary {
+  color: #172033;
+  cursor: pointer;
   font-size: 1rem;
+  font-weight: 700;
   margin: 0;
 }
 
+.music-upload-form summary::marker {
+  color: #637083;
+}
+
+.music-generation-form p,
 .music-upload-form p {
-  color: var(--muted);
+  color: #637083;
   margin: 0.35rem 0 1rem;
 }
 
+.music-generation-form .primary-button,
 .music-upload-form .primary-button {
   margin-top: 1rem;
+}
+
+.music-style-select {
+  display: grid;
+  gap: 0.4rem;
+  max-width: 18rem;
+}
+
+.music-style-select > span {
+  color: #637083;
+  font-size: 0.875rem;
 }
 .panel-heading {
   align-items: start;

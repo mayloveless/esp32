@@ -2,7 +2,16 @@ import "server-only";
 import { getSupabaseServerClient } from "../lib/supabase-server";
 import type { DeliveryProfileId } from "../renderer/delivery";
 import type { RenderMode } from "../renderer/render";
+import {
+  persistReadyMusicProgram,
+  type ReadyMusicPersistence,
+} from "./ready-music";
 import type { ManualMusicUpload } from "./music-upload";
+import type { ProceduralMusicAsset } from "../music/synth";
+import {
+  getProceduralMusicTitle,
+} from "../music/recipe";
+import type { ProceduralMusicRecipe } from "../music/types";
 import { buildSynthesisRecipe } from "./synthesis-metadata";
 import type { RadioProgram } from "./types";
 import type { CreateProgramInput, UpdateProgramInput } from "./validation";
@@ -155,30 +164,36 @@ export async function createProgram(
 /**
  * 创建一条可直接播出的手动音乐节目。先上传新对象；数据库写入失败时清理该对象。
  */
+function getReadyMusicPersistence(): ReadyMusicPersistence {
+  const client = getSupabaseServerClient();
+  return {
+    insert: async (record) => {
+      const { data, error } = await client.from(table).insert(record).select().single();
+      return { data: data as RadioProgram | null, error };
+    },
+    remove: async (path) => {
+      const { error } = await client.storage.from(bucket).remove([path]);
+      return error;
+    },
+    upload: async (path, audioBytes, contentType) => {
+      const { error } = await client.storage.from(bucket).upload(path, audioBytes, {
+        contentType,
+        upsert: false,
+      });
+      return error;
+    },
+  };
+}
+
 export async function createManualMusicProgram(
   input: ManualMusicUpload,
 ): Promise<{ program: RadioProgram; cleanupWarning: string | null }> {
-  const id = crypto.randomUUID();
-  const audioPath = `${id}/${crypto.randomUUID()}.${input.extension}`;
-  const client = getSupabaseServerClient();
-  const { error: uploadError } = await client.storage
-    .from(bucket)
-    .upload(audioPath, input.audioBytes, {
+  return persistReadyMusicProgram(
+    {
+      audioBytes: input.audioBytes,
       contentType: input.contentType,
-      upsert: false,
-    });
-  throwIfError(uploadError);
-
-  const { data, error } = await client
-    .from(table)
-    .insert({
-      id,
-      audio_path: audioPath,
-      captions: [],
-      content: {},
-      duration_ms: input.durationMs,
-      error: null,
-      format: "music",
+      durationMs: input.durationMs,
+      extension: input.extension,
       recipe: {
         audio_content_type: input.contentType,
         audio_source: "manual_upload",
@@ -186,21 +201,38 @@ export async function createManualMusicProgram(
         format: "music",
         style: input.style,
       },
-      retired_at: null,
-      status: "ready",
       title: input.title,
-    })
-    .select()
-    .single();
-  if (error) {
-    const cleanupWarning = await cleanupAudioObject(audioPath);
-    throw new Error(
-      cleanupWarning
-        ? `数据库未保存音乐节目，且${cleanupWarning}`
-        : `数据库未保存音乐节目：${error.message}`,
-    );
-  }
-  return { program: data as RadioProgram, cleanupWarning: null };
+    },
+    getReadyMusicPersistence(),
+  );
+}
+
+export async function createProceduralMusicProgram(
+  recipe: ProceduralMusicRecipe,
+  asset: ProceduralMusicAsset,
+): Promise<{ program: RadioProgram; cleanupWarning: string | null }> {
+  return persistReadyMusicProgram(
+    {
+      audioBytes: asset.audioBytes,
+      contentType: "audio/wav",
+      durationMs: asset.durationMs,
+      extension: "wav",
+      recipe: {
+        audio_content_type: "audio/wav",
+        audio_source: "procedural",
+        format: "music",
+        music_bpm: recipe.bpm,
+        music_duration_ms: recipe.durationMs,
+        music_generator: recipe.generator,
+        music_root_midi: recipe.rootMidi,
+        music_scale: recipe.scale,
+        music_seed: recipe.seed,
+        music_style: recipe.style,
+      },
+      title: getProceduralMusicTitle(recipe),
+    },
+    getReadyMusicPersistence(),
+  );
 }
 
 export async function createGeneratingProgram(input: {

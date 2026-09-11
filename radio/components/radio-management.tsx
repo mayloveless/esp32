@@ -20,6 +20,10 @@ import {
   getDeliveryProfile,
   type DeliveryProfileId,
 } from "../renderer/delivery";
+import {
+  proceduralMusicStyleOptions,
+  type ProceduralMusicStyleRequest,
+} from "../music/types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -143,6 +147,9 @@ export function RadioManagement() {
   const [musicStyle, setMusicStyle] = useState("");
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [uploadingMusic, setUploadingMusic] = useState(false);
+  const [proceduralMusicStyle, setProceduralMusicStyle] =
+    useState<ProceduralMusicStyleRequest>("random");
+  const [generatingMusic, setGeneratingMusic] = useState(false);
   const [programs, setPrograms] = useState<RadioProgram[]>([]);
   const [selected, setSelected] = useState<RadioProgram | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -355,6 +362,39 @@ export function RadioManagement() {
       setMessage(error instanceof Error ? error.message : "无法创建音乐节目。");
     } finally {
       setUploadingMusic(false);
+    }
+  }
+
+  async function generateMusicProgram() {
+    try {
+      setGeneratingMusic(true);
+      setMessage(null);
+      const response = await fetch("/api/programs/music/generate", {
+        body: JSON.stringify({ style: proceduralMusicStyle }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        cleanupWarning?: string | null;
+        error?: string;
+        program?: RadioProgram;
+      };
+      if (!response.ok)
+        throw new Error(body.error ?? "无法生成音乐节目。");
+      if (!body.program) throw new Error("服务端未返回已生成的音乐节目。");
+
+      selectedProgramIdRef.current = body.program.id;
+      setSelected(body.program);
+      setAudioUrl(null);
+      setAudioLoading(false);
+      setAudioRefreshAttempted(false);
+      await selectProgram(body.program.id);
+      await loadPrograms();
+      setMessage(body.cleanupWarning ?? "音乐节目已生成并保存到播出池，可开始试听。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法生成音乐节目。");
+    } finally {
+      setGeneratingMusic(false);
     }
   }
 
@@ -664,11 +704,41 @@ export function RadioManagement() {
         >
           {generating ? "正在生成稿件…" : "生成稿件"}
         </button>
-        <div className="music-upload-form">
+        <div className="music-generation-form">
           <div>
-            <h3>添加音乐节目</h3>
-            <p>仅上传自己有权使用的 MP3 或 PCM WAV；不会经过 AI、TTS 或 Renderer。</p>
+            <h3>生成音乐节目</h3>
+            <p>服务器将用程序化合成生成原创 PCM WAV；无需上传文件或填写提示词。</p>
           </div>
+          <label className="music-style-select">
+            <span>音乐风格</span>
+            <select
+              onChange={(event) =>
+                setProceduralMusicStyle(
+                  event.target.value as ProceduralMusicStyleRequest,
+                )
+              }
+              value={proceduralMusicStyle}
+            >
+              <option value="random">随机</option>
+              {proceduralMusicStyleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="primary-button"
+            disabled={generatingMusic}
+            onClick={() => void generateMusicProgram()}
+            type="button"
+          >
+            {generatingMusic ? "正在生成音乐…" : "生成音乐"}
+          </button>
+        </div>
+        <details className="music-upload-form">
+          <summary>手动上传音乐</summary>
+          <p>仅上传自己有权使用的 MP3 或 PCM WAV；不会经过 AI、TTS 或 Renderer。</p>
           <div className="form-grid" role="group" aria-label="音乐节目参数">
             <label>
               <span>标题</span>
@@ -710,7 +780,7 @@ export function RadioManagement() {
           >
             {uploadingMusic ? "正在验证并上传音乐…" : "创建音乐节目"}
           </button>
-        </div>
+        </details>
       </section>
       <div className="management-grid">
         <section
