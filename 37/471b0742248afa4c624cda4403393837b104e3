@@ -1,0 +1,41 @@
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_1f933afe971d64 23-26,150-152,368-400,707-738,741
+radio/music/types.ts
+  s_1bfd675b83ce48::t_261ac37b7025af 1-28
+radio/app/api/programs/music/generate/route.ts
+  s_1bfd675b83ce48::t_1f933afe971d64 1-33
+radio/app/globals.css
+  s_1bfd675b83ce48::t_1f933afe971d64 56,63,69,75,79-89
+radio/program/ready-music.test.ts
+  s_1bfd675b83ce48::t_2e7ff305b24947 1-74
+radio/music/random.ts
+  s_1bfd675b83ce48::t_261ac37b7025af 1-24
+radio/package.json
+  s_1bfd675b83ce48::t_fb1bd1d320cbd7 12
+radio/music/synth.ts
+  s_1bfd675b83ce48::t_261ac37b7025af 1-206
+radio/program/service.ts
+  s_1bfd675b83ce48::t_2e7ff305b24947 5-8,10-14,167-187,191-193,195-196,205-235
+radio/music/recipe.ts
+  s_1bfd675b83ce48::t_261ac37b7025af 1-89
+radio/music/synth.test.ts
+  s_1bfd675b83ce48::t_261ac37b7025af 1-65
+radio/program/ready-music.ts
+  s_1bfd675b83ce48::t_2e7ff305b24947 1-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "37471b0742248afa4c624cda4403393837b104e3",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
