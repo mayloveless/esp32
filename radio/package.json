@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:checkpoint-b": "node --experimental-strip-types --experimental-default-type=module --test content/script-validation.test.ts content/deepseek-config.test.ts content/deepseek-transport.test.ts content/generation-lock.test.ts program/validation.test.ts receiver/manifest.test.ts receiver/runtime.test.ts receiver/replenishment.test.ts tts/validation.test.ts tts/config.test.ts tts/siliconflow-transport.test.ts tts/synthesis-lock.test.ts"
+    "test:checkpoint-b": "node --experimental-strip-types --experimental-default-type=module --test content/script-validation.test.ts content/deepseek-config.test.ts content/deepseek-transport.test.ts content/generation-lock.test.ts program/inventory-batch.test.ts program/validation.test.ts receiver/manifest.test.ts receiver/runtime.test.ts receiver/replenishment.test.ts tts/validation.test.ts tts/config.test.ts tts/siliconflow-transport.test.ts tts/synthesis-lock.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

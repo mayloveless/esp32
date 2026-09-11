@@ -154,6 +154,18 @@ button:focus-visible {
   padding: 4px 9px;
   white-space: nowrap;
 }
+.inventory-batch-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.inventory-batch-summary {
+  color: #637083;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
 .notice {
   background: #fff8e8;
   border-bottom: 1px solid #eedaa4;
@@ -164,6 +176,21 @@ button:focus-visible {
 }
 .table-wrap {
   overflow-x: auto;
+}
+.selection-column {
+  padding-left: 16px;
+  padding-right: 0;
+  width: 42px;
+}
+.selection-column input {
+  accent-color: #2769c7;
+  cursor: pointer;
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+.selection-column input:disabled {
+  cursor: not-allowed;
 }
 table {
   border-collapse: collapse;

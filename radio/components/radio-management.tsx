@@ -25,6 +25,15 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeStyle: "short",
 });
 
+type InventoryBatchResult =
+  | {
+      cleanupWarning?: string | null;
+      id: string;
+      program?: RadioProgram;
+      success: true;
+    }
+  | { error: string; id: string; success: false };
+
 function asBroadcastScript(content: RadioProgram["content"]): BroadcastScript | null {
   if (
     typeof content.title !== "string" ||
@@ -71,13 +80,35 @@ export function RadioManagement() {
   const [generating, setGenerating] = useState(false);
   const [synthesizing, setSynthesizing] = useState(false);
   const [audioRefreshAttempted, setAudioRefreshAttempted] = useState(false);
+  const [checkedProgramIds, setCheckedProgramIds] = useState<string[]>([]);
   const selectedScript = selected ? asBroadcastScript(selected.content) : null;
+  const checkedPrograms = programs.filter((program) =>
+    checkedProgramIds.includes(program.id),
+  );
+  const checkedReadyPrograms = checkedPrograms.filter(
+    (program) => program.status === "ready",
+  );
+  const selectedActivePrograms = checkedReadyPrograms.filter(
+    (program) => !program.retired_at,
+  );
+  const selectedRetiredPrograms = checkedReadyPrograms.filter((program) =>
+    Boolean(program.retired_at),
+  );
+  const allProgramsChecked =
+    programs.length > 0 &&
+    programs.every((program) => checkedProgramIds.includes(program.id));
 
   async function loadPrograms() {
     try {
       setLoading(true);
-      setPrograms(
-        (await request<{ programs: RadioProgram[] }>("/api/programs")).programs,
+      const nextPrograms = (
+        await request<{ programs: RadioProgram[] }>("/api/programs")
+      ).programs;
+      setPrograms(nextPrograms);
+      setCheckedProgramIds((ids) =>
+        ids.filter((id) =>
+          nextPrograms.some((program) => program.id === id),
+        ),
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法读取节目列表。");
@@ -199,6 +230,119 @@ export function RadioManagement() {
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法更新节目播出状态。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function setProgramChecked(id: string, checked: boolean) {
+    setCheckedProgramIds((ids) =>
+      checked ? [...new Set([...ids, id])] : ids.filter((item) => item !== id),
+    );
+  }
+
+  function toggleAllPrograms() {
+    setCheckedProgramIds(
+      allProgramsChecked ? [] : programs.map((program) => program.id),
+    );
+  }
+
+  async function changeInventoryBatch(action: "retire" | "restore") {
+    const targetPrograms =
+      action === "retire" ? selectedActivePrograms : selectedRetiredPrograms;
+    if (targetPrograms.length === 0) return;
+
+    try {
+      setSaving(true);
+      setMessage(null);
+      const { results } = await request<{ results: InventoryBatchResult[] }>(
+        "/api/programs/inventory",
+        {
+          body: JSON.stringify({
+            action,
+            programIds: targetPrograms.map((program) => program.id),
+          }),
+          method: "POST",
+        },
+      );
+      const successfulResults = results.filter(
+        (result): result is Extract<InventoryBatchResult, { success: true }> =>
+          result.success,
+      );
+      const successfulIds = successfulResults.map((result) => result.id);
+      const selectedResult = successfulResults.find(
+        (result) => result.id === selected?.id,
+      );
+      if (selectedResult?.program) setSelected(selectedResult.program);
+      setCheckedProgramIds((ids) =>
+        ids.filter((id) => !successfulIds.includes(id)),
+      );
+      await loadPrograms();
+      const failedCount = results.length - successfulResults.length;
+      const actionLabel = action === "retire" ? "下线" : "恢复";
+      setMessage(
+        failedCount > 0
+          ? `已${actionLabel} ${successfulResults.length} 条节目，${failedCount} 条未能处理。`
+          : `已${actionLabel} ${successfulResults.length} 条节目。`,
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法批量更新节目播出状态。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteProgramsBatch() {
+    if (checkedPrograms.length === 0) return;
+    if (
+      !window.confirm(
+        `删除所选 ${checkedPrograms.length} 条节目及其音频文件？此操作不可恢复。`,
+      )
+    )
+      return;
+
+    try {
+      setSaving(true);
+      setMessage(null);
+      const { results } = await request<{ results: InventoryBatchResult[] }>(
+        "/api/programs/inventory",
+        {
+          body: JSON.stringify({
+            action: "delete",
+            programIds: checkedPrograms.map((program) => program.id),
+          }),
+          method: "POST",
+        },
+      );
+      const successfulResults = results.filter(
+        (result): result is Extract<InventoryBatchResult, { success: true }> =>
+          result.success,
+      );
+      const successfulIds = successfulResults.map((result) => result.id);
+      if (selected && successfulIds.includes(selected.id)) {
+        setSelected(null);
+        setAudioFile(null);
+        setAudioUrl(null);
+      }
+      setCheckedProgramIds((ids) =>
+        ids.filter((id) => !successfulIds.includes(id)),
+      );
+      await loadPrograms();
+      const failedCount = results.length - successfulResults.length;
+      const cleanupWarningCount = successfulResults.filter(
+        (result) => result.cleanupWarning,
+      ).length;
+      const resultMessage =
+        failedCount > 0
+          ? `已删除 ${successfulResults.length} 条节目，${failedCount} 条未能删除。`
+          : `已删除 ${successfulResults.length} 条节目。`;
+      setMessage(
+        cleanupWarningCount > 0
+          ? `${resultMessage}${cleanupWarningCount} 个音频对象未能清理。`
+          : resultMessage,
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法批量删除节目。");
     } finally {
       setSaving(false);
     }
@@ -351,7 +495,38 @@ export function RadioManagement() {
               <h2 id="library-heading">节目列表</h2>
               <p>真实节目数据保存在私有资源中。</p>
             </div>
-            <span className="count">{programs.length} 个节目</span>
+            <div className="inventory-batch-actions">
+              <span className="count">{programs.length} 个节目</span>
+              {checkedPrograms.length > 0 && (
+                <span className="inventory-batch-summary">
+                  已选择 {checkedPrograms.length} 条
+                </span>
+              )}
+              <button
+                className="text-button"
+                disabled={saving || selectedActivePrograms.length === 0}
+                onClick={() => void changeInventoryBatch("retire")}
+                type="button"
+              >
+                批量下线{selectedActivePrograms.length > 0 ? `（${selectedActivePrograms.length}）` : ""}
+              </button>
+              <button
+                className="text-button"
+                disabled={saving || selectedRetiredPrograms.length === 0}
+                onClick={() => void changeInventoryBatch("restore")}
+                type="button"
+              >
+                批量恢复{selectedRetiredPrograms.length > 0 ? `（${selectedRetiredPrograms.length}）` : ""}
+              </button>
+              <button
+                className="text-button danger-button"
+                disabled={saving || checkedPrograms.length === 0}
+                onClick={() => void deleteProgramsBatch()}
+                type="button"
+              >
+                批量删除{checkedPrograms.length > 0 ? `（${checkedPrograms.length}）` : ""}
+              </button>
+            </div>
           </div>
           {message && (
             <p className="notice" role="status">
@@ -362,6 +537,15 @@ export function RadioManagement() {
             <table>
               <thead>
                 <tr>
+                  <th className="selection-column" scope="col">
+                    <input
+                      aria-label="全选节目"
+                      checked={allProgramsChecked}
+                      disabled={loading || programs.length === 0 || saving}
+                      onChange={toggleAllPrograms}
+                      type="checkbox"
+                    />
+                  </th>
                   <th scope="col">节目</th>
                   <th scope="col">形式</th>
                   <th scope="col">状态</th>
@@ -372,12 +556,12 @@ export function RadioManagement() {
               <tbody>
                 {loading && (
                   <tr className="empty-row">
-                    <td colSpan={5}>正在读取节目…</td>
+                    <td colSpan={6}>正在读取节目…</td>
                   </tr>
                 )}
                 {!loading && programs.length === 0 && (
                   <tr className="empty-row">
-                    <td colSpan={5}>暂无节目。当前没有伪造的示例数据。</td>
+                    <td colSpan={6}>暂无节目。当前没有伪造的示例数据。</td>
                   </tr>
                 )}
                 {!loading &&
@@ -396,6 +580,19 @@ export function RadioManagement() {
                       role="button"
                       tabIndex={0}
                     >
+                      <td className="selection-column">
+                        <input
+                          aria-label={`选择节目：${program.title || "未命名节目"}`}
+                          checked={checkedProgramIds.includes(program.id)}
+                          disabled={saving}
+                          onChange={(event) =>
+                            setProgramChecked(program.id, event.target.checked)
+                          }
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                          type="checkbox"
+                        />
+                      </td>
                       <td>{program.title || "未命名节目"}</td>
                       <td>{program.format}</td>
                       <td>
