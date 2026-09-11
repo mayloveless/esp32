@@ -1,13 +1,77 @@
+export const alienDialects = [
+  "cosmic-1",
+  "machine-1",
+  "continental-1",
+] as const;
+
 export const defaultAlienDialect = "cosmic-1";
 
-export type AlienDialect = typeof defaultAlienDialect;
+export type AlienDialect = (typeof alienDialects)[number];
+
+export const alienDialectOptions: Array<{
+  label: string;
+  value: AlienDialect;
+}> = [
+  { label: "柔和宇宙语", value: "cosmic-1" },
+  { label: "机械通信语", value: "machine-1" },
+  { label: "大陆异语", value: "continental-1" },
+];
 
 type Token =
   | { type: "word"; value: string }
   | { type: "punctuation"; value: string };
 
-const syllableOnsets = ["k", "l", "m", "n", "r", "s", "t", "v", "z"];
-const syllableVowels = ["a", "e", "i", "o", "u", "ai", "ei", "ou"];
+type Phonology = {
+  codas: string[];
+  onsets: string[];
+  vowels: string[];
+};
+
+const phonologies: Record<AlienDialect, Phonology> = {
+  "cosmic-1": {
+    codas: [],
+    onsets: ["k", "l", "m", "n", "r", "s", "t", "v", "z"],
+    vowels: ["a", "e", "i", "o", "u", "ai", "ei", "ou"],
+  },
+  "machine-1": {
+    codas: ["k", "t", "s", "r"],
+    onsets: ["k", "t", "z", "v", "r", "sk", "kr", "tr", "ts"],
+    vowels: ["a", "e", "i", "o", "u"],
+  },
+  "continental-1": {
+    codas: ["n", "r", "s", "k", "t", "l"],
+    onsets: [
+      "k",
+      "g",
+      "t",
+      "d",
+      "p",
+      "b",
+      "v",
+      "z",
+      "s",
+      "r",
+      "l",
+      "m",
+      "n",
+      "f",
+      "sh",
+      "zh",
+      "ts",
+      "kr",
+      "gr",
+      "tr",
+      "dr",
+      "vr",
+      "st",
+      "sk",
+      "pr",
+      "br",
+    ],
+    vowels: ["a", "e", "i", "o", "u", "ai", "ei"],
+  },
+};
+
 const punctuationMap: Record<string, string> = {
   "，": ",",
   "。": ".",
@@ -22,6 +86,10 @@ const punctuationMap: Record<string, string> = {
   ";": ";",
   ":": ":",
 };
+
+export function isAlienDialect(value: unknown): value is AlienDialect {
+  return typeof value === "string" && alienDialects.includes(value as AlienDialect);
+}
 
 function isPunctuation(value: string) {
   return value in punctuationMap;
@@ -44,15 +112,39 @@ function stableHash(value: string) {
   return hash;
 }
 
+function nextHash(hash: number) {
+  return Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) >>> 0;
+}
+
+function syllableCount(dialect: AlienDialect, word: string, hash: number) {
+  const tokenLength = Array.from(word).length;
+  if (dialect === "machine-1") {
+    if (tokenLength <= 2) return 1;
+    return hash % 4 === 0 ? 2 : 1;
+  }
+  if (tokenLength <= 1) return 1;
+  if (tokenLength <= 3) return 1 + (hash % 2);
+  return 1 + (hash % 3);
+}
+
 function pseudoWord(dialect: AlienDialect, word: string) {
+  const phonology = phonologies[dialect];
   let hash = stableHash(`${dialect}\u0000${word}`);
-  const syllableCount = 2 + (hash % 3);
+  const count = syllableCount(dialect, word, hash);
   const syllables: string[] = [];
-  for (let index = 0; index < syllableCount; index += 1) {
-    hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) >>> 0;
-    const onset = syllableOnsets[hash % syllableOnsets.length];
-    const vowel = syllableVowels[(hash >>> 8) % syllableVowels.length];
-    syllables.push(`${onset}${vowel}`);
+  for (let index = 0; index < count; index += 1) {
+    hash = nextHash(hash);
+    const onset = phonology.onsets[hash % phonology.onsets.length];
+    const vowel = phonology.vowels[(hash >>> 8) % phonology.vowels.length];
+    const isFinalSyllable = index === count - 1;
+    const useCoda =
+      isFinalSyllable &&
+      phonology.codas.length > 0 &&
+      (dialect === "machine-1" ? hash % 2 === 0 : hash % 3 === 0);
+    const coda = useCoda
+      ? phonology.codas[(hash >>> 16) % phonology.codas.length]
+      : "";
+    syllables.push(`${onset}${vowel}${coda}`);
   }
   return syllables.join("");
 }
@@ -107,8 +199,8 @@ function segmentTokens(text: string): Token[] {
 }
 
 /**
- * 把语义文本转为可被中文 TTS 连续读出的拉丁音节。该转换不产生随机值，
- * 因而同一方言中的同一词会得到稳定的伪外星语词。
+ * 把语义文本转为可被中文 TTS 连续读出的拉丁音节。转换不产生随机值，
+ * 同一方言中的同一词会稳定得到同一伪外星语词。
  */
 export function toAlienSpokenText(
   text: string,

@@ -4,6 +4,7 @@ import type { JsonObject } from "./types";
 
 export type SynthesisRecipeMetadata = {
   alienDialect: string | null;
+  audioEffect: string | null;
   audioContentType: string;
   deliveryProfile: DeliveryProfileId | null;
   model: string;
@@ -22,6 +23,7 @@ export function buildSynthesisRecipe(
 ): JsonObject {
   return {
     ...recipe,
+    audio_effect: metadata.audioEffect,
     audio_content_type: metadata.audioContentType,
     alien_dialect: metadata.alienDialect,
     delivery_profile: metadata.deliveryProfile,

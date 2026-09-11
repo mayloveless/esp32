@@ -9,6 +9,12 @@ import {
 } from "../program/types";
 import type { RenderMode } from "../renderer/render";
 import {
+  alienDialectOptions,
+  defaultAlienDialect,
+  isAlienDialect,
+  type AlienDialect,
+} from "../renderer/alien-language";
+import {
   deliveryProfileIds,
   getDefaultDeliveryProfileId,
   getDeliveryProfile,
@@ -85,6 +91,7 @@ function asBroadcastScript(content: RadioProgram["content"]): BroadcastScript | 
 }
 
 function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
+  alienDialect: AlienDialect | null;
   deliveryProfile: DeliveryProfileId | null;
   renderMode: RenderMode | null;
   speed: number | null;
@@ -93,6 +100,9 @@ function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
     recipe.render_mode === "normal" || recipe.render_mode === "alien"
       ? recipe.render_mode
       : null;
+  const alienDialect = isAlienDialect(recipe.alien_dialect)
+    ? recipe.alien_dialect
+    : null;
   const deliveryProfile =
     typeof recipe.delivery_profile === "string" &&
     deliveryProfileIds.includes(recipe.delivery_profile as DeliveryProfileId)
@@ -102,11 +112,18 @@ function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
     typeof recipe.tts_speed === "number" && Number.isFinite(recipe.tts_speed)
       ? recipe.tts_speed
       : null;
-  return { deliveryProfile, renderMode, speed };
+  return { alienDialect, deliveryProfile, renderMode, speed };
 }
 
 function getRenderModeLabel(renderMode: RenderMode) {
   return renderMode === "alien" ? "外星伪语播报" : "中文原文播报";
+}
+
+function getAlienDialectLabel(dialect: AlienDialect) {
+  return (
+    alienDialectOptions.find((option) => option.value === dialect)?.label ??
+    dialect
+  );
 }
 
 export function RadioManagement() {
@@ -127,6 +144,8 @@ export function RadioManagement() {
   >(null);
   const [deliveryProfile, setDeliveryProfile] =
     useState<DeliveryProfileId | null>(null);
+  const [alienDialect, setAlienDialect] =
+    useState<AlienDialect>(defaultAlienDialect);
   const [renderMode, setRenderMode] = useState<RenderMode>("normal");
   const [audioRefreshAttempted, setAudioRefreshAttempted] = useState(false);
   const [checkedProgramIds, setCheckedProgramIds] = useState<string[]>([]);
@@ -191,6 +210,7 @@ export function RadioManagement() {
       if (selectedProgramIdRef.current !== id) return;
       setSelected(program);
       const savedSettings = getSavedDeliverySettings(program.recipe);
+      setAlienDialect(savedSettings.alienDialect ?? defaultAlienDialect);
       setDeliveryProfile(savedSettings.deliveryProfile);
       setRenderMode(savedSettings.renderMode ?? "normal");
       setAudioUrl(null);
@@ -258,6 +278,7 @@ export function RadioManagement() {
       if (body.program) {
         selectedProgramIdRef.current = body.program.id;
         setSelected(body.program);
+        setAlienDialect(defaultAlienDialect);
         setDeliveryProfile(null);
         setRenderMode("normal");
         setAudioUrl(null);
@@ -286,6 +307,8 @@ export function RadioManagement() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           deliveryProfile: effectiveDeliveryProfile,
+          alienDialect:
+            requestedRenderMode === "alien" ? alienDialect : undefined,
           renderMode: requestedRenderMode,
         }),
       });
@@ -304,6 +327,12 @@ export function RadioManagement() {
           savedSettings.renderMode !== requestedRenderMode
         )
           throw new Error("语音已保存，但保存的播报模式与本次请求不一致。");
+        if (
+          response.ok &&
+          requestedRenderMode === "alien" &&
+          savedSettings.alienDialect !== alienDialect
+        )
+          throw new Error("语音已保存，但保存的外星方言与本次请求不一致。");
       }
       if (!response.ok)
         throw new Error(body.error ?? "无法合成语音。");
@@ -797,6 +826,10 @@ export function RadioManagement() {
                 <p className="audio-delivery-summary">
                   当前已保存：
                   {getRenderModeLabel(savedDeliverySettings.renderMode)}
+                  {savedDeliverySettings.renderMode === "alien" &&
+                  savedDeliverySettings.alienDialect
+                    ? ` · ${getAlienDialectLabel(savedDeliverySettings.alienDialect)}`
+                    : ""}
                   {selectedScript
                     ? ` · ${selectedScript.language} 稿件与字幕`
                     : ""}
@@ -854,6 +887,24 @@ export function RadioManagement() {
                     ? "本次实际合成会将外星伪语发送给 TTS；中文只保留在稿件与字幕中。"
                     : "本次实际合成会将中文稿件发送给 TTS。"}
                 </p>
+                {renderMode === "alien" && (
+                  <label className="synthesis-profile">
+                    <span>外星方言</span>
+                    <select
+                      disabled={isSynthesisInProgress}
+                      onChange={(event) =>
+                        setAlienDialect(event.target.value as AlienDialect)
+                      }
+                      value={alienDialect}
+                    >
+                      {alienDialectOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label className="synthesis-profile">
                   <span>表现风格</span>
                   <select

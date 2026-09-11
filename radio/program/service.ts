@@ -26,6 +26,7 @@ type SynthesizedAudioAsset = {
 
 type SynthesizedAudioMetadata = {
   alienDialect: string | null;
+  audioEffect: string | null;
   captions: unknown[];
   deliveryProfile: DeliveryProfileId | null;
   model: string;
@@ -274,6 +275,7 @@ export async function saveSynthesizedProgramAudio(
   const tts: SynthesizedAudioMetadata = legacyTts
       ? {
         alienDialect: null,
+        audioEffect: null,
         captions: [],
         deliveryProfile: null,
         model: legacyTts.model,
@@ -318,6 +320,7 @@ export async function saveSynthesizedProgramAudio(
       error: null,
       recipe: buildSynthesisRecipe(current.recipe, {
         alienDialect: tts.alienDialect,
+        audioEffect: tts.audioEffect,
         audioContentType: asset.contentType,
         deliveryProfile: tts.deliveryProfile,
         model: tts.model,

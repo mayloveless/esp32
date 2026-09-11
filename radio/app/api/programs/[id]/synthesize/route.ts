@@ -10,6 +10,10 @@ import {
 } from "../../../../../program/service";
 import { getSynthesisOperation } from "../../../../../program/synthesis-state";
 import {
+  isAlienDialect,
+  type AlienDialect,
+} from "../../../../../renderer/alien-language";
+import {
   renderProgramAudio,
   type RenderMode,
 } from "../../../../../renderer/render";
@@ -37,6 +41,7 @@ function errorStatus(error: unknown) {
 }
 
 type SynthesisRequestOptions = {
+  alienDialect?: AlienDialect;
   deliveryProfile?: DeliveryProfileId;
   mode: RenderMode;
 };
@@ -47,13 +52,17 @@ async function readSynthesisRequest(
   const body = await readJsonBody(request);
   if (typeof body !== "object" || body === null || Array.isArray(body))
     throw new TtsError("合成请求必须是对象。", "input");
-  const { deliveryProfile, renderMode } = body as {
+  const { alienDialect, deliveryProfile, renderMode } = body as {
+    alienDialect?: unknown;
     deliveryProfile?: unknown;
     renderMode?: unknown;
   };
   if (renderMode !== undefined && renderMode !== "normal" && renderMode !== "alien")
     throw new TtsError("播报模式只能是 normal 或 alien。", "input");
+  if (alienDialect !== undefined && !isAlienDialect(alienDialect))
+    throw new TtsError("外星方言只能是 cosmic-1、machine-1 或 continental-1。", "input");
   return {
+    alienDialect,
     deliveryProfile:
       deliveryProfile === undefined
         ? undefined
@@ -105,6 +114,7 @@ export async function POST(request: Request, { params }: Context) {
           },
           {
             alienDialect: rendered.alienDialect,
+            audioEffect: rendered.audioEffect,
             captions: rendered.captions,
             deliveryProfile: rendered.delivery.id,
             model: settings.model,

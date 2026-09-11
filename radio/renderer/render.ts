@@ -16,6 +16,10 @@ import {
   type AlienDialect,
 } from "./alien-language.ts";
 import {
+  applyMachineRadioEffect,
+  machineRadioEffect,
+} from "./audio-effects.ts";
+import {
   getDefaultDeliveryProfileId,
   getDeliveryProfile,
   type DeliveryProfile,
@@ -119,6 +123,7 @@ export function createRenderPlan(
 }
 
 export type RenderedProgramAudio = {
+  audioEffect: string | null;
   audioBytes: Uint8Array;
   captions: Caption[];
   delivery: DeliveryProfile;
@@ -159,8 +164,15 @@ export async function renderProgramAudio(
     });
     traceIds.push(result.traceId);
   }
+  const merged = mergeWavSegments(renderedSegments);
+  const applyMachineEffect =
+    plan.mode === "alien" && plan.alienDialect === "machine-1";
   return {
-    ...mergeWavSegments(renderedSegments),
+    ...merged,
+    audioBytes: applyMachineEffect
+      ? applyMachineRadioEffect(merged.audioBytes)
+      : merged.audioBytes,
+    audioEffect: applyMachineEffect ? machineRadioEffect : null,
     alienDialect: plan.alienDialect,
     delivery: plan.delivery,
     mode: plan.mode,

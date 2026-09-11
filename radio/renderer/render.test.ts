@@ -35,6 +35,20 @@ function wav(durationMs = 100) {
   );
 }
 
+function signalWav(durationMs = 100) {
+  const frames = Math.round((format.sampleRate * durationMs) / 1_000);
+  const data = new Uint8Array(frames * format.blockAlign);
+  const view = new DataView(data.buffer);
+  for (let frame = 0; frame < frames; frame += 1) {
+    view.setInt16(
+      frame * format.blockAlign,
+      Math.round(Math.sin((2 * Math.PI * 440 * frame) / format.sampleRate) * 24_000),
+      true,
+    );
+  }
+  return buildPcmWav(format, data);
+}
+
 test("speaker 映射稳定，且相邻同 speaker 会合并", () => {
   const plan = createRenderPlan(chatProgram, voices);
   assert.deepEqual(plan.speakerVoices, {
@@ -134,6 +148,29 @@ test("alien TTS 接收 spokenText，但 caption 保存中文原文", async () =>
   assert.equal(result.captions[0].text, "第一段。\n第二段。");
   assert.equal(result.mode, "alien");
   assert.equal(result.alienDialect, "cosmic-1");
+});
+
+test("仅 machine-1 会处理最终 WAV，且不改变字幕或时长", async () => {
+  const synthesize = async () => ({ audioBytes: signalWav(), traceId: null });
+  const cosmic = await renderProgramAudio(chatProgram, voices, synthesize, {
+    alienDialect: "cosmic-1",
+    mode: "alien",
+  });
+  const continental = await renderProgramAudio(chatProgram, voices, synthesize, {
+    alienDialect: "continental-1",
+    mode: "alien",
+  });
+  const machine = await renderProgramAudio(chatProgram, voices, synthesize, {
+    alienDialect: "machine-1",
+    mode: "alien",
+  });
+
+  assert.equal(cosmic.audioEffect, null);
+  assert.equal(continental.audioEffect, null);
+  assert.equal(machine.audioEffect, "machine-radio-v4");
+  assert.equal(machine.durationMs, cosmic.durationMs);
+  assert.deepEqual(machine.captions, cosmic.captions);
+  assert.notDeepEqual(machine.audioBytes, cosmic.audioBytes);
 });
 
 test("delivery 不会修改 normal 原文或 alien 的确定性 spokenText", async () => {
