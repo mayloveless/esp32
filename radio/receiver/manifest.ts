@@ -1,4 +1,5 @@
 import type { RadioProgram } from "../program/types";
+import type { ReceiverCaption } from "./captions";
 
 const maximumExcludedPrograms = 20;
 
@@ -10,7 +11,7 @@ export type ReceiverManifest = {
   audioExpiresAt: string;
   durationMs: number;
   startOffsetMs: number;
-  captions: unknown[];
+  captions: ReceiverCaption[];
   retireOnComplete: true;
 };
 

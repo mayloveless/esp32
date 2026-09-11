@@ -9,6 +9,7 @@ import {
   resolvePlaybackStartOffsetMs,
   type ReceiverStatus,
 } from "../receiver/runtime";
+import { findCaptionAtTime } from "../receiver/captions";
 
 type TuneResponse =
   | { result: "no_signal" }
@@ -150,6 +151,9 @@ export function ReceiverSimulator() {
   const [error, setError] = useState<string | null>(null);
   const [manualPlaybackRequired, setManualPlaybackRequired] = useState(false);
   const [playbackSeconds, setPlaybackSeconds] = useState(0);
+  const currentCaption = manifest
+    ? findCaptionAtTime(manifest.captions, playbackSeconds * 1_000)
+    : null;
 
   function stopCurrentAudio() {
     const audio = audioRef.current;
@@ -421,6 +425,7 @@ export function ReceiverSimulator() {
         nextManifest.startOffsetMs / 1000,
         Math.max(0, durationSeconds - 0.01),
       );
+      setPlaybackSeconds(audio.currentTime);
       audioReadyToPlay = true;
       await audio.play();
       if (!isLatest(sequence)) {
@@ -584,6 +589,15 @@ export function ReceiverSimulator() {
               {manifest
                 ? `${manifest.format} · 从 ${formatTime(manifest.startOffsetMs / 1000)} 切入`
                 : "点击下方按钮开始搜索可播节目。"}
+            </p>
+          </div>
+
+          <div className="receiver-caption" aria-live="polite">
+            <p className="receiver-label">中文字幕</p>
+            <p>
+              {currentCaption
+                ? `${currentCaption.speaker}：${currentCaption.text}`
+                : ""}
             </p>
           </div>
 

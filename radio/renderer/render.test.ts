@@ -44,15 +44,31 @@ test("speaker 映射稳定，且相邻同 speaker 会合并", () => {
   assert.deepEqual(plan.units, [
     {
       speaker: "观测员",
+      spokenText: "第一段。\n第二段。",
       text: "第一段。\n第二段。",
       voice: voices.primaryVoice,
     },
     {
       speaker: "导航员",
+      spokenText: "第三段。",
       text: "第三段。",
       voice: voices.secondaryVoice,
     },
   ]);
+});
+
+test("normal 与 alien Render Plan 分别保留原文和生成确定性播报文本", () => {
+  const normal = createRenderPlan(chatProgram, voices, { mode: "normal" });
+  const alien = createRenderPlan(chatProgram, voices, { mode: "alien" });
+
+  assert.equal(normal.mode, "normal");
+  assert.equal(normal.alienDialect, null);
+  assert.equal(normal.units[0].spokenText, "第一段。\n第二段。");
+  assert.equal(alien.mode, "alien");
+  assert.equal(alien.alienDialect, "cosmic-1");
+  assert.notEqual(alien.units[0].spokenText, normal.units[0].text);
+  assert.match(alien.units[0].spokenText, /^[a-z ,.?!;:]+$/);
+  assert.equal(alien.units[0].text, normal.units[0].text);
 });
 
 test("聊天节目会对合并后的单元真实请求两种音色", async () => {
@@ -82,6 +98,25 @@ test("聊天节目会对合并后的单元真实请求两种音色", async () =>
   ]);
   assert.equal(result.captions.length, 2);
   assert.equal(result.traceIds.length, 2);
+});
+
+test("alien TTS 接收 spokenText，但 caption 保存中文原文", async () => {
+  const requests: Array<{ text: string }> = [];
+  const result = await renderProgramAudio(
+    chatProgram,
+    voices,
+    async (request) => {
+      requests.push(request);
+      return { audioBytes: wav(), traceId: null };
+    },
+    { mode: "alien" },
+  );
+
+  assert.notEqual(requests[0].text, "第一段。\n第二段。");
+  assert.match(requests[0].text, /^[a-z ,.?!;:]+$/);
+  assert.equal(result.captions[0].text, "第一段。\n第二段。");
+  assert.equal(result.mode, "alien");
+  assert.equal(result.alienDialect, "cosmic-1");
 });
 
 test("中途 TTS 失败时不会产出可保存的半成品", async () => {

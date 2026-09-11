@@ -62,8 +62,10 @@ export function parsePcmWav(bytes: Uint8Array): ParsedWavPcm {
     const chunkName = readText(bytes, offset, 4);
     const chunkSize = view.getUint32(offset + 4, true);
     const chunkStart = offset + 8;
-    const chunkEnd = chunkStart + chunkSize;
-    assertWav(chunkEnd <= bytes.length, "WAV chunk 长度无效。");
+    let chunkEnd = chunkStart + chunkSize;
+    const isOpenEndedDataChunk = chunkName === "data" && chunkEnd > bytes.length;
+    if (isOpenEndedDataChunk) chunkEnd = bytes.length;
+    else assertWav(chunkEnd <= bytes.length, "WAV chunk 长度无效。");
     if (chunkName === "fmt ") {
       assertWav(chunkSize >= 16, "WAV 缺少 PCM 格式信息。");
       const formatCode = view.getUint16(chunkStart, true);
@@ -94,7 +96,7 @@ export function parsePcmWav(bytes: Uint8Array): ParsedWavPcm {
       assertWav(data === null, "WAV 不能包含多个 data chunk。");
       data = bytes.slice(chunkStart, chunkEnd);
     }
-    offset = chunkEnd + (chunkSize % 2);
+    offset = isOpenEndedDataChunk ? bytes.length : chunkEnd + (chunkSize % 2);
   }
   assertWav(format !== null, "WAV 缺少 fmt chunk。");
   assertWav(data !== null && data.length > 0, "WAV 缺少音频数据。");

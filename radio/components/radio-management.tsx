@@ -1,12 +1,13 @@
 "use client";
 
-import { type ChangeEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   programFormats,
   type BroadcastScript,
   type ProgramFormat,
   type RadioProgram,
 } from "../program/types";
+import type { RenderMode } from "../renderer/render";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -73,12 +74,12 @@ export function RadioManagement() {
   const [programs, setPrograms] = useState<RadioProgram[]>([]);
   const [selected, setSelected] = useState<RadioProgram | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [synthesizing, setSynthesizing] = useState(false);
+  const [renderMode, setRenderMode] = useState<RenderMode>("normal");
   const [audioRefreshAttempted, setAudioRefreshAttempted] = useState(false);
   const [checkedProgramIds, setCheckedProgramIds] = useState<string[]>([]);
   const selectedScript = selected ? asBroadcastScript(selected.content) : null;
@@ -123,7 +124,6 @@ export function RadioManagement() {
         await request<{ program: RadioProgram }>(`/api/programs/${id}`)
       ).program;
       setSelected(program);
-      setAudioFile(null);
       setAudioUrl(null);
       setAudioRefreshAttempted(false);
       if (program.audio_path) await refreshAudioUrl(id);
@@ -173,7 +173,6 @@ export function RadioManagement() {
       };
       if (body.program) {
         setSelected(body.program);
-        setAudioFile(null);
         setAudioUrl(null);
         setAudioRefreshAttempted(false);
         await loadPrograms();
@@ -196,6 +195,7 @@ export function RadioManagement() {
       const response = await fetch(`/api/programs/${selected.id}/synthesize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ renderMode }),
       });
       const body = (await response.json().catch(() => ({}))) as {
         cleanupWarning?: string | null;
@@ -321,7 +321,6 @@ export function RadioManagement() {
       const successfulIds = successfulResults.map((result) => result.id);
       if (selected && successfulIds.includes(selected.id)) {
         setSelected(null);
-        setAudioFile(null);
         setAudioUrl(null);
       }
       setCheckedProgramIds((ids) =>
@@ -358,7 +357,6 @@ export function RadioManagement() {
       if (selected?.id === id) {
         setSelected(null);
         setAudioUrl(null);
-        setAudioFile(null);
       }
       await loadPrograms();
       if (cleanupWarning) setMessage(cleanupWarning);
@@ -367,37 +365,6 @@ export function RadioManagement() {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function uploadAudio() {
-    if (!selected || !audioFile) return;
-    try {
-      setSaving(true);
-      const formData = new FormData();
-      formData.set("audio", audioFile);
-      const response = await fetch(`/api/programs/${selected.id}/audio`, {
-        method: "POST",
-        body: formData,
-      });
-      const body = (await response.json().catch(() => ({}))) as {
-        program?: RadioProgram;
-        cleanupWarning?: string | null;
-        error?: string;
-      };
-      if (!response.ok || !body.program)
-        throw new Error(body.error ?? "无法上传音频。");
-      await selectProgram(body.program.id);
-      await loadPrograms();
-      setMessage(body.cleanupWarning ?? "测试音频已上传。");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "无法上传音频。");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function selectAudioFile(event: ChangeEvent<HTMLInputElement>) {
-    setAudioFile(event.target.files?.[0] ?? null);
   }
 
   useEffect(() => {
@@ -610,34 +577,36 @@ export function RadioManagement() {
                       <td>
                         {dateFormatter.format(new Date(program.created_at))}
                       </td>
-                      <td className="row-actions">
-                        {program.status === "ready" && (
+                      <td>
+                        <div className="row-actions">
+                          {program.status === "ready" && (
+                            <button
+                              className="text-button"
+                              disabled={saving}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void changeInventory(
+                                  program.id,
+                                  program.retired_at ? "restore" : "retire",
+                                );
+                              }}
+                              type="button"
+                            >
+                              {program.retired_at ? "恢复" : "下线"}
+                            </button>
+                          )}
                           <button
-                            className="text-button"
+                            className="text-button danger-button"
                             disabled={saving}
                             onClick={(event) => {
                               event.stopPropagation();
-                              void changeInventory(
-                                program.id,
-                                program.retired_at ? "restore" : "retire",
-                              );
+                              void deleteProgram(program.id);
                             }}
                             type="button"
                           >
-                            {program.retired_at ? "恢复" : "下线"}
+                            删除
                           </button>
-                        )}
-                        <button
-                          className="text-button danger-button"
-                          disabled={saving}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void deleteProgram(program.id);
-                          }}
-                          type="button"
-                        >
-                          删除
-                        </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -670,24 +639,6 @@ export function RadioManagement() {
             {selected?.error && <p className="program-error">{selected.error}</p>}
           </div>
           <div className="detail-section">
-            <h3>稿件</h3>
-            {selectedScript ? (
-              <div className="script-preview">
-                <p>虚构广播 · {selectedScript.language}</p>
-                {selectedScript.segments.map((segment, index) => (
-                  <p key={`${segment.speaker}-${index}`}>
-                    <strong>{segment.speaker}：</strong>
-                    {segment.text}
-                  </p>
-                ))}
-              </div>
-            ) : selected ? (
-              <p>稿件尚未生成。</p>
-            ) : (
-              <p>尚未选择节目</p>
-            )}
-          </div>
-          <div className="detail-section">
             <h3>音频</h3>
             {audioUrl ? (
               <audio
@@ -703,6 +654,35 @@ export function RadioManagement() {
               (selected?.status === "queued" || selected?.status === "failed") && (
                 <div className="synthesis-controls">
                   <p>将由 Renderer 按说话者自动分配内置中文音色。</p>
+                  <div
+                    aria-label="播报模式"
+                    className="synthesis-mode"
+                    role="radiogroup"
+                  >
+                    <span>播报模式</span>
+                    <label>
+                      <input
+                        checked={renderMode === "normal"}
+                        disabled={synthesizing}
+                        name="render-mode"
+                        onChange={() => setRenderMode("normal")}
+                        type="radio"
+                        value="normal"
+                      />
+                      normal
+                    </label>
+                    <label>
+                      <input
+                        checked={renderMode === "alien"}
+                        disabled={synthesizing}
+                        name="render-mode"
+                        onChange={() => setRenderMode("alien")}
+                        type="radio"
+                        value="alien"
+                      />
+                      alien
+                    </label>
+                  </div>
                   <button
                     className="text-button"
                     disabled={synthesizing}
@@ -713,22 +693,23 @@ export function RadioManagement() {
                   </button>
                 </div>
               )}
-            {selected && (
-              <div className="upload-controls">
-                <input
-                  accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac"
-                  onChange={selectAudioFile}
-                  type="file"
-                />
-                <button
-                  className="text-button"
-                  disabled={!audioFile || saving}
-                  onClick={() => void uploadAudio()}
-                  type="button"
-                >
-                  上传测试音频
-                </button>
+          </div>
+          <div className="detail-section">
+            <h3>稿件</h3>
+            {selectedScript ? (
+              <div className="script-preview">
+                <p>虚构广播 · {selectedScript.language}</p>
+                {selectedScript.segments.map((segment, index) => (
+                  <p key={`${segment.speaker}-${index}`}>
+                    <strong>{segment.speaker}：</strong>
+                    {segment.text}
+                  </p>
+                ))}
               </div>
+            ) : selected ? (
+              <p>稿件尚未生成。</p>
+            ) : (
+              <p>尚未选择节目</p>
             )}
           </div>
         </aside>

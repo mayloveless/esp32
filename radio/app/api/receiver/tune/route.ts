@@ -13,6 +13,7 @@ import {
   parseTuneRequest,
   type ReceiverManifest,
 } from "../../../../receiver/manifest";
+import { getReceiverCaptions } from "../../../../receiver/captions";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       audioExpiresAt: audio.expiresAt,
       durationMs: program.duration_ms,
       startOffsetMs: calculateStartOffsetMs(program.duration_ms),
-      captions: program.captions,
+      captions: getReceiverCaptions(program.captions),
       retireOnComplete: true,
     };
     return Response.json({ result: "signal" as const, manifest });

@@ -202,6 +202,7 @@ td {
   border-bottom: 1px solid #e6ebf1;
   padding: 13px 20px;
   text-align: left;
+  vertical-align: middle;
 }
 th {
   color: #526176;
@@ -279,8 +280,10 @@ td {
   width: 100%;
 }
 .row-actions {
+  align-items: center;
   display: flex;
   gap: 8px;
+  min-height: 20px;
   white-space: nowrap;
 }
 .text-button {
@@ -325,11 +328,6 @@ td {
   background: #fff1f0;
   color: #b42318;
 }
-.upload-controls {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-}
 .synthesis-controls {
   display: grid;
   gap: 6px;
@@ -340,10 +338,27 @@ td {
   font-size: 0.78rem;
   margin: 0;
 }
-.upload-controls input {
+.synthesis-mode {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.synthesis-mode > span {
+  color: #637083;
   font-size: 0.78rem;
-  min-height: 0;
-  padding: 5px 0;
+}
+.synthesis-mode label {
+  align-items: center;
+  color: #4a586c;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.82rem;
+  gap: 4px;
+}
+.synthesis-mode input {
+  accent-color: #2769c7;
+  margin: 0;
 }
 .sr-only {
   height: 1px;
@@ -465,6 +480,17 @@ td {
 .receiver-help {
   color: #637083;
   font-size: 0.85rem;
+  line-height: 1.55;
+  margin-bottom: 0;
+}
+.receiver-caption {
+  border-bottom: 1px solid #e6ebf1;
+  min-height: 66px;
+  padding: 16px 0;
+}
+.receiver-caption > p:last-child {
+  color: #38465a;
+  font-size: 0.9rem;
   line-height: 1.55;
   margin-bottom: 0;
 }

@@ -1,13 +1,17 @@
 import {
   assertLocalDevelopmentRequest,
   getRequestErrorStatus,
+  readJsonBody,
 } from "../../../../../lib/supabase-server";
 import {
   getProgram,
   saveSynthesizedProgramAudio,
   updateProgram,
 } from "../../../../../program/service";
-import { renderProgramAudio } from "../../../../../renderer/render";
+import {
+  renderProgramAudio,
+  type RenderMode,
+} from "../../../../../renderer/render";
 import { assertTtsReady } from "../../../../../tts/config";
 import { getTtsSettings } from "../../../../../tts/siliconflow";
 import { synthesizeSpeech } from "../../../../../tts/speech";
@@ -27,9 +31,20 @@ function errorStatus(error: unknown) {
   return getRequestErrorStatus(error, 400);
 }
 
+async function readRenderMode(request: Request): Promise<RenderMode> {
+  const body = await readJsonBody(request);
+  if (typeof body !== "object" || body === null || Array.isArray(body))
+    throw new TtsError("合成请求必须是对象。", "input");
+  const renderMode = (body as { renderMode?: unknown }).renderMode;
+  if (renderMode === undefined || renderMode === "normal") return "normal";
+  if (renderMode === "alien") return "alien";
+  throw new TtsError("播报模式只能是 normal 或 alien。", "input");
+}
+
 export async function POST(request: Request, { params }: Context) {
   try {
     assertLocalDevelopmentRequest(request);
+    const renderMode = await readRenderMode(request);
     const id = (await params).id;
     const current = await getProgram(id);
     if (!current)
@@ -56,6 +71,7 @@ export async function POST(request: Request, { params }: Context) {
             secondaryVoice: settings.secondaryVoice,
           },
           synthesizeSpeech,
+          { mode: renderMode },
         );
         const saved = await saveSynthesizedProgramAudio(
           id,
@@ -66,9 +82,11 @@ export async function POST(request: Request, { params }: Context) {
             sampleRate: rendered.sampleRate,
           },
           {
+            alienDialect: rendered.alienDialect,
             captions: rendered.captions,
             model: settings.model,
             provider: settings.provider,
+            renderMode: rendered.mode,
             responseFormat: "wav",
             sampleRate: rendered.sampleRate,
             speakerVoices: rendered.speakerVoices,

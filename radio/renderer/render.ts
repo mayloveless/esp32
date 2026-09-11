@@ -10,13 +10,29 @@ import {
   type Caption,
   wavSampleRate,
 } from "./wav.ts";
+import {
+  defaultAlienDialect,
+  toAlienSpokenText,
+  type AlienDialect,
+} from "./alien-language.ts";
 
 export type RendererVoices = {
   primaryVoice: string;
   secondaryVoice: string;
 };
 
-export type RenderUnit = SynthesisSegment & { voice: string };
+export const renderModes = ["normal", "alien"] as const;
+export type RenderMode = (typeof renderModes)[number];
+
+export type RenderOptions = {
+  alienDialect?: AlienDialect;
+  mode?: RenderMode;
+};
+
+export type RenderUnit = SynthesisSegment & {
+  spokenText: string;
+  voice: string;
+};
 
 export function mapSpeakerVoices(
   segments: SynthesisSegment[],
@@ -36,6 +52,10 @@ export function mapSpeakerVoices(
 export function mergeAdjacentSpeakerSegments(
   segments: SynthesisSegment[],
   speakerVoices: Record<string, string>,
+  options: Required<RenderOptions> = {
+    alienDialect: defaultAlienDialect,
+    mode: "normal",
+  },
 ): RenderUnit[] {
   const units: RenderUnit[] = [];
   for (const segment of segments) {
@@ -46,15 +66,26 @@ export function mergeAdjacentSpeakerSegments(
     }
     const voice = speakerVoices[segment.speaker];
     if (!voice) throw new TtsError("说话者未分配音色。", "input");
-    units.push({ ...segment, voice });
+    units.push({ ...segment, spokenText: segment.text, voice });
   }
-  return units;
+  return units.map((unit) => ({
+    ...unit,
+    spokenText:
+      options.mode === "alien"
+        ? toAlienSpokenText(unit.text, options.alienDialect)
+        : unit.text,
+  }));
 }
 
 export function createRenderPlan(
   program: Pick<RadioProgram, "content" | "format">,
   voices: RendererVoices,
+  options: RenderOptions = {},
 ) {
+  const renderOptions: Required<RenderOptions> = {
+    alienDialect: options.alienDialect ?? defaultAlienDialect,
+    mode: options.mode ?? "normal",
+  };
   const segments = getSynthesisSegments(program);
   const speakerVoices = mapSpeakerVoices(segments, voices);
   if (program.format === "news") {
@@ -67,8 +98,11 @@ export function createRenderPlan(
       throw new TtsError("聊天节目必须至少使用两种不同音色。", "input");
   }
   return {
+    alienDialect:
+      renderOptions.mode === "alien" ? renderOptions.alienDialect : null,
+    mode: renderOptions.mode,
     speakerVoices,
-    units: mergeAdjacentSpeakerSegments(segments, speakerVoices),
+    units: mergeAdjacentSpeakerSegments(segments, speakerVoices, renderOptions),
   };
 }
 
@@ -79,14 +113,17 @@ export type RenderedProgramAudio = {
   sampleRate: number;
   speakerVoices: Record<string, string>;
   traceIds: Array<string | null>;
+  alienDialect: AlienDialect | null;
+  mode: RenderMode;
 };
 
 export async function renderProgramAudio(
   program: Pick<RadioProgram, "content" | "format">,
   voices: RendererVoices,
   synthesize: SynthesizeSpeech,
+  options: RenderOptions = {},
 ): Promise<RenderedProgramAudio> {
-  const plan = createRenderPlan(program, voices);
+  const plan = createRenderPlan(program, voices, options);
   const renderedSegments: Array<{
     audioBytes: Uint8Array;
     speaker: string;
@@ -97,7 +134,7 @@ export async function renderProgramAudio(
     const result = await synthesize({
       responseFormat: "wav",
       sampleRate: wavSampleRate,
-      text: unit.text,
+      text: unit.spokenText,
       voice: unit.voice,
     });
     renderedSegments.push({
@@ -107,5 +144,11 @@ export async function renderProgramAudio(
     });
     traceIds.push(result.traceId);
   }
-  return { ...mergeWavSegments(renderedSegments), speakerVoices: plan.speakerVoices, traceIds };
+  return {
+    ...mergeWavSegments(renderedSegments),
+    alienDialect: plan.alienDialect,
+    mode: plan.mode,
+    speakerVoices: plan.speakerVoices,
+    traceIds,
+  };
 }

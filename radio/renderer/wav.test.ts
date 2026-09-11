@@ -29,6 +29,15 @@ test("可解析并重建合法 PCM WAV", () => {
   assert.equal(parsePcmWav(buildPcmWav(parsed.format, parsed.data)).data.length, 6_400);
 });
 
+test("接受最后一个 data chunk 的开放长度，并重建准确 header", () => {
+  const streamed = wav(100);
+  new DataView(streamed.buffer).setUint32(40, 0xffffffff, true);
+  const parsed = parsePcmWav(streamed);
+  const rebuilt = buildPcmWav(parsed.format, parsed.data);
+  assert.equal(parsed.data.length, 6_400);
+  assert.equal(new DataView(rebuilt.buffer).getUint32(40, true), 6_400);
+});
+
 test("合并 WAV 时会在不同说话者间插入静音并累计字幕时间", () => {
   const result = mergeWavSegments([
     { audioBytes: wav(100), speaker: "甲", text: "第一句" },

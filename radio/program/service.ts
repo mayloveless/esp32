@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseServerClient } from "../lib/supabase-server";
+import type { RenderMode } from "../renderer/render";
 import type { RadioProgram } from "./types";
 import type { CreateProgramInput, UpdateProgramInput } from "./validation";
 
@@ -22,9 +23,11 @@ type SynthesizedAudioAsset = {
 };
 
 type SynthesizedAudioMetadata = {
+  alienDialect: string | null;
   captions: unknown[];
   model: string;
   provider: string;
+  renderMode: RenderMode;
   responseFormat: "mp3" | "wav";
   sampleRate: number;
   speakerVoices: Record<string, string>;
@@ -265,10 +268,12 @@ export async function saveSynthesizedProgramAudio(
         }
       : assetOrAudioBytes;
   const tts: SynthesizedAudioMetadata = legacyTts
-    ? {
+      ? {
+        alienDialect: null,
         captions: [],
         model: legacyTts.model,
         provider: legacyTts.provider,
+        renderMode: "normal",
         responseFormat: "mp3",
         sampleRate: 32_000,
         speakerVoices: { 播音员: legacyTts.voice },
@@ -308,6 +313,8 @@ export async function saveSynthesizedProgramAudio(
       recipe: {
         ...current.recipe,
         audio_content_type: asset.contentType,
+        alien_dialect: tts.alienDialect,
+        render_mode: tts.renderMode,
         renderer: "segment-wav-v1",
         speaker_voice_map: tts.speakerVoices,
         tts_provider: tts.provider,
