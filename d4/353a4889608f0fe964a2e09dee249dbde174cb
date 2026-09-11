@@ -1,0 +1,43 @@
+radio/package.json
+  s_1bfd675b83ce48::t_602136b7a1e969 12
+radio/content/deepseek-transport.test.ts
+  s_1bfd675b83ce48::t_af6246ccd42d60 40-50
+radio/program/music-upload.test.ts
+  s_1bfd675b83ce48::t_af23b7a784998a 1-26,35-70,79,83
+  s_1bfd675b83ce48::t_602136b7a1e969 27-34,71-78,80-82
+radio/program/service.ts
+  s_1bfd675b83ce48::t_af23b7a784998a 5,155-203
+  s_1bfd675b83ce48::t_faacd1df388b35 204-205
+radio/content/deepseek-transport.ts
+  s_1bfd675b83ce48::t_af6246ccd42d60 28
+radio/app/api/programs/music/route.ts
+  s_1bfd675b83ce48::t_af23b7a784998a 1-26
+radio/app/globals.css
+  s_1bfd675b83ce48::t_7277d9275dd638 55-74
+radio/content/script-validation.ts
+  s_1bfd675b83ce48::t_af6246ccd42d60 35-44,66
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_7277d9275dd638 129-135,141-145,165,170-172,315-360,667-713,954-962
+radio/program/music-upload.ts
+  s_1bfd675b83ce48::t_af23b7a784998a 1-99
+radio/receiver/manifest.test.ts
+  s_1bfd675b83ce48::t_602136b7a1e969 48-58
+radio/content/script-validation.test.ts
+  s_1bfd675b83ce48::t_af6246ccd42d60 119-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d4353a4889608f0fe964a2e09dee249dbde174cb",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
