@@ -5,11 +5,12 @@
   "packageManager": "pnpm@10.14.0",
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
+    "dev:device": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:checkpoint-b": "node --experimental-strip-types --experimental-default-type=module --test content/script-validation.test.ts content/deepseek-config.test.ts content/deepseek-transport.test.ts content/generation-lock.test.ts inventory/classify.test.ts inventory/orchestrator-core.test.ts inventory/producer-core.test.ts music/synth.test.ts program/inventory-batch.test.ts program/music-upload.test.ts program/ready-music.test.ts program/synthesis-metadata.test.ts program/synthesis-state.test.ts program/validation.test.ts receiver/captions.test.ts receiver/manifest.test.ts receiver/presentation.test.ts receiver/runtime.test.ts receiver/replenishment.test.ts renderer/alien-language.test.ts renderer/audio-effects.test.ts renderer/background-bed.test.ts renderer/delivery.test.ts renderer/pcm-mixer.test.ts renderer/render.test.ts renderer/wav.test.ts tts/validation.test.ts tts/config.test.ts tts/siliconflow-transport.test.ts tts/synthesis-lock.test.ts"
+    "test:checkpoint-b": "node --experimental-strip-types --experimental-default-type=module --test content/script-validation.test.ts content/deepseek-config.test.ts content/deepseek-transport.test.ts content/generation-lock.test.ts inventory/classify.test.ts inventory/orchestrator-core.test.ts inventory/producer-core.test.ts lib/device-api-core.test.ts lib/local-development-guard.test.ts music/synth.test.ts program/inventory-batch.test.ts program/music-upload.test.ts program/ready-music.test.ts program/synthesis-metadata.test.ts program/synthesis-state.test.ts program/validation.test.ts receiver/captions.test.ts receiver/completed-core.test.ts receiver/manifest-builder-core.test.ts receiver/manifest.test.ts receiver/presentation.test.ts receiver/runtime.test.ts receiver/replenishment.test.ts renderer/alien-language.test.ts renderer/audio-effects.test.ts renderer/background-bed.test.ts renderer/delivery.test.ts renderer/pcm-mixer.test.ts renderer/render.test.ts renderer/wav.test.ts tts/validation.test.ts tts/config.test.ts tts/siliconflow-transport.test.ts tts/synthesis-lock.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

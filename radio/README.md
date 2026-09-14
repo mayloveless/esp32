@@ -28,6 +28,8 @@ pnpm build
 
 开发服务固定绑定 `127.0.0.1`。管理 API 会校验本机 Host、同源 Origin 与 Fetch Metadata；生产环境会拒绝管理 API，直到接入明确的鉴权方案。私有音频通过 15 分钟的服务端签名 URL 试听，播放器请求失败时会重新获取 URL。
 
+需要让同一可信局域网中的设备调台时，显式运行 `pnpm dev:device`。设备只能调用 `/api/device/receiver/*`，并且必须在 `Authorization: Bearer <DEVICE_API_TOKEN>` 中提供本机配置的 token；管理接口仍只允许从 `127.0.0.1` 访问，设备也不会获得 Supabase 服务端凭据。
+
 稿件生成配置以 `DEEPSEEK_*` 为准，默认模型为 `deepseek-v4-flash`、官方地址为 `https://api.deepseek.com`。`OPENAI_TEXT_MODEL` 仅作为旧模型名的兼容回退，DeepSeek 密钥不会回退或发送给其他供应商。只有在 review 后将 `DEEPSEEK_ENABLED=true` 并填入 `DEEPSEEK_API_KEY` 时，点击“生成稿件”才会发生实际收费调用。
 
 语音合成当前只支持 `TTS_PROVIDER=siliconflow`、`FunAudioLLM/CosyVoice2-0.5B` 与内置中文音色。`TTS_VOICE_PRIMARY` 与 `TTS_VOICE_SECONDARY` 必须配置为不同的 CosyVoice2 内置音色；聊天节目会按说话者稳定分配两种音色。多段节目会以 WAV 32kHz 合并后写入私有 `radio-audio` bucket，并保存实际时长、字幕和音色映射；单段兼容路径仍支持 MP3。只有在 review 后将 `TTS_ENABLED=true` 并填入 `TTS_API_KEY` 时，点击“合成语音”才会发生实际收费调用；失败会保留已保存稿件以便再次合成，不会重新生成文本。
