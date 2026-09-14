@@ -1,0 +1,45 @@
+radio/components/receiver-simulator.tsx
+  s_1bfd675b83ce48::t_13e7cfea6cbea7 10,12,236,397,402
+  s_1bfd675b83ce48::t_3f70c0509983dd 457-464,497
+  s_1bfd675b83ce48::t_24cfa356d339cc 8,16,40-42,59-87,183-185,342,346,364,398-400,433-435,465,532,585-595,599-602,607-616,655-700
+  s_1bfd675b83ce48::t_2b9d97c55ed8c8 565-566
+radio/receiver/runtime.ts
+  s_1bfd675b83ce48::t_13e7cfea6cbea7 52-65
+  s_1bfd675b83ce48::t_19dc92733c82b7 2,41-51
+radio/receiver/presentation.test.ts
+  s_1bfd675b83ce48::t_19dc92733c82b7 1-15
+radio/app/globals.css
+  s_1bfd675b83ce48::t_6b5c5f01b4d40a 538-571,604-606,646-679
+radio/app/api/receiver/tune/route.ts
+  s_1bfd675b83ce48::t_19dc92733c82b7 13,36
+radio/receiver/manifest.ts
+  s_1bfd675b83ce48::t_19dc92733c82b7 7-9,14,23-28
+  s_1bfd675b83ce48::t_042d1aaad7b39c 2
+  s_1bfd675b83ce48::t_b96ba788674c17 29
+radio/package.json
+  s_1bfd675b83ce48::t_19dc92733c82b7 12
+radio/receiver/presentation.ts
+  s_1bfd675b83ce48::t_19dc92733c82b7 1-19
+radio/receiver/manifest.test.ts
+  s_1bfd675b83ce48::t_19dc92733c82b7 6,69-94
+  s_1bfd675b83ce48::t_e123104e3046ab 95
+radio/receiver/runtime.test.ts
+  s_1bfd675b83ce48::t_19dc92733c82b7 5,8,36-41
+  s_1bfd675b83ce48::t_13e7cfea6cbea7 7,10,42-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1b0cc564ff938db44a8c7ca57a52cadd91a757cd",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
