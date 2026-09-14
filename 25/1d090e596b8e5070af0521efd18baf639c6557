@@ -1,0 +1,33 @@
+radio/renderer/pcm-mixer.ts
+  s_1bfd675b83ce48::t_e0327cd19d4e96 59
+  s_1bfd675b83ce48::t_d2ab7807a595a0 2,53-57
+radio/renderer/render.test.ts
+  s_1bfd675b83ce48::t_e0327cd19d4e96 211-223
+radio/renderer/background-bed.ts
+  s_1bfd675b83ce48::t_d2ab7807a595a0 35-37
+  s_1bfd675b83ce48::t_e0327cd19d4e96 29-30,32
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_92ddf7f4170179 106,121-126,136-143,1066-1067
+  s_1bfd675b83ce48::t_9f4647645aed15 1068
+radio/renderer/pcm-mixer.test.ts
+  s_1bfd675b83ce48::t_d2ab7807a595a0 4,51-57
+  s_1bfd675b83ce48::t_df129f2c726e68 58-59
+radio/program/synthesis-metadata.test.ts
+  s_1bfd675b83ce48::t_e0327cd19d4e96 13,31,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "251d090e596b8e5070af0521efd18baf639c6557",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
