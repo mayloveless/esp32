@@ -10,17 +10,15 @@ import {
   type ReceiverStatus,
 } from "../receiver/runtime";
 import { findCaptionAtTime } from "../receiver/captions";
+import type { EnsureInventoryResult } from "../inventory/orchestrator-core";
 
 type TuneResponse =
   | { result: "no_signal" }
   | { result: "signal"; manifest: ReceiverManifest };
 
-type ReplenishResponse =
-  | { result: "inventory_available"; readyProgramIds: string[] }
-  | { result: "replenished"; programId: string };
+type ReplenishResponse = EnsureInventoryResult;
 
 type PendingReplenishment = {
-  playingProgramId: string | null;
   promise: Promise<ReplenishResponse>;
 };
 
@@ -139,13 +137,8 @@ export function ReceiverSimulator() {
   const excludedProgramIdsRef = useRef<string[]>([]);
   const completingRef = useRef(false);
   const replenishmentRef = useRef<PendingReplenishment | null>(null);
-  const replenishmentErrorRef = useRef<{
-    message: string;
-    playingProgramId: string | null;
-  } | null>(null);
   const prefetchedProgramRef = useRef<PrefetchedProgram | null>(null);
   const prefetchAbortRef = useRef<AbortController | null>(null);
-  const prefetchPromiseRef = useRef<Promise<void> | null>(null);
   const [manifest, setManifest] = useState<ReceiverManifest | null>(null);
   const [status, setStatus] = useState<ReceiverStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -214,14 +207,14 @@ export function ReceiverSimulator() {
     currentStop();
   }
 
-  function replenishInventory(playingProgramId: string | null) {
+  function ensureInventory() {
     const pending = replenishmentRef.current;
     if (pending) return pending.promise;
 
     const request = fetch("/api/receiver/replenish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ playingProgramId }),
+      body: JSON.stringify({}),
     })
       .then(async (response) => {
         const payload = (await response.json().catch(() => ({}))) as ReplenishResponse & {
@@ -229,18 +222,12 @@ export function ReceiverSimulator() {
         };
         if (!response.ok)
           throw new Error(payload.error ?? "无法补充下一节目库存。");
-        replenishmentErrorRef.current = null;
         return payload;
       })
       .catch((caughtError) => {
-        const message =
-          caughtError instanceof Error
-            ? caughtError.message
-            : "无法补充下一节目库存。";
-        replenishmentErrorRef.current = { message, playingProgramId };
         throw caughtError;
-    });
-    replenishmentRef.current = { playingProgramId, promise: request };
+      });
+    replenishmentRef.current = { promise: request };
     void request.then(
       () => {
         if (replenishmentRef.current?.promise === request)
@@ -282,13 +269,11 @@ export function ReceiverSimulator() {
 
     const operation = (async () => {
       try {
-        let payload = await requestManifest();
+        const payload = await requestManifest();
         if (payload.result === "no_signal") {
-          await replenishInventory(playingProgramId);
-          if (controller.signal.aborted) return;
-          payload = await requestManifest();
+          void ensureInventory().catch(() => undefined);
+          return;
         }
-        if (payload.result === "no_signal") return;
 
         const response = await fetch(payload.manifest.audioUrl, {
           signal: controller.signal,
@@ -311,10 +296,6 @@ export function ReceiverSimulator() {
         if (prefetchAbortRef.current === controller) prefetchAbortRef.current = null;
       }
     })();
-    prefetchPromiseRef.current = operation;
-    void operation.then(() => {
-      if (prefetchPromiseRef.current === operation) prefetchPromiseRef.current = null;
-    });
     return operation;
   }
 
@@ -322,11 +303,9 @@ export function ReceiverSimulator() {
     options: {
       playFromStart?: boolean;
       prefetched?: PrefetchedProgram | null;
-      replenishWhenEmpty?: boolean;
     } = {},
   ) {
     const playFromStart = options.playFromStart ?? false;
-    const replenishWhenEmpty = options.replenishWhenEmpty ?? true;
     const prefetched = options.prefetched ?? takePrefetchedProgram();
     const sequence = sequenceRef.current + 1;
     sequenceRef.current = sequence;
@@ -376,28 +355,10 @@ export function ReceiverSimulator() {
         if (!response.ok) throw new Error(payload.error ?? "调台请求失败。");
         if (!isLatest(sequence)) return;
         if (payload.result === "no_signal") {
-        if (replenishWhenEmpty) {
-          setStatus("buffering");
-          try {
-            await replenishInventory(null);
-          } catch (caughtError) {
-            if (!isLatest(sequence)) return;
-            stopTuningNoise(stopNoise);
-            setStatus("no_signal");
-            setError(
-              caughtError instanceof Error
-                ? caughtError.message
-                : "没有可播节目，且自动补充失败。",
-            );
-            return;
-          }
-          if (!isLatest(sequence)) return;
-          await tune({ replenishWhenEmpty: false });
+          void ensureInventory().catch(() => undefined);
+          stopTuningNoise(stopNoise);
+          setStatus("no_signal");
           return;
-        }
-        stopTuningNoise(stopNoise);
-        setStatus("no_signal");
-        return;
         }
         nextManifest = {
           ...payload.manifest,
@@ -511,28 +472,10 @@ export function ReceiverSimulator() {
       if (!isLatest(sequence) || manifestRef.current?.programId !== current.programId)
         return;
 
-      const prefetch = prefetchPromiseRef.current;
-      if (prefetch) await prefetch;
-      if (!isLatest(sequence) || manifestRef.current?.programId !== current.programId)
-        return;
-
-      const pending = replenishmentRef.current;
-      if (pending?.playingProgramId === current.programId) {
-        try {
-          await pending.promise;
-        } catch {
-          // 失败详情会由同一轮补充请求保存，避免结束时再次产生付费请求。
-        }
-      }
-      if (!isLatest(sequence) || manifestRef.current?.programId !== current.programId)
-        return;
-      const replenishmentError = replenishmentErrorRef.current;
-      if (replenishmentError?.playingProgramId === current.programId) {
-        setStatus("no_signal");
-        setError(`节目已结束，但下一节目补充失败：${replenishmentError.message}`);
-        return;
-      }
-      void tune({ playFromStart: true, replenishWhenEmpty: false });
+      void ensureInventory().catch((error) =>
+        console.warn("节目完成后的库存检查未完成。", error),
+      );
+      void tune({ playFromStart: true });
     } catch (caughtError) {
       if (manifestRef.current?.programId === current.programId) {
         setStatus("error");
@@ -548,6 +491,9 @@ export function ReceiverSimulator() {
   }
 
   useEffect(() => {
+    void ensureInventory().catch((error) =>
+      console.warn("接收机首次库存检查未完成。", error),
+    );
     return () => {
       sequenceRef.current += 1;
       tuneAbortRef.current?.abort();

@@ -56,3 +56,12 @@ test("music 与广播节目使用相同的调台候选和开始偏移规则", ()
   const offset = calculateStartOffsetMs(music.duration_ms, () => 0.5);
   assert.ok(offset >= 4_000 && offset <= 15_000);
 });
+
+test("调台候选会在未排除节目中按可注入随机值打散", () => {
+  const candidates = [
+    { id: "first", duration_ms: 60_000 },
+    { id: "second", duration_ms: 60_000 },
+  ] as RadioProgram[];
+  assert.equal(findManifestCandidate(candidates, [], () => 0.9).id, "second");
+  assert.equal(findManifestCandidate(candidates, ["second"], () => 0.9).id, "first");
+});

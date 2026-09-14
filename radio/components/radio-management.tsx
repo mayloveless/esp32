@@ -30,6 +30,12 @@ import {
   proceduralMusicStyleOptions,
   type ProceduralMusicStyleRequest,
 } from "../music/types";
+import {
+  classifyInventory,
+  inventoryTargets,
+} from "../inventory/classify";
+import { inventoryKinds } from "../inventory/plan";
+import type { EnsureInventoryResult } from "../inventory/orchestrator-core";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -185,6 +191,7 @@ export function RadioManagement() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [ensuringInventory, setEnsuringInventory] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [synthesizingProgramId, setSynthesizingProgramId] = useState<
     string | null
@@ -239,6 +246,7 @@ export function RadioManagement() {
   const allProgramsChecked =
     programs.length > 0 &&
     programs.every((program) => checkedProgramIds.includes(program.id));
+  const readyInventory = classifyInventory(programs);
 
   async function loadPrograms() {
     try {
@@ -431,6 +439,27 @@ export function RadioManagement() {
       setMessage(error instanceof Error ? error.message : "无法生成音乐节目。");
     } finally {
       setGeneratingMusic(false);
+    }
+  }
+
+  async function ensureInventory() {
+    try {
+      setEnsuringInventory(true);
+      setMessage(null);
+      const result = await request<EnsureInventoryResult>("/api/receiver/replenish", {
+        body: JSON.stringify({}),
+        method: "POST",
+      });
+      await loadPrograms();
+      setMessage(
+        result.result === "replenished"
+          ? `已补充 1 条 ${result.kind} 库存节目。`
+          : "四类 ready 库存均已达到最低目标。",
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法检查节目库存。");
+    } finally {
+      setEnsuringInventory(false);
     }
   }
 
@@ -866,6 +895,21 @@ export function RadioManagement() {
                 批量删除{checkedPrograms.length > 0 ? `（${checkedPrograms.length}）` : ""}
               </button>
             </div>
+          </div>
+          <div className="inventory-batch-actions">
+            <span className="inventory-batch-summary">
+              Ready Inventory · {inventoryKinds.map((kind) =>
+                `${kind} ${readyInventory[kind].count}/${inventoryTargets[kind]}`,
+              ).join(" / ")}
+            </span>
+            <button
+              className="text-button"
+              disabled={ensuringInventory || saving}
+              onClick={() => void ensureInventory()}
+              type="button"
+            >
+              {ensuringInventory ? "正在检查库存…" : "补一条缺口"}
+            </button>
           </div>
           {message && (
             <p className="notice" role="status">

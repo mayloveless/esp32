@@ -20,16 +20,19 @@ type ManifestCandidate = RadioProgram & { duration_ms: number };
 export function findManifestCandidate(
   candidates: RadioProgram[],
   excludeProgramIds: string[],
+  random: () => number = Math.random,
 ): ManifestCandidate | null {
-  return (
-    candidates.find(
-      (candidate): candidate is ManifestCandidate =>
-        !excludeProgramIds.includes(candidate.id) &&
-        typeof candidate.duration_ms === "number" &&
-        Number.isSafeInteger(candidate.duration_ms) &&
-        candidate.duration_ms > 0,
-    ) ?? null
+  const eligible = candidates.filter(
+    (candidate): candidate is ManifestCandidate =>
+      !excludeProgramIds.includes(candidate.id) &&
+      typeof candidate.duration_ms === "number" &&
+      Number.isSafeInteger(candidate.duration_ms) &&
+      candidate.duration_ms > 0,
   );
+  if (eligible.length === 0) return null;
+  const value = random();
+  const normalized = Number.isFinite(value) ? Math.max(0, Math.min(value, 0.999_999)) : 0;
+  return eligible[Math.floor(normalized * eligible.length)];
 }
 
 export function parseTuneRequest(value: unknown) {
