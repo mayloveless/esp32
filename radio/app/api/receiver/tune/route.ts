@@ -10,6 +10,7 @@ import {
 import {
   calculateStartOffsetMs,
   findManifestCandidate,
+  getSignalKind,
   parseTuneRequest,
   type ReceiverManifest,
 } from "../../../../receiver/manifest";
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
       programId: program.id,
       title: program.title,
       format: program.format,
+      signalKind: getSignalKind(program),
       audioUrl: audio.signedUrl,
       audioExpiresAt: audio.expiresAt,
       durationMs: program.duration_ms,

@@ -1,12 +1,17 @@
 import type { RadioProgram } from "../program/types";
+import { getInventoryKind } from "../inventory/classify.ts";
 import type { ReceiverCaption } from "./captions";
 
 const maximumExcludedPrograms = 20;
+
+/** Receiver 使用的稳定展示语义，不暴露库存对象或渲染实现细节。 */
+export type SignalKind = "news" | "chat" | "alien" | "music";
 
 export type ReceiverManifest = {
   programId: string;
   title: string;
   format: RadioProgram["format"];
+  signalKind: SignalKind;
   audioUrl: string;
   audioExpiresAt: string;
   durationMs: number;
@@ -14,6 +19,13 @@ export type ReceiverManifest = {
   captions: ReceiverCaption[];
   retireOnComplete: true;
 };
+
+/** 复用库存分类规则，保证 Receiver 对节目类型的理解与库存编排一致。 */
+export function getSignalKind(program: RadioProgram): SignalKind {
+  const kind = getInventoryKind(program);
+  if (!kind) throw new Error("节目无法推导接收信号类型。");
+  return kind;
+}
 
 type ManifestCandidate = RadioProgram & { duration_ms: number };
 

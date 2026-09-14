@@ -5,11 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import type { ReceiverManifest } from "../receiver/manifest";
 import {
   addExcludedProgramId,
+  getRemainingTuningFeedbackMs,
   isAutoplayBlocked,
+  isLatestTune,
   resolvePlaybackStartOffsetMs,
+  startNoSignalInventoryEnsure,
   type ReceiverStatus,
 } from "../receiver/runtime";
 import { findCaptionAtTime } from "../receiver/captions";
+import { getSignalPresentation } from "../receiver/presentation";
 import type { EnsureInventoryResult } from "../inventory/orchestrator-core";
 
 type TuneResponse =
@@ -33,9 +37,9 @@ const receiverExcludedProgramLimit = 2;
 
 const statusLabels: Record<ReceiverStatus, string> = {
   idle: "等待调台",
-  no_signal: "没有可用信号",
-  tuning: "正在调台",
-  buffering: "正在载入音频",
+  no_signal: "暂未捕获到可用信号",
+  tuning: "正在搜索信号",
+  buffering: "正在锁定信号",
   playing: "正在播放",
   ended: "节目已结束",
   error: "播放异常",
@@ -50,6 +54,35 @@ function formatTime(seconds: number) {
 
 function createAbortError() {
   return new DOMException("调台请求已取消。", "AbortError");
+}
+
+/** 等待只补足调台已耗时间之外的部分，并能被下一次调台立即取消。 */
+function waitForMinimumTuningFeedback(
+  startedAt: number,
+  signal: AbortSignal,
+  now: () => number = () => performance.now(),
+) {
+  const remaining = getRemainingTuningFeedbackMs(now() - startedAt);
+  if (remaining === 0) return Promise.resolve();
+
+  return new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, remaining);
+    const aborted = () => {
+      window.clearTimeout(timeout);
+      cleanup();
+      reject(createAbortError());
+    };
+    const cleanup = () => signal.removeEventListener("abort", aborted);
+
+    if (signal.aborted) {
+      aborted();
+      return;
+    }
+    signal.addEventListener("abort", aborted, { once: true });
+  });
 }
 
 function waitForAudioCanPlay(audio: HTMLAudioElement, signal: AbortSignal) {
@@ -147,6 +180,9 @@ export function ReceiverSimulator() {
   const currentCaption = manifest
     ? findCaptionAtTime(manifest.captions, playbackSeconds * 1_000)
     : null;
+  const signalPresentation = manifest
+    ? getSignalPresentation(manifest.signalKind)
+    : null;
 
   function stopCurrentAudio() {
     const audio = audioRef.current;
@@ -197,7 +233,7 @@ export function ReceiverSimulator() {
   }
 
   function isLatest(sequence: number) {
-    return sequenceRef.current === sequence;
+    return isLatestTune(sequence, sequenceRef.current);
   }
 
   function stopTuningNoise(stop?: () => void) {
@@ -303,9 +339,11 @@ export function ReceiverSimulator() {
     options: {
       playFromStart?: boolean;
       prefetched?: PrefetchedProgram | null;
+      minimumFeedback?: boolean;
     } = {},
   ) {
     const playFromStart = options.playFromStart ?? false;
+    const minimumFeedback = options.minimumFeedback ?? true;
     const prefetched = options.prefetched ?? takePrefetchedProgram();
     const sequence = sequenceRef.current + 1;
     sequenceRef.current = sequence;
@@ -323,6 +361,7 @@ export function ReceiverSimulator() {
 
     const controller = new AbortController();
     tuneAbortRef.current = controller;
+    const tuningStartedAt = performance.now();
     const stopNoise = startTuningNoise();
     noiseStopRef.current = stopNoise;
     let audioReadyToPlay = false;
@@ -355,9 +394,12 @@ export function ReceiverSimulator() {
         if (!response.ok) throw new Error(payload.error ?? "调台请求失败。");
         if (!isLatest(sequence)) return;
         if (payload.result === "no_signal") {
-          void ensureInventory().catch(() => undefined);
+          const noSignalStatus = startNoSignalInventoryEnsure(ensureInventory);
+          if (minimumFeedback)
+            await waitForMinimumTuningFeedback(tuningStartedAt, controller.signal);
+          if (!isLatest(sequence)) return;
           stopTuningNoise(stopNoise);
-          setStatus("no_signal");
+          setStatus(noSignalStatus);
           return;
         }
         nextManifest = {
@@ -388,6 +430,9 @@ export function ReceiverSimulator() {
       );
       setPlaybackSeconds(audio.currentTime);
       audioReadyToPlay = true;
+      if (minimumFeedback)
+        await waitForMinimumTuningFeedback(tuningStartedAt, controller.signal);
+      if (!isLatest(sequence)) return;
       await audio.play();
       if (!isLatest(sequence)) {
         if (audio.currentSrc === audioUrl) audio.pause();
@@ -409,6 +454,15 @@ export function ReceiverSimulator() {
         );
         return;
       }
+      if (minimumFeedback) {
+        try {
+          await waitForMinimumTuningFeedback(tuningStartedAt, controller.signal);
+        } catch (feedbackError) {
+          if (!isLatest(sequence) || controller.signal.aborted) return;
+          throw feedbackError;
+        }
+      }
+      if (!isLatest(sequence)) return;
       stopTuningNoise(stopNoise);
       setStatus("error");
       setError(
@@ -440,7 +494,7 @@ export function ReceiverSimulator() {
       setStatus("error");
       setError(
         isAutoplayBlocked(caughtError)
-          ? "浏览器仍阻止播放，请使用下方播放器控制条开始播放。"
+          ? "浏览器仍阻止播放，请展开“调试信息”使用播放器控制条开始播放。"
           : "播放器启动被打断，请重新调台后再试。",
       );
     }
@@ -475,7 +529,7 @@ export function ReceiverSimulator() {
       void ensureInventory().catch((error) =>
         console.warn("节目完成后的库存检查未完成。", error),
       );
-      void tune({ playFromStart: true });
+      void tune({ playFromStart: true, minimumFeedback: false });
     } catch (caughtError) {
       if (manifestRef.current?.programId === current.programId) {
         setStatus("error");
@@ -508,8 +562,8 @@ export function ReceiverSimulator() {
     <main className="workbench receiver-workbench">
       <header className="page-header receiver-header">
         <div>
-          <h1>Web Receiver Simulator</h1>
-          <p>使用未来 ESP32 将消费的接收机协议验证调台与播放行为。</p>
+          <h1>宇宙电台接收机</h1>
+          <p>调入库中可播节目，接收正在播出的信号。</p>
         </div>
         <Link className="receiver-back-link" href="/">
           返回管理后台
@@ -528,30 +582,40 @@ export function ReceiverSimulator() {
         </div>
 
         <div className="receiver-body">
-          <div className="receiver-now-playing">
-            <p className="receiver-label">当前信号</p>
+          <div
+            className={`receiver-now-playing receiver-signal-${manifest?.signalKind ?? "idle"}`}
+          >
+            <div className="receiver-signal-heading">
+              <p className="receiver-label">当前信号</p>
+              {signalPresentation && (
+                <span className={`receiver-signal-kind receiver-signal-kind-${manifest?.signalKind}`}>
+                  {signalPresentation.label}
+                </span>
+              )}
+            </div>
             <h3>{manifest?.title ?? "尚未调入节目"}</h3>
             <p>
               {manifest
-                ? `${manifest.format} · 从 ${formatTime(manifest.startOffsetMs / 1000)} 切入`
+                ? signalPresentation?.musicStatus ??
+                  (manifest.startOffsetMs > 0
+                    ? "已接入正在播出的信号"
+                    : "新节目开始")
                 : "点击下方按钮开始搜索可播节目。"}
             </p>
           </div>
 
-          <div className="receiver-caption" aria-live="polite">
-            <p className="receiver-label">中文字幕</p>
-            <p>
-              {currentCaption
-                ? `${currentCaption.speaker}：${currentCaption.text}`
-                : ""}
-            </p>
-          </div>
+          {manifest && signalPresentation?.captionLabel && (
+            <div className="receiver-caption" aria-live="polite">
+              <p className="receiver-label">{signalPresentation.captionLabel}</p>
+              <p>
+                {currentCaption
+                  ? `${currentCaption.speaker}：${currentCaption.text}`
+                  : "正在等待下一句…"}
+              </p>
+            </div>
+          )}
 
           <dl className="receiver-metrics">
-            <div>
-              <dt>开始偏移</dt>
-              <dd>{manifest ? formatTime(manifest.startOffsetMs / 1000) : "--:--"}</dd>
-            </div>
             <div>
               <dt>播放进度</dt>
               <dd>
@@ -559,31 +623,6 @@ export function ReceiverSimulator() {
               </dd>
             </div>
           </dl>
-
-          <audio
-            aria-label="接收机音频播放器"
-            controls
-            onEnded={() => void completeCurrentProgram()}
-            onError={(event) => {
-              const current = manifestRef.current;
-              if (!current || event.currentTarget.currentSrc !== audioSourceRef.current)
-                return;
-              setStatus("error");
-              setError("音频播放失败，请重新调台获取新的信号。");
-            }}
-            onPlay={(event) => {
-              const current = manifestRef.current;
-              if (!current || event.currentTarget.currentSrc !== audioSourceRef.current)
-                return;
-              stopTuningNoise();
-              setManualPlaybackRequired(false);
-              setError(null);
-              setStatus("playing");
-              void prefetchNextProgram(current.programId);
-            }}
-            onTimeUpdate={(event) => setPlaybackSeconds(event.currentTarget.currentTime)}
-            ref={audioRef}
-          />
 
           {error && (
             <p className="receiver-error" role="alert">
@@ -613,6 +652,52 @@ export function ReceiverSimulator() {
           <p className="receiver-help">
             中途调台只停止当前播放；只有音频真正结束才会下线节目。
           </p>
+
+          <details className="receiver-debug">
+            <summary>调试信息</summary>
+            <dl>
+              <div>
+                <dt>节目 ID</dt>
+                <dd>{manifest?.programId ?? "--"}</dd>
+              </div>
+              <div>
+                <dt>开始偏移</dt>
+                <dd>{manifest ? formatTime(manifest.startOffsetMs / 1000) : "--:--"}</dd>
+              </div>
+              <div>
+                <dt>精确时长</dt>
+                <dd>{manifest ? formatTime(manifest.durationMs / 1000) : "--:--"}</dd>
+              </div>
+              <div>
+                <dt>签名地址到期</dt>
+                <dd>{manifest?.audioExpiresAt ?? "--"}</dd>
+              </div>
+            </dl>
+            <audio
+              aria-label="接收机音频播放器"
+              controls
+              onEnded={() => void completeCurrentProgram()}
+              onError={(event) => {
+                const current = manifestRef.current;
+                if (!current || event.currentTarget.currentSrc !== audioSourceRef.current)
+                  return;
+                setStatus("error");
+                setError("音频播放失败，请重新调台获取新的信号。");
+              }}
+              onPlay={(event) => {
+                const current = manifestRef.current;
+                if (!current || event.currentTarget.currentSrc !== audioSourceRef.current)
+                  return;
+                stopTuningNoise();
+                setManualPlaybackRequired(false);
+                setError(null);
+                setStatus("playing");
+                void prefetchNextProgram(current.programId);
+              }}
+              onTimeUpdate={(event) => setPlaybackSeconds(event.currentTarget.currentTime)}
+              ref={audioRef}
+            />
+          </details>
         </div>
       </section>
     </main>

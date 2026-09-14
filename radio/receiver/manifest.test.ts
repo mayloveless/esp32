@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   calculateStartOffsetMs,
   findManifestCandidate,
+  getSignalKind,
   parseTuneRequest,
 } from "./manifest.ts";
 import type { RadioProgram } from "../program/types.ts";
@@ -64,4 +65,31 @@ test("调台候选会在未排除节目中按可注入随机值打散", () => {
   ] as RadioProgram[];
   assert.equal(findManifestCandidate(candidates, [], () => 0.9).id, "second");
   assert.equal(findManifestCandidate(candidates, ["second"], () => 0.9).id, "first");
+});
+
+test("Receiver manifest 使用与库存一致的信号展示类型", () => {
+  const base = {
+    audio_path: "audio.wav",
+    captions: [],
+    content: {},
+    created_at: "2026-09-14T00:00:00.000Z",
+    duration_ms: 60_000,
+    error: null,
+    id: "program",
+    retired_at: null,
+    status: "ready" as const,
+    title: "节目",
+    updated_at: "2026-09-14T00:00:00.000Z",
+  };
+
+  assert.equal(getSignalKind({ ...base, format: "news", recipe: {} }), "news");
+  assert.equal(getSignalKind({ ...base, format: "chat", recipe: {} }), "chat");
+  assert.equal(
+    getSignalKind({ ...base, format: "chat", recipe: { render_mode: "alien" } }),
+    "alien",
+  );
+  assert.equal(
+    getSignalKind({ ...base, format: "music", recipe: { render_mode: "alien" } }),
+    "music",
+  );
 });
