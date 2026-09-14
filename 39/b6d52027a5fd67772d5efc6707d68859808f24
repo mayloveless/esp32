@@ -1,0 +1,44 @@
+radio/receiver/manifest.ts
+  s_1bfd675b83ce48::t_09b0159c3ed34c 23,25-30,32-35
+radio/inventory/classify.ts
+  s_1bfd675b83ce48::t_9e49f162ebd9a7 1-16,23-79
+  s_1bfd675b83ce48::t_502030f7343b59 17-22
+radio/package.json
+  s_1bfd675b83ce48::t_67ae2b8f5db65b 12
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_1328bfe1473ce4 37
+  s_1bfd675b83ce48::t_52e16f0d0e1344 33-36,38,194,249,445-465,899-912
+  s_1bfd675b83ce48::t_5611332855919d 913
+radio/inventory/orchestrator-core.ts
+  s_1bfd675b83ce48::t_9e49f162ebd9a7 1-41
+radio/components/receiver-simulator.tsx
+  s_1bfd675b83ce48::t_0c4b7b2b7362dd 13,19,210,217,229-230,272,274-275,358-360,475-478,494-496
+radio/receiver/inventory-orchestrator.ts
+  s_1bfd675b83ce48::t_9e49f162ebd9a7 1-17
+radio/inventory/classify.test.ts
+  s_1bfd675b83ce48::t_67ae2b8f5db65b 1-67
+radio/app/api/receiver/replenish/route.ts
+  s_1bfd675b83ce48::t_886a7aa74b09a1 6,8,15
+radio/receiver/manifest.test.ts
+  s_1bfd675b83ce48::t_09b0159c3ed34c 59-67
+radio/receiver/auto-replenish.ts
+  s_1bfd675b83ce48::t_9e49f162ebd9a7 8,17,19-20
+radio/inventory/orchestrator-core.test.ts
+  s_1bfd675b83ce48::t_67ae2b8f5db65b 1-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "39b6d52027a5fd67772d5efc6707d68859808f24",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
