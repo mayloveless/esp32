@@ -53,13 +53,6 @@ type SynthesizedAudioMetadata = {
   traceIds: Array<string | null>;
 };
 
-type LegacySynthesizedAudioMetadata = {
-  model: string;
-  provider: string;
-  traceId: string | null;
-  voice: string;
-};
-
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
@@ -214,6 +207,7 @@ export async function createManualMusicProgram(
 export async function createProceduralMusicProgram(
   recipe: ProceduralMusicRecipe,
   asset: ProceduralMusicAsset,
+  options: { inventorySource?: "auto" } = {},
 ): Promise<{ program: RadioProgram; cleanupWarning: string | null }> {
   return persistReadyMusicProgram(
     {
@@ -225,6 +219,7 @@ export async function createProceduralMusicProgram(
         audio_content_type: "audio/wav",
         audio_source: "procedural",
         format: "music",
+        ...(options.inventorySource ? { inventory_source: options.inventorySource } : {}),
         music_bpm: recipe.bpm,
         music_duration_ms: recipe.durationMs,
         music_generator: recipe.generator,
@@ -338,48 +333,7 @@ export async function saveSynthesizedProgramAudio(
   id: string,
   asset: SynthesizedAudioAsset,
   tts: SynthesizedAudioMetadata,
-): Promise<{ program: RadioProgram; cleanupWarning: string | null } | null>;
-export async function saveSynthesizedProgramAudio(
-  id: string,
-  audioBytes: Uint8Array,
-  durationMs: number,
-  tts: LegacySynthesizedAudioMetadata,
-): Promise<{ program: RadioProgram; cleanupWarning: string | null } | null>;
-export async function saveSynthesizedProgramAudio(
-  id: string,
-  assetOrAudioBytes: SynthesizedAudioAsset | Uint8Array,
-  ttsOrDuration: SynthesizedAudioMetadata | number,
-  legacyTts?: LegacySynthesizedAudioMetadata,
 ): Promise<{ program: RadioProgram; cleanupWarning: string | null } | null> {
-  const asset: SynthesizedAudioAsset =
-    assetOrAudioBytes instanceof Uint8Array
-      ? {
-          audioBytes: assetOrAudioBytes,
-          contentType: "audio/mpeg",
-          durationMs: ttsOrDuration as number,
-          sampleRate: 32_000,
-        }
-      : assetOrAudioBytes;
-  const tts: SynthesizedAudioMetadata = legacyTts
-      ? {
-        alienDialect: null,
-        audioEffect: null,
-        backgroundBed: "none",
-        backgroundBedGain: 0,
-        backgroundBedGenerator: null,
-        backgroundBedSeed: null,
-        captions: [],
-        deliveryProfile: null,
-        model: legacyTts.model,
-        provider: legacyTts.provider,
-        renderMode: "normal",
-        responseFormat: "mp3",
-        sampleRate: 32_000,
-        speakerVoices: { 播音员: legacyTts.voice },
-        speed: null,
-        traceIds: [legacyTts.traceId],
-      }
-    : (ttsOrDuration as SynthesizedAudioMetadata);
   const current = await getProgram(id);
   if (!current) return null;
   if (current.status !== "generating" && current.status !== "ready")

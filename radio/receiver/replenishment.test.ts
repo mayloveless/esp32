@@ -1,34 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  getAutomaticProgramInput,
+  getAutomaticInventoryKind,
   ReplenishmentInProgressError,
   withReplenishmentLock,
 } from "./replenishment.ts";
 
-test("自动补充继承正在播放节目的有效语言、风格与节目形式", () => {
-  assert.deepEqual(
-    getAutomaticProgramInput("chat", {
-      language: "中文",
-      style: "克制、清晰",
-    }),
-    { format: "chat", language: "中文", style: "克制、清晰", topic: null },
-  );
-});
-
-test("自动补充会忽略无效 recipe 并使用受控默认值", () => {
-  assert.deepEqual(
-    getAutomaticProgramInput("music", {
-      language: "x".repeat(41),
-      style: 123,
-    }),
-    {
-      format: "news",
-      language: "中文",
-      style: "冷静、略带未知感",
-      topic: null,
-    },
-  );
+test("Checkpoint A 的旧补货入口只选择节目 kind，不再携带 legacy 输入", () => {
+  assert.equal(getAutomaticInventoryKind("chat"), "chat");
+  assert.equal(getAutomaticInventoryKind("news"), "news");
+  assert.equal(getAutomaticInventoryKind("music"), "news");
 });
 
 test("同一时刻只允许一个自动补充任务", async () => {

@@ -4,7 +4,7 @@ import { buildSynthesisRecipe } from "./synthesis-metadata.ts";
 
 test("recipe 保存实际的 delivery profile 和 TTS speed", () => {
   const recipe = buildSynthesisRecipe(
-    { format: "chat" },
+    { format: "chat", inventory_source: "auto" },
     {
       alienDialect: null,
       audioEffect: null,
@@ -31,6 +31,7 @@ test("recipe 保存实际的 delivery profile 和 TTS speed", () => {
   assert.equal(recipe.background_bed_gain, 0.34);
   assert.equal(recipe.background_bed_generator, "procedural-bed-v1");
   assert.equal(recipe.format, "chat");
+  assert.equal(recipe.inventory_source, "auto");
 });
 
 test("machine-1 会在 recipe 中记录方言和机械后处理", () => {
