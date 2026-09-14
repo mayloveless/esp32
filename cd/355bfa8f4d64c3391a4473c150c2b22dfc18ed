@@ -1,0 +1,52 @@
+radio/app/api/receiver/programs/[id]/completed/route.ts
+  s_1bfd675b83ce48::t_5d0b249ded6239 6
+  s_1bfd675b83ce48::t_ec027b5a5cb2b8 17
+radio/receiver/after-completed-core.ts
+  s_1bfd675b83ce48::t_ec027b5a5cb2b8 5,12
+  s_1bfd675b83ce48::t_ba1b627d6ddada 1-4,6-11,13-16
+radio/inventory/classify.ts
+  s_1bfd675b83ce48::t_ba1b627d6ddada 5-15,23-24,89-102
+  s_1bfd675b83ce48::t_68df700d4ed8e7 103
+radio/receiver/after-completed.ts
+  s_1bfd675b83ce48::t_ec027b5a5cb2b8 9-10
+  s_1bfd675b83ce48::t_ba1b627d6ddada 1-8,11-14
+radio/components/radio-management.tsx
+  s_1bfd675b83ce48::t_18d3b5530d0e66 35,40-43,210,266,474,483-505
+  s_1bfd675b83ce48::t_89061399355eff 57-66,946-950,954,960-966
+  s_1bfd675b83ce48::t_adb72098966289 506-508
+  s_1bfd675b83ce48::t_35f5baa706f764 967
+radio/app/api/device/receiver/programs/[id]/completed/route.ts
+  s_1bfd675b83ce48::t_ec027b5a5cb2b8 17
+  s_1bfd675b83ce48::t_5d0b249ded6239 6
+radio/package.json
+  s_1bfd675b83ce48::t_54e0425bae78cf 13
+radio/inventory/preheat-core.test.ts
+  s_1bfd675b83ce48::t_54e0425bae78cf 1-43,61-93
+  s_1bfd675b83ce48::t_fc008e183910af 44-60
+radio/receiver/after-completed-core.test.ts
+  s_1bfd675b83ce48::t_54e0425bae78cf 1-7,9-22,24-34,43
+  s_1bfd675b83ce48::t_ec027b5a5cb2b8 8,23,35-42
+radio/inventory/orchestrator-core.test.ts
+  s_1bfd675b83ce48::t_54e0425bae78cf 26-35
+radio/inventory/preheat-core.ts
+  s_1bfd675b83ce48::t_fc008e183910af 2,43-46
+  s_1bfd675b83ce48::t_ba1b627d6ddada 1,3-42,47-64
+radio/inventory/classify.test.ts
+  s_1bfd675b83ce48::t_54e0425bae78cf 6-7,55,57-58,60-66,68,71-80,84-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cd355bfa8f4d64c3391a4473c150c2b22dfc18ed",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
