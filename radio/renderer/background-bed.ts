@@ -26,11 +26,14 @@ export type GeneratedBackgroundBed = {
 
 // 各 preset 在人声下的可听度不同；pulse 保留更高电平，确保节拍不会被朗读完全掩盖。
 const backgroundGains: Record<BackgroundBed, number> = {
-  ambient: 0.22,
-  mysterious: 0.24,
+  ambient: 0.34,
+  mysterious: 0.36,
   none: 0,
-  pulse: 0.3,
+  pulse: 0.42,
 };
+
+// 混音器与预设共用该上限，新增或调整预设时无需同步修改另一处校验。
+export const maximumBackgroundBedGain = Math.max(...Object.values(backgroundGains));
 
 export function isBackgroundBed(value: unknown): value is BackgroundBed {
   return typeof value === "string" && backgroundBedOptions.some((option) => option.value === value);

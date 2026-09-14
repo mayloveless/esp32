@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { TtsError } from "../tts/validation.ts";
+import { getBackgroundBedGain } from "./background-bed.ts";
 import { mixSpeechWithBackground } from "./pcm-mixer.ts";
 import { buildPcmWav, parsePcmWav, type Caption, type WavPcmFormat } from "./wav.ts";
 
@@ -45,6 +46,15 @@ test("none 不改变原始语音字节", () => {
     mixSpeechWithBackground(speech, null, { baseGain: 0, captions: [] }).audioBytes,
     speech,
   );
+});
+
+test("脉冲预设的背景增益可被混音器接受", () => {
+  const mixed = mixSpeechWithBackground(sineWav(300, 12_000), sineWav(300, 4_000), {
+    baseGain: getBackgroundBedGain("pulse"),
+    captions: [],
+  });
+  assert.equal(mixed.durationMs, 300);
+  assert.ok(mixed.audioBytes.length > 44);
 });
 
 test("背景混音拒绝 PCM 格式不一致", () => {

@@ -208,6 +208,19 @@ test("machine-1 在混入神秘背景前先完成语音后处理，结果稳定�
   assert.deepEqual(first.captions, second.captions);
 });
 
+test("120 BPM 脉冲可使用较高背景增益完成混音", async () => {
+  const result = await renderProgramAudio(
+    chatProgram,
+    voices,
+    async () => ({ audioBytes: signalWav(), traceId: null }),
+    { backgroundBed: "pulse", backgroundBedSeed: "pulse-background-seed" },
+  );
+  assert.equal(result.backgroundBed, "pulse");
+  assert.equal(result.backgroundBedGain, 0.42);
+  assert.equal(result.backgroundBedGenerator, "procedural-bed-v1");
+  assert.ok(result.audioBytes.length > 44);
+});
+
 test("背景生成失败时不会产出可保存的新音频", async () => {
   let saveCalled = false;
   await assert.rejects(async () => {

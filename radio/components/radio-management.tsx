@@ -103,6 +103,7 @@ function asBroadcastScript(content: RadioProgram["content"]): BroadcastScript | 
 function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
   alienDialect: AlienDialect | null;
   backgroundBed: BackgroundBed | null;
+  backgroundBedGain: number | null;
   deliveryProfile: DeliveryProfileId | null;
   renderMode: RenderMode | null;
   speed: number | null;
@@ -117,6 +118,12 @@ function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
   const backgroundBed = isBackgroundBed(recipe.background_bed)
     ? recipe.background_bed
     : null;
+  const backgroundBedGain =
+    typeof recipe.background_bed_gain === "number" &&
+    Number.isFinite(recipe.background_bed_gain) &&
+    recipe.background_bed_gain > 0
+      ? recipe.background_bed_gain
+      : null;
   const deliveryProfile =
     typeof recipe.delivery_profile === "string" &&
     deliveryProfileIds.includes(recipe.delivery_profile as DeliveryProfileId)
@@ -126,7 +133,14 @@ function getSavedDeliverySettings(recipe: RadioProgram["recipe"]): {
     typeof recipe.tts_speed === "number" && Number.isFinite(recipe.tts_speed)
       ? recipe.tts_speed
       : null;
-  return { alienDialect, backgroundBed, deliveryProfile, renderMode, speed };
+  return {
+    alienDialect,
+    backgroundBed,
+    backgroundBedGain,
+    deliveryProfile,
+    renderMode,
+    speed,
+  };
 }
 
 function getRenderModeLabel(renderMode: RenderMode) {
@@ -1048,6 +1062,9 @@ export function RadioManagement() {
                     : ""}
                   {savedDeliverySettings.backgroundBed
                     ? ` · 背景：${getBackgroundBedLabel(savedDeliverySettings.backgroundBed)}`
+                    : ""}
+                  {savedDeliverySettings.backgroundBedGain
+                    ? ` · 强度 ${Math.round(savedDeliverySettings.backgroundBedGain * 100)}%`
                     : ""}
                 </p>
               )}

@@ -10,7 +10,7 @@ test("recipe 保存实际的 delivery profile 和 TTS speed", () => {
       audioEffect: null,
       audioContentType: "audio/wav",
       backgroundBed: "ambient",
-      backgroundBedGain: 0.22,
+      backgroundBedGain: 0.34,
       backgroundBedGenerator: "procedural-bed-v1",
       backgroundBedSeed: "ambient-seed",
       deliveryProfile: "lively",
@@ -28,7 +28,7 @@ test("recipe 保存实际的 delivery profile 和 TTS speed", () => {
   assert.equal(recipe.delivery_profile, "lively");
   assert.equal(recipe.tts_speed, 1.25);
   assert.equal(recipe.background_bed, "ambient");
-  assert.equal(recipe.background_bed_gain, 0.22);
+  assert.equal(recipe.background_bed_gain, 0.34);
   assert.equal(recipe.background_bed_generator, "procedural-bed-v1");
   assert.equal(recipe.format, "chat");
 });
@@ -41,7 +41,7 @@ test("machine-1 会在 recipe 中记录方言和机械后处理", () => {
       audioEffect: "machine-radio-v1",
       audioContentType: "audio/wav",
       backgroundBed: "mysterious",
-      backgroundBedGain: 0.24,
+      backgroundBedGain: 0.36,
       backgroundBedGenerator: "procedural-bed-v1",
       backgroundBedSeed: "machine-bed-seed",
       deliveryProfile: "urgent",
