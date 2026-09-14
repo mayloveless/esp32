@@ -1,0 +1,61 @@
+radio/app/api/receiver/tune/route.ts
+  s_1bfd675b83ce48::t_0f50c64ba78139 9,17
+radio/app/api/receiver/programs/[id]/completed/route.ts
+  s_1bfd675b83ce48::t_0f50c64ba78139 5,13-14,16
+radio/receiver/completed.ts
+  s_1bfd675b83ce48::t_0f50c64ba78139 1-2,4,6-9,12
+  s_1bfd675b83ce48::t_3262e2edba2118 3,5,11
+  s_1bfd675b83ce48::t_db5c7c9b171b2c 10
+radio/lib/supabase-server.ts
+  s_1bfd675b83ce48::t_04202aae64aa29 3-6,8
+radio/receiver/completed-core.ts
+  s_1bfd675b83ce48::t_3262e2edba2118 1-24
+radio/receiver/completed-core.test.ts
+  s_1bfd675b83ce48::t_f2892a6d4541b6 1-25
+radio/lib/local-development-guard.ts
+  s_1bfd675b83ce48::t_04202aae64aa29 1-40
+radio/receiver/manifest-builder.ts
+  s_1bfd675b83ce48::t_3262e2edba2118 7-9,11,21-22
+  s_1bfd675b83ce48::t_0f50c64ba78139 1-6,10,12-20,23
+radio/package.json
+  s_1bfd675b83ce48::t_f2892a6d4541b6 13
+  s_1bfd675b83ce48::t_b58b98813cedf6 8
+radio/lib/device-api-core.test.ts
+  s_1bfd675b83ce48::t_f2892a6d4541b6 1-48
+radio/lib/device-api.ts
+  s_1bfd675b83ce48::t_04202aae64aa29 1,3,8-9,12
+  s_1bfd675b83ce48::t_4471da95a5362e 10
+  s_1bfd675b83ce48::t_3262e2edba2118 2,4-7,11
+radio/lib/local-development-guard.test.ts
+  s_1bfd675b83ce48::t_f2892a6d4541b6 1-32
+radio/README.md
+  s_1bfd675b83ce48::t_b58b98813cedf6 31-32
+radio/app/api/device/receiver/programs/[id]/completed/route.ts
+  s_1bfd675b83ce48::t_b58b98813cedf6 1-23
+radio/lib/device-api-core.ts
+  s_1bfd675b83ce48::t_3262e2edba2118 1-34
+radio/receiver/manifest-builder-core.ts
+  s_1bfd675b83ce48::t_3262e2edba2118 1-55
+radio/receiver/manifest-builder-core.test.ts
+  s_1bfd675b83ce48::t_f2892a6d4541b6 1-67
+radio/.env.example
+  s_1bfd675b83ce48::t_b58b98813cedf6 22-24
+radio/app/api/device/receiver/tune/route.ts
+  s_1bfd675b83ce48::t_b58b98813cedf6 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fe5c6986e2fe5f3333daf124fe4ab84295b7298c",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
