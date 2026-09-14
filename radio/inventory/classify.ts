@@ -2,16 +2,25 @@ import type { RadioProgram } from "../program/types.ts";
 import { inventoryKinds, type InventoryKind } from "./plan.ts";
 
 export const inventoryTargets: Record<InventoryKind, number> = {
-  alien: 1,
-  chat: 1,
-  music: 1,
-  news: 1,
+  alien: 3,
+  chat: 3,
+  music: 5,
+  news: 3,
+};
+
+export const inventoryMinimums: Record<InventoryKind, number> = {
+  alien: 2,
+  chat: 2,
+  music: 3,
+  news: 2,
 };
 
 export type InventorySummary = Record<
   InventoryKind,
   { count: number; programIds: string[] }
 >;
+
+export type InventoryHealth = "healthy" | "low" | "refilling";
 
 function createEmptyInventory(): InventorySummary {
   return {
@@ -76,4 +85,19 @@ export function pickInventoryDeficit(
     }
   }
   return selected;
+}
+
+/** 低于 minimum 表示库存偏低；介于 minimum 与 target 之间表示仍在补充。 */
+export function getInventoryHealth(
+  inventory: InventorySummary,
+  minimums: Record<InventoryKind, number> = inventoryMinimums,
+  targets: Record<InventoryKind, number> = inventoryTargets,
+): InventoryHealth {
+  for (const kind of inventoryKinds) {
+    if (inventory[kind].count < minimums[kind]) return "low";
+  }
+  for (const kind of inventoryKinds) {
+    if (inventory[kind].count < targets[kind]) return "refilling";
+  }
+  return "healthy";
 }

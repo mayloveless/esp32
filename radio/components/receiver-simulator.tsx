@@ -526,9 +526,6 @@ export function ReceiverSimulator() {
       if (!isLatest(sequence) || manifestRef.current?.programId !== current.programId)
         return;
 
-      void ensureInventory().catch((error) =>
-        console.warn("节目完成后的库存检查未完成。", error),
-      );
       void tune({ playFromStart: true, minimumFeedback: false });
     } catch (caughtError) {
       if (manifestRef.current?.programId === current.programId) {

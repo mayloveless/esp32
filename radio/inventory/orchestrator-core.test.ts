@@ -23,10 +23,16 @@ function program(id: string, format: RadioProgram["format"] = "news"): RadioProg
 
 test("库存健康时 ensure 不生产节目", async () => {
   const active = [
-    program("news"),
-    program("chat", "chat"),
-    { ...program("alien", "chat"), recipe: { render_mode: "alien" } },
-    program("music", "music"),
+    ...Array.from({ length: 3 }, (_, index) => program(`news-${index}`)),
+    ...Array.from({ length: 3 }, (_, index) => program(`chat-${index}`, "chat")),
+    ...Array.from(
+      { length: 3 },
+      (_, index) => ({
+        ...program(`alien-${index}`, "chat"),
+        recipe: { render_mode: "alien" },
+      }),
+    ),
+    ...Array.from({ length: 5 }, (_, index) => program(`music-${index}`, "music")),
   ];
   let produced = 0;
   const result = await ensureInventoryCore({

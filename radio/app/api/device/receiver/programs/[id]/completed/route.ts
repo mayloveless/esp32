@@ -3,6 +3,7 @@ import {
   getDeviceRequestErrorStatus,
 } from "../../../../../../../lib/device-api";
 import { completeReceiverProgram } from "../../../../../../../receiver/completed";
+import { replenishAfterReceiverCompletion } from "../../../../../../../receiver/after-completed";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
@@ -13,6 +14,7 @@ export async function POST(request: Request, { params }: Context) {
     const completed = await completeReceiverProgram((await params).id);
     if (!completed)
       return Response.json({ error: "节目不存在。" }, { status: 404 });
+    replenishAfterReceiverCompletion(completed.retired);
     return Response.json(completed, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return Response.json(

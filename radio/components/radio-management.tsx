@@ -32,10 +32,15 @@ import {
 } from "../music/types";
 import {
   classifyInventory,
+  getInventoryHealth,
   inventoryTargets,
 } from "../inventory/classify";
 import { inventoryKinds } from "../inventory/plan";
 import type { EnsureInventoryResult } from "../inventory/orchestrator-core";
+import {
+  preheatReceiverInventory,
+  type InventoryPreheatResult,
+} from "../inventory/preheat-core";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -47,6 +52,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   };
   if (!response.ok) throw new Error(body.error ?? "请求失败。");
   return body;
+}
+
+function formatPreheatResult(result: InventoryPreheatResult) {
+  if (result.result === "healthy")
+    return `库存预热完成，共检查 ${result.steps} 次。`;
+  if (result.result === "maximum_reached")
+    return `已达到本次预热上限（${result.steps} 次），请查看库存摘要后再决定是否继续。`;
+  return result.error instanceof Error
+    ? `库存预热在第 ${result.steps} 次停止：${result.error.message}`
+    : `库存预热在第 ${result.steps} 次停止。`;
 }
 
 const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -192,6 +207,7 @@ export function RadioManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ensuringInventory, setEnsuringInventory] = useState(false);
+  const [preheatingInventory, setPreheatingInventory] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [synthesizingProgramId, setSynthesizingProgramId] = useState<
     string | null
@@ -247,6 +263,7 @@ export function RadioManagement() {
     programs.length > 0 &&
     programs.every((program) => checkedProgramIds.includes(program.id));
   const readyInventory = classifyInventory(programs);
+  const inventoryHealth = getInventoryHealth(readyInventory);
 
   async function loadPrograms() {
     try {
@@ -454,12 +471,38 @@ export function RadioManagement() {
       setMessage(
         result.result === "replenished"
           ? `已补充 1 条 ${result.kind} 库存节目。`
-          : "四类 ready 库存均已达到最低目标。",
+          : "四类 ready 库存均已达到目标。",
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法检查节目库存。");
     } finally {
       setEnsuringInventory(false);
+    }
+  }
+
+  async function preheatInventory() {
+    try {
+      setPreheatingInventory(true);
+      setMessage("正在串行预热节目库存…");
+      const result = await preheatReceiverInventory(
+        () =>
+          request<EnsureInventoryResult>("/api/receiver/replenish", {
+            body: JSON.stringify({}),
+            method: "POST",
+          }),
+        {
+          onStep: (stepResult, step) =>
+            setMessage(
+              stepResult.result === "healthy"
+                ? `库存预热完成，共检查 ${step} 次。`
+                : `正在预热库存：已完成第 ${step} 次单步补充。`,
+            ),
+        },
+      );
+      await loadPrograms();
+      setMessage(formatPreheatResult(result));
+    } finally {
+      setPreheatingInventory(false);
     }
   }
 
@@ -900,15 +943,27 @@ export function RadioManagement() {
             <span className="inventory-batch-summary">
               Ready Inventory · {inventoryKinds.map((kind) =>
                 `${kind} ${readyInventory[kind].count}/${inventoryTargets[kind]}`,
-              ).join(" / ")}
+              ).join(" / ")} · {inventoryHealth === "healthy"
+                ? "健康"
+                : inventoryHealth === "low"
+                  ? "偏低"
+                  : "补充中"}
             </span>
             <button
               className="text-button"
-              disabled={ensuringInventory || saving}
+              disabled={ensuringInventory || preheatingInventory || saving}
               onClick={() => void ensureInventory()}
               type="button"
             >
               {ensuringInventory ? "正在检查库存…" : "补一条缺口"}
+            </button>
+            <button
+              className="text-button"
+              disabled={ensuringInventory || preheatingInventory || saving}
+              onClick={() => void preheatInventory()}
+              type="button"
+            >
+              {preheatingInventory ? "正在预热库存…" : "预热节目库存"}
             </button>
           </div>
           {message && (
