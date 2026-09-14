@@ -1,0 +1,39 @@
+radio/package.json
+  s_1bfd675b83ce48::t_3004b9f9890f73 12
+radio/inventory/producer.ts
+  s_1bfd675b83ce48::t_6658128a8d2bcf 1-57
+radio/program/service.ts
+  s_1bfd675b83ce48::t_228bfe80c635c5 210,222
+radio/receiver/replenishment.ts
+  s_1bfd675b83ce48::t_7d98a0ae9c8533 1-2,12-14
+radio/receiver/auto-replenish.ts
+  s_1bfd675b83ce48::t_15ca2dcaa35b54 2-3,8-9,11,46-47,49
+radio/inventory/producer-core.test.ts
+  s_1bfd675b83ce48::t_3004b9f9890f73 1-244
+radio/program/synthesis-metadata.test.ts
+  s_1bfd675b83ce48::t_3e8ddad8043007 7,34
+radio/inventory/plan.ts
+  s_1bfd675b83ce48::t_5ee0e83bdc0f05 1-61
+radio/inventory/producer-core.ts
+  s_1bfd675b83ce48::t_8c3b10743b57a2 1-9,11-45,47-63,65-104,106-107,109-240
+  s_1bfd675b83ce48::t_a1d79d4905fca9 10,46,105
+  s_1bfd675b83ce48::t_af40da147b7773 64,108
+radio/receiver/replenishment.test.ts
+  s_1bfd675b83ce48::t_bd7bfd02cde7c2 4,9-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "80d5ad4e0521d38299c5d006223a5003a387ed36",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
