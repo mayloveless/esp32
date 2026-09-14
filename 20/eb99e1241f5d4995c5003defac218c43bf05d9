@@ -1,0 +1,26 @@
+radio-device/README.md
+  s_1bfd675b83ce48::t_da29839674068d 1-77
+radio-device/secrets.example.h
+  s_1bfd675b83ce48::t_1e26fa4a337e86 1-7
+radio-device/radio-device.ino
+  s_1bfd675b83ce48::t_f54decd6cccca8 1-6,9-75,79-85,87-123,126-152,154-240,242,244-258
+  s_1bfd675b83ce48::t_6277d72a7e4a64 7-8,76-78,86,124-125,153,241,243
+radio-device/.gitignore
+  s_1bfd675b83ce48::t_1e26fa4a337e86 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "20eb99e1241f5d4995c5003defac218c43bf05d9",
+  "prompts": {},
+  "sessions": {
+    "s_1bfd675b83ce48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08522-dfad-74c3-aa9d-1adc8d92ea73",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "wanglingfei <1418461+mayloveless@users.noreply.github.com>"
+    }
+  }
+}
