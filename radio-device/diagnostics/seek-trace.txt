@@ -1,0 +1,13 @@
+startOffsetMs: 10613
+seeking to: 10 s
+audio seek succeeded
+[seek] queued: seconds=10 position=640044
+audio failure flags: libraryError=1 WiFi=3 ready=1 seekPending=0 samples=0 running=0
+[seek] new-buffer.begin: position=640044 headerState=100
+[seek] file-seek.begin: acceptRanges=0 dataMode=3
+[seek] file-seek.no-ranges: result=-1
+[seek] new-buffer.seek-result: result=-1 requested=640044
+[seek] read.timeout: read=31029 expected=65535
+[seek] new-buffer.read: read=-1 expected=65535
+[seek] new-buffer.result: position=-1 ok=0
+audio playback failed

@@ -1,0 +1,198 @@
+--- a/src/Audio.h
++++ b/src/Audio.h
+@@ -400,7 +400,7 @@
+     std::vector<ps_ptr<char>> readHeader();
+     HeaderResult              parseHeaderLine(ps_ptr<char> name, ps_ptr<char> value, ps_ptr<char>& redirectUrl);
+     bool                      parseHttpResponseHeader();
+-    bool                      parseHttpRangeHeader();
++    bool                      parseHttpRangeHeader(uint32_t position, uint32_t length);
+     bool                      initializeDecoder();
+     esp_err_t                 I2Sstart();
+     esp_err_t                 I2Sstop();
+--- a/src/Audio.cpp
++++ b/src/Audio.cpp
+@@ -16,6 +16,7 @@
+ *****************************************************************************************************************************************************/
+ 
+ #include "Audio.h"
++#include "RadioHttpRange.h"
+ #include "aac_decoder/aac_decoder.h"
+ #include "flac_decoder/flac_decoder.h"
+ #include "mp3_decoder/mp3_decoder.h"
+@@ -5409,6 +5410,9 @@
+ 
+     m_phreh.reset();
+     bool         ct_seen = false;
++    int          responseStatus = 0;
++    bool         hasRange = false;
++    radio_http_range::ByteRange responseRange;
+     int          pos = 0;
+     ps_ptr<char> name;
+     ps_ptr<char> value;
+@@ -5430,9 +5434,13 @@
+         }
+         if (name.starts_with_icase("http/")) {
+             const int status = name.strlen() >= 12 ? atoi(name.get() + 9) : 0;
++            responseStatus = status;
+             seekDiagnostic("radio.seek.initial.status", status);
+         }
+-        if (name.equals_icase("content-range")) seekDiagnostic("radio.seek.initial.content-range", 1);
++        if (name.equals_icase("content-range")) {
++            hasRange = radio_http_range::parse(value.c_get(), responseRange);
++            seekDiagnostic("radio.seek.initial.content-range", 1);
++        }
+         switch (parseHeaderLine(name, value, redirectUrl)) {
+             case HeaderResult::Continue: break;
+             case HeaderResult::ContentTypeSeen: ct_seen = true; break;
+@@ -5454,6 +5462,14 @@
+     return false;
+ 
+ lastToDo:
++    // connecttohost requests bytes=0-. A valid 206 proves byte-range support
++    // even when the server omits the optional Accept-Ranges response header.
++    if (hasRange && radio_http_range::matches(responseStatus, responseRange, 0,
++            UINT32_MAX, 0, m_audioFileSize != 0, m_audioFileSize)) {
++        m_f_acceptRanges = true;
++        m_audioFileSize = responseRange.total;
++        seekDiagnostic("radio.seek.initial.range-supported", 1, responseRange.total);
++    }
+     m_streamType = ST_WEBSTREAM;
+     if (m_audioFileSize > 0) m_streamType = ST_WEBFILE; // content length found
+     if (m_phreh.f_icy_data) m_streamType = ST_WEBSTREAM;
+@@ -5475,13 +5491,19 @@
+     return true;
+ }
+ // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+-bool Audio::parseHttpRangeHeader() { // this is the response to a Range request
++bool Audio::parseHttpRangeHeader(uint32_t position, uint32_t length) { // this is the response to a Range request
+ 
+     if (m_dataMode != HTTP_RANGE_HEADER) {
+         seekDiagnostic("radio.seek.range.header-result", 0, 1);
+         return false;
+     }
+ 
++    int responseStatus = 0;
++    bool hasRange = false;
++    bool hasContentLength = false;
++    uint32_t contentLength = 0;
++    const uint32_t fileSize = m_audioFileSize;
++    radio_http_range::ByteRange responseRange;
+     ps_ptr<char> name;
+     ps_ptr<char> value;
+     ps_ptr<char> redirectUrl;
+@@ -5505,7 +5527,15 @@
+         }
+         if (name.starts_with_icase("http/")) {
+             const int status = name.strlen() >= 12 ? atoi(name.get() + 9) : 0;
++            responseStatus = status;
+             seekDiagnostic("radio.seek.range.status", status);
++        }
++        if (name.equals_icase("content-range")) {
++            hasRange = radio_http_range::parse(value.c_get(), responseRange);
++        }
++        if (name.equals_icase("content-length")) {
++            hasContentLength = true;
++            contentLength = value.to_uint32();
+         }
+         switch (parseHeaderLine(name, value, redirectUrl)) {
+             case HeaderResult::Continue: break;
+@@ -5515,6 +5545,15 @@
+             default: break;
+         }
+     }
++    if (!hasRange || m_f_chunked ||
++        !radio_http_range::matches(responseStatus, responseRange, position,
++            length, fileSize, hasContentLength, contentLength)) {
++        seekDiagnostic("radio.seek.range.header-result", 0, 4);
++        goto exit;
++    }
++    // Content-Length describes this response body, not the original file.
++    m_audioFileSize = responseRange.total;
++    seekDiagnostic("radio.seek.range.validated", responseRange.start, responseRange.total);
+     goto lastToDo;
+ 
+ exit:
+@@ -6617,13 +6656,13 @@
+             seekDiagnostic("radio.seek.file-seek.request-result", r);
+             if (r == false) {
+                 AUDIO_LOG_ERROR("http range request was not successful");
+-                return 0;
+-            }
+-            r = parseHttpRangeHeader();
++                return -1;
++            }
++            r = parseHttpRangeHeader(position, len);
+             seekDiagnostic("radio.seek.file-seek.header-result", r);
+             if (r == false) {
+                 AUDIO_LOG_ERROR("http range response was not successful");
+-                return 0;
++                return -1;
+             }
+             m_audioFilePosition = position;
+             return position;
+@@ -7699,6 +7738,10 @@
+ 
+     if (resumeFilePos < (int32_t)m_audioDataStart) resumeFilePos = m_audioDataStart; // keep resumeFilePos within the audio data
+     buffFillValue = std::min<uint32_t>(m_audioDataStart + m_audioDataSize - resumeFilePos, UINT16_MAX);
++    // HTTP WAV needs only PCM alignment. Prefill two decoder blocks, then let
++    // processWebFile continue streaming; do not require 64 KiB within 3 seconds.
++    if (m_codec == CODEC_WAV && m_streamType == ST_WEBFILE)
++        buffFillValue = std::min<uint32_t>(buffFillValue, 2 * InBuff.getMaxBlockSize());
+     AUDIO_LOG_DEBUG("new InBuff start at m_resumeFilePos {}, m_audioDataStart {}, buffFillValue {}", m_resumeFilePos, m_audioDataStart, buffFillValue);
+     if (buffFillValue < InBuff.getMaxBlockSize()) {
+         seekDiagnostic("radio.seek.new-buffer.guard", 4);
+@@ -7712,6 +7755,7 @@
+     m_f_allDataReceived = false; // ------- prepare InBuff ------
+     diagnosticSeekResult = audioFileSeek(resumeFilePos);
+     seekDiagnostic("radio.seek.new-buffer.seek-result", diagnosticSeekResult, resumeFilePos);
++    if (diagnosticSeekResult != resumeFilePos) goto fail;
+     InBuff.reset();
+ 
+     bw = audioFileRead(InBuff.getWritePtr(), buffFillValue, 3000);
+--- /dev/null
++++ b/src/RadioHttpRange.h
+@@ -0,0 +1,44 @@
++#pragma once
++#include <cstdint>
++#include <cstring>
++
++// Validate HTTP byte ranges without retaining URLs, headers or audio data.
++namespace radio_http_range {
++struct ByteRange { uint32_t start = 0, end = 0, total = 0; };
++inline bool number(const char*& p, uint32_t& out) {
++    if (*p < '0' || *p > '9') return false;
++    uint32_t value = 0;
++    do {
++        const uint32_t digit = static_cast<uint32_t>(*p - '0');
++        if (value > (UINT32_MAX - digit) / 10) return false;
++        value = value * 10 + digit;
++        ++p;
++    } while (*p >= '0' && *p <= '9');
++    out = value;
++    return true;
++}
++inline bool parse(const char* value, ByteRange& result) {
++    if (!value || std::strncmp(value, "bytes ", 6) != 0) return false;
++    const char* p = value + 6;
++    ByteRange range;
++    if (!number(p, range.start) || *p++ != '-' ||
++        !number(p, range.end) || *p++ != '/' || !number(p, range.total)) return false;
++    while (*p == ' ' || *p == '\t') ++p;
++    if (*p || range.start > range.end || range.end >= range.total) return false;
++    result = range;
++    return true;
++}
++inline bool matches(int status, const ByteRange& range, uint32_t position,
++                    uint32_t length, uint32_t fileSize,
++                    bool hasContentLength, uint32_t contentLength) {
++    if (status != 206 || range.start != position || !range.total ||
++        range.start > range.end || range.end >= range.total ||
++        (fileSize && range.total != fileSize)) return false;
++    // httpRange uses an inclusive end of position + length; UINT32_MAX is open.
++    uint64_t end = length == UINT32_MAX ? range.total - 1 :
++                   static_cast<uint64_t>(position) + length;
++    if (end >= range.total) end = range.total - 1;
++    return range.end == end &&
++           (!hasContentLength || contentLength == range.end - range.start + 1);
++}
++} // namespace radio_http_range

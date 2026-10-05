@@ -1,0 +1,14 @@
+{
+  "Audio.h": {
+    "diagnostic": "cf11127931d701f8ed8915756ad941a4db365978eeebba5a7a99824a84a721a1",
+    "fixed": "91ff3c133a1fb884e4e93a3f542a781665124d196e9a27498439317c6ee5cf23"
+  },
+  "Audio.cpp": {
+    "diagnostic": "4270665e2041a3bfbd5b9b50ab54603ae8e811f4cb990d3ec015664b396e9273",
+    "fixed": "f6a60bf465429114dc73d9a238230108baa2317eeb52807053137fafaefbc646"
+  },
+  "RadioHttpRange.h": {
+    "diagnostic": null,
+    "fixed": "dae37132e2880acd42ba77e2d1856400a73ff74b8efdae86c771e3ad08d932ad"
+  }
+}

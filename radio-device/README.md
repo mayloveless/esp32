@@ -67,16 +67,16 @@ pnpm dev:device
 2. 在 Arduino IDE 中选择 ESP32-S3 N16R8 对应板型、启用 PSRAM，烧录 `radio-device.ino`。
 3. 打开 115200 baud Serial Monitor。
 4. 预期看到 `Wi-Fi connected`、`tune request`、`signal`、节目标题和 `audio playback started`。
-5. 确认 `startOffsetMs`。大于 0 时应接着看到 `seeking to: N s` 与 `audio seek succeeded`，扬声器应从中途播放；0 时正常从头播放。
+5. 确认 `startOffsetMs`。大于 0 时应接着看到 `seeking to: N s` 与 `audio seek queued`，随后实际跳转成功才有 `audio seek applied: position=N`；扬声器应从中途播放；0 时正常从头播放。
 6. 自然播完后，预期看到 `audio playback completed` 和 `completed request succeeded`；此时服务端会机会式补一条库存。
 
 `no_signal`、Wi-Fi 失败、manifest 解析失败或播放失败都会进入 idle，不会伪造 completed，也不会自动 tune 下一条。播放期间 `loop()` 每轮都让 decoder 继续运行，没有长时间 delay。
 
 Device tune 使用 HTTP/1.0，避免将 HTTP chunked 分块标记交给 JSON 解析器。音频库 4.0.0 的 EOF 延迟一轮派发，且音频头超时也可能发送 EOF：固件会先排空停止时的事件，确认流已就绪、产生过真实音频样本且没有已报告错误，再上报 completed。15 秒未产生样本或播放位置连续 30 秒没有推进会停止播放；断网也会停止，不上报完成。样本回调只设置原子标志，不创建任务或改变 I2S 输出。
 
-中途接入：保存 manifest 的 offset，在主循环收到 `stream ready` 后，每条节目最多调用一次 `setAudioPlayTime(startOffsetMs / 1000)`，使用秒级精度。正数不足 1 秒时调用原生 seek 到 0 秒；超过 API 的 `uint16_t` 秒数范围时拒绝，避免截断。等待 seek 期间的样本不算播放成功的依据。seek 成功后重新计算启动与进展超时；失败输出 `audio seek failed`，停止并进入 idle，不从头继续，不发送 completed，也不自动调台。
+中途接入：保存 manifest 的 offset，在主循环收到 `stream ready` 后，每条节目最多调用一次 `setAudioPlayTime(startOffsetMs / 1000)`，使用秒级精度。正数不足 1 秒时调用原生 seek 到 0 秒；超过 API 的 `uint16_t` 秒数范围时拒绝，避免截断。等待 seek 期间的样本不算播放成功的依据。seek 请求接受后重新计算启动与进展超时；失败输出 `audio seek failed`，停止并进入 idle，不从头继续，不发送 completed，也不自动调台。
 
-4.0.0 的 seek 接口返回成功表示接受了请求，实际网络读取由随后的音频库循环执行，原有错误、断网与停滞保护继续生效。固件不自行计算 WAV 字节偏移、构造 Range 或下载整条文件。真机仍需确认实际听到的切入位置；若库的 HTTP WAV seek 不可靠，记录现象后停止，不以代理或整文件下载绕过。
+4.0.0 的 seek 接口返回成功表示接受了请求（日志为 `audio seek queued`），实际网络读取由随后的音频库循环执行，原有错误、断网与停滞保护继续生效。固件不自行计算 WAV 字节偏移、构造 Range 或下载整条文件。真机仍需确认实际听到的切入位置；若库的 HTTP WAV seek 不可靠，记录现象后停止，不以代理或整文件下载绕过。
 
 上板时还需验证：音频响应头正常但 body 卡住、播放中断网、音频 body 中途停传，均应输出失败且服务端节目不被下线；正常播完应只发送一次 completed。
 
@@ -104,6 +104,14 @@ audio playback failed
 接口返回成功后，随后的库网络播放阶段失败，设备进入 idle。Wi-Fi 保持连接，未出现 completed；读取本地节目接口确认 `status=ready`、`retired_at=null`，没有误下线。现有日志只保留库错误标志，不能据此判断具体底层失败原因，亦不能把 API 接受请求算作实际 seek 验收通过。
 
 **真机中途接入尚未通过。** 按 008B 要求记录现象后停止；未改音频库、整文件下载、手工 Range 或代理，也未自动调台。后续需单独定位原生 HTTP WAV seek 的失败原因，并重新验证实际切入位置和自然完成。
+
+HTTP WAV seek 的原始诊断与失败证据见 [diagnostics/README.md](diagnostics/README.md)。后续经授权修复了音频库的 Range 判定与重填路径，当前构建需要应用 [patches/README.md](patches/README.md) 中的库补丁；仅拉取 sketch 不会更新本机 Arduino 库。
+
+### HTTP WAV seek 修复（2026-10-05）
+
+有效的首次 206 / Content-Range 可以证明 Range 支持；后续 seek 响应必须与目标位置、文件总长和片段长度一致。失败立即停止，不再读取旧连接。修复后的 WAV seek 仅预填两个解码块（8 KiB），随后继续原生流式读取，保留 3 秒超时；其他格式保持原生预填量。Range 响应解析后保留完整文件长度，不把片段 Content-Length 当作总长。
+
+`audio seek queued` 只表示请求被接受；`audio seek applied: position=N` 表示原生重填和格式对齐已完成。真机已确认跳转至 8 秒（位置 512044）、8 KiB 重填与 WAV 对齐通过，随后自然 EOF 与 completed 成功。用户确认有声音，但仍断断续续，连续播放流畅度尚未通过。完整记录见 [patches/README.md](patches/README.md)。
 
 主机回归检查（Python 3 与支持 C++17 的 `clang++`，可通过 `CXX` 指定编译器）：
 

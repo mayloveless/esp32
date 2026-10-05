@@ -1,0 +1,46 @@
+{
+  "program": {
+    "id": "ff64af5d-eef5-4584-b5ed-1f964a434dc3",
+    "title": "异星信号 · 870aa5",
+    "status": "ready",
+    "retired_at": null
+  },
+  "httpProbes": [
+    {
+      "mode": "normal",
+      "range": false,
+      "status": 200,
+      "acceptRangesPresent": true,
+      "acceptRangesBytes": true,
+      "contentLength": 2722092
+    },
+    {
+      "mode": "initial-range",
+      "range": true,
+      "status": 206,
+      "acceptRangesPresent": false,
+      "acceptRangesBytes": false,
+      "contentLength": 2722092,
+      "contentRange": [
+        0,
+        2722091,
+        2722092
+      ],
+      "bodyBytesRead": 16
+    },
+    {
+      "mode": "seek-range",
+      "range": true,
+      "status": 206,
+      "acceptRangesPresent": false,
+      "acceptRangesBytes": false,
+      "contentLength": 16,
+      "contentRange": [
+        640044,
+        640059,
+        2722092
+      ],
+      "bodyBytesRead": 16
+    }
+  ]
+}

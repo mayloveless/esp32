@@ -1,0 +1,230 @@
+--- a/src/Audio.h
++++ b/src/Audio.h
+@@ -353,6 +353,7 @@
+     void                      initInBuff();
+     bool                      httpPrint(const char* host);
+     bool                      httpRange(uint32_t range, uint32_t length = UINT32_MAX);
++    void                      seekDiagnostic(const char* tag, int32_t value1 = 0, int32_t value2 = 0);
+     void                      processLocalFile();
+     void                      processWebStream();
+     void                      processWebFile();
+--- a/src/Audio.cpp
++++ b/src/Audio.cpp
+@@ -1301,9 +1301,20 @@
+     return true;
+ }
+ // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
++// Diagnostic-only: constant event IDs and integer arguments, never URLs/headers.
++void Audio::seekDiagnostic(const char* tag, int32_t value1, int32_t value2) {
++    ps_ptr<char> label;
++    label.assign(tag);
++    enqueueInfo(*this, evt_info, std::move(label), value1, value2);
++}
++
+ bool Audio::httpRange(uint32_t seek, uint32_t length) {
+ 
+-    if (!m_f_running) return false;
++    seekDiagnostic("radio.seek.range.request", seek, length == UINT32_MAX ? -1 : length);
++    if (!m_f_running) {
++        seekDiagnostic("radio.seek.range.not-running");
++        return false;
++    }
+ 
+     uint16_t     port = 0;     // port number
+     ps_ptr<char> c_host;       // copy of host
+@@ -1374,6 +1385,7 @@
+     }
+ 
+     if (!m_client->connect(hwoe.get(), port)) {
++        seekDiagnostic("radio.seek.range.connect-failed");
+         AUDIO_LOG_ERROR("connection lost {}", c_host.c_get());
+         stopSong();
+         return false;
+@@ -1381,7 +1393,8 @@
+ 
+     // AUDIO_LOG_INFO("rqh \n{}", rqh.get());
+ 
+-    m_client->print(rqh.c_get());
++    const size_t diagnosticWritten = m_client->print(rqh.c_get());
++    seekDiagnostic("radio.seek.range.sent", diagnosticWritten, rqh.strlen());
+     // m_resumeFilePos = seek; // used in processWebFile()
+     m_dataMode = HTTP_RANGE_HEADER;
+     return true;
+@@ -5348,6 +5361,7 @@
+ 
+     else if (name.equals_icase("accept-ranges")) {
+         if (value.ends_with_icase("bytes")) m_f_acceptRanges = true;
++        seekDiagnostic("radio.seek.accept-ranges", value.ends_with_icase("bytes"), m_f_acceptRanges);
+         // AUDIO_LOG_INFO("{}:{}", name, value);
+         return HeaderResult::Continue;
+     }
+@@ -5414,6 +5428,11 @@
+             value = rhl.substr(colon + 1);
+             value.trim();
+         }
++        if (name.starts_with_icase("http/")) {
++            const int status = name.strlen() >= 12 ? atoi(name.get() + 9) : 0;
++            seekDiagnostic("radio.seek.initial.status", status);
++        }
++        if (name.equals_icase("content-range")) seekDiagnostic("radio.seek.initial.content-range", 1);
+         switch (parseHeaderLine(name, value, redirectUrl)) {
+             case HeaderResult::Continue: break;
+             case HeaderResult::ContentTypeSeen: ct_seen = true; break;
+@@ -5458,14 +5477,20 @@
+ // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+ bool Audio::parseHttpRangeHeader() { // this is the response to a Range request
+ 
+-    if (m_dataMode != HTTP_RANGE_HEADER) return false;
++    if (m_dataMode != HTTP_RANGE_HEADER) {
++        seekDiagnostic("radio.seek.range.header-result", 0, 1);
++        return false;
++    }
+ 
+     ps_ptr<char> name;
+     ps_ptr<char> value;
+     ps_ptr<char> redirectUrl;
+ 
+     auto header = readHeader();
+-    if (header.empty()) goto exit;
++    if (header.empty()) {
++        seekDiagnostic("radio.seek.range.header-result", 0, 2);
++        goto exit;
++    }
+ 
+     for (auto& rhl : header) { // read the header line for line
+         // rhl.println();
+@@ -5478,9 +5503,15 @@
+             value = rhl.substr(colon + 1);
+             value.trim();
+         }
++        if (name.starts_with_icase("http/")) {
++            const int status = name.strlen() >= 12 ? atoi(name.get() + 9) : 0;
++            seekDiagnostic("radio.seek.range.status", status);
++        }
+         switch (parseHeaderLine(name, value, redirectUrl)) {
+             case HeaderResult::Continue: break;
+-            case HeaderResult::Error: goto exit;
++            case HeaderResult::Error:
++                seekDiagnostic("radio.seek.range.header-result", 0, 3);
++                goto exit;
+             default: break;
+         }
+     }
+@@ -5489,6 +5520,7 @@
+ exit:
+     return false;
+ lastToDo:
++    seekDiagnostic("radio.seek.range.header-result", 1, 0);
+     m_dataMode = AUDIO_DATA;
+     return true;
+ }
+@@ -6405,6 +6437,7 @@
+     }
+     uint32_t filepos = m_audioDataStart + (getBitRate() * sec / 8);
+     m_resumeFilePos = filepos;
++    seekDiagnostic("radio.seek.queued", sec, filepos);
+     m_cat.sum_samples = (float)m_cat.tota_samples * ((float)(m_resumeFilePos - m_audioDataStart) / m_audioDataSize);
+     return true;
+ }
+@@ -6543,6 +6576,7 @@
+         if (res <= 0) { vTaskDelay(10); }
+         if (res > 0) { bytes_has_read += res; }
+         if (timeout < millis()) {
++            seekDiagnostic("radio.seek.read.timeout", bytes_has_read, len);
+             AUDIO_LOG_ERROR("timeout, len: {} != bytes_has_read: {}", len, bytes_has_read);
+             return -1;
+         }
+@@ -6554,6 +6588,7 @@
+ // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+ int32_t Audio::audioFileSeek(uint32_t position, size_t len) {
+     int32_t res = -1;
++    seekDiagnostic("radio.seek.file-seek.begin", m_f_acceptRanges, m_dataMode);
+ 
+     if (m_dataMode == AUDIO_LOCALFILE) {
+         uint32_t actualPos = m_audiofile.position(); // starts with 1
+@@ -6579,11 +6614,13 @@
+             bool r;
+             if (len == 0) len = UINT32_MAX;
+             r = httpRange(position, len);
++            seekDiagnostic("radio.seek.file-seek.request-result", r);
+             if (r == false) {
+                 AUDIO_LOG_ERROR("http range request was not successful");
+                 return 0;
+             }
+             r = parseHttpRangeHeader();
++            seekDiagnostic("radio.seek.file-seek.header-result", r);
+             if (r == false) {
+                 AUDIO_LOG_ERROR("http range response was not successful");
+                 return 0;
+@@ -6591,6 +6628,7 @@
+             m_audioFilePosition = position;
+             return position;
+         }
++        seekDiagnostic("radio.seek.file-seek.no-ranges", res);
+     }
+     return res;
+ }
+@@ -7640,16 +7678,21 @@
+     int32_t  offset;
+     int32_t  bw;
+     uint32_t buffFillValue;
++    int32_t diagnosticSeekResult;
++    seekDiagnostic("radio.seek.new-buffer.begin", resumeFilePos, m_controlCounter);
+ 
+     if (m_controlCounter != 100) {
++        seekDiagnostic("radio.seek.new-buffer.guard", 1);
+         AUDIO_LOG_WARN("timeOffset not possible (1)");
+         return -1;
+     }
+     if (m_resumeFilePos >= (int32_t)m_audioDataStart + m_audioDataSize) {
++        seekDiagnostic("radio.seek.new-buffer.guard", 2);
+         AUDIO_LOG_WARN("timeOffset not possible (2)");
+         return -1;
+     }
+     if ((m_codec == CODEC_M4A) && !m_stsz_position) {
++        seekDiagnostic("radio.seek.new-buffer.guard", 3);
+         AUDIO_LOG_WARN("timeOffset not possible (3)");
+         return -1;
+     }
+@@ -7658,6 +7701,7 @@
+     buffFillValue = std::min<uint32_t>(m_audioDataStart + m_audioDataSize - resumeFilePos, UINT16_MAX);
+     AUDIO_LOG_DEBUG("new InBuff start at m_resumeFilePos {}, m_audioDataStart {}, buffFillValue {}", m_resumeFilePos, m_audioDataStart, buffFillValue);
+     if (buffFillValue < InBuff.getMaxBlockSize()) {
++        seekDiagnostic("radio.seek.new-buffer.guard", 4);
+         AUDIO_LOG_WARN("timeOffset not possible (4)");
+         return -1;
+     }
+@@ -7666,10 +7710,12 @@
+     xSemaphoreTake(mutex_audioTaskIsDecoding, 1 * configTICK_RATE_HZ);
+     m_f_lockInBuffer = true;
+     m_f_allDataReceived = false; // ------- prepare InBuff ------
+-    audioFileSeek(resumeFilePos);
++    diagnosticSeekResult = audioFileSeek(resumeFilePos);
++    seekDiagnostic("radio.seek.new-buffer.seek-result", diagnosticSeekResult, resumeFilePos);
+     InBuff.reset();
+ 
+     bw = audioFileRead(InBuff.getWritePtr(), buffFillValue, 3000);
++    seekDiagnostic("radio.seek.new-buffer.read", bw, buffFillValue);
+     if (bw != buffFillValue) goto fail;
+ 
+     InBuff.bytesWritten(bw);
+@@ -7685,16 +7731,19 @@
+     }
+     AUDIO_LOG_DEBUG("offset {}, readSpace {}", offset, InBuff.readSpace());
+ 
++    seekDiagnostic("radio.seek.new-buffer.align", offset, m_codec);
+     if (offset >= 0) {
+         m_decoder->clear();
+         InBuff.bytesWasRead(offset);
+         m_audioDataReadPtr = (resumeFilePos + offset) - m_audioDataStart;
+         m_f_lockInBuffer = false;
+         xSemaphoreGive(mutex_audioTaskIsDecoding);
++        seekDiagnostic("radio.seek.new-buffer.result", resumeFilePos + offset, 1);
+         return resumeFilePos + offset;
+     }
+ 
+ fail:
++    seekDiagnostic("radio.seek.new-buffer.result", -1, 0);
+     AUDIO_LOG_ERROR("timeOffset not possible (3)");
+     xSemaphoreGive(mutex_audioTaskIsDecoding);
+     stopSong();

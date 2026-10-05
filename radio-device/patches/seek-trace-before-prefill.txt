@@ -1,0 +1,22 @@
+startOffsetMs: 10166
+[seek] initial.status: HTTP=206
+[seek] initial.content-range: present=1
+[seek] initial.range-supported: supported=1 fileSize=3858402
+seeking to: 10 s
+audio seek queued
+[seek] queued: seconds=10 position=640044
+audio failure flags: libraryError=1 WiFi=3 ready=1 seekPending=0 samples=0 running=0
+[seek] new-buffer.begin: position=640044 headerState=100
+[seek] file-seek.begin: acceptRanges=1 dataMode=3
+[seek] range.request: position=640044 length=-1
+[seek] range.sent: written=1214 expected=1214
+[seek] file-seek.request-result: ok=1
+[seek] range.status: HTTP=206
+[seek] range.validated: position=640044 fileSize=3858402
+[seek] range.header-result: ok=1 reason=0
+[seek] file-seek.header-result: ok=1
+[seek] new-buffer.seek-result: result=640044 requested=640044
+[seek] read.timeout: read=54168 expected=65535
+[seek] new-buffer.read: read=-1 expected=65535
+[seek] new-buffer.result: position=-1 ok=0
+audio playback failed

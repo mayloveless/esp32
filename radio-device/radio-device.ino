@@ -402,15 +402,67 @@ void onAudioInfo(Audio::msg_t message) {
   if (message.e == Audio::evt_eof) audioEof = true;
   if (message.e == Audio::evt_info && message.msg &&
       strcmp(message.msg, "stream ready") == 0) audioStreamReady = true;
+  // The local diagnostic patch enqueues these constant IDs. evt_info is
+  // dispatched by Audio.loop() on the main task. Never print arbitrary
+  // library messages or response headers: they can contain signed URLs.
+  if (message.e == Audio::evt_info && message.msg) {
+    struct Diagnostic { const char* tag; const char* first; const char* second; };
+    static constexpr Diagnostic diagnostics[] = {
+      {"radio.seek.queued", "seconds", "position"},
+      {"radio.seek.initial.status", "HTTP", nullptr},
+      {"radio.seek.initial.content-range", "present", nullptr},
+      {"radio.seek.initial.range-supported", "supported", "fileSize"},
+      {"radio.seek.accept-ranges", "headerBytes", "supported"},
+      {"radio.seek.range.request", "position", "length"},
+      {"radio.seek.range.not-running", "value", nullptr},
+      {"radio.seek.range.connect-failed", "value", nullptr},
+      {"radio.seek.range.sent", "written", "expected"},
+      {"radio.seek.range.status", "HTTP", nullptr},
+      {"radio.seek.range.validated", "position", "fileSize"},
+      {"radio.seek.range.header-result", "ok", "reason"},
+      {"radio.seek.file-seek.begin", "acceptRanges", "dataMode"},
+      {"radio.seek.file-seek.request-result", "ok", nullptr},
+      {"radio.seek.file-seek.header-result", "ok", nullptr},
+      {"radio.seek.file-seek.no-ranges", "result", nullptr},
+      {"radio.seek.new-buffer.begin", "position", "headerState"},
+      {"radio.seek.new-buffer.guard", "reason", nullptr},
+      {"radio.seek.new-buffer.seek-result", "result", "requested"},
+      {"radio.seek.new-buffer.read", "read", "expected"},
+      {"radio.seek.read.timeout", "read", "expected"},
+      {"radio.seek.new-buffer.align", "offset", "codec"},
+      {"radio.seek.new-buffer.result", "position", "ok"},
+    };
+    for (const Diagnostic& diagnostic : diagnostics) {
+      if (strcmp(message.msg, diagnostic.tag) != 0) continue;
+      const char* phase = diagnostic.tag + sizeof("radio.seek.") - 1;
+      if (diagnostic.second) {
+        Serial.printf("[seek] %s: %s=%ld %s=%ld\n", phase,
+          diagnostic.first, static_cast<long>(message.arg1),
+          diagnostic.second, static_cast<long>(message.arg2));
+      } else {
+        Serial.printf("[seek] %s: %s=%ld\n", phase,
+          diagnostic.first, static_cast<long>(message.arg1));
+      }
+      break;
+    }
+    if (strcmp(message.msg, "radio.seek.new-buffer.result") == 0 && message.arg2 == 1)
+      Serial.printf("audio seek applied: position=%ld\n", static_cast<long>(message.arg1));
+  }
   // 日志可能从库的解码任务发出；只保存错误标志，不打印含 signed URL 的消息。
   if (message.e == Audio::evt_log && message.s &&
       strcmp(message.s, "LOGE") == 0) audioError.store(true);
 }
 
 void failPlayback() {
+  Serial.printf("audio failure flags: libraryError=%d WiFi=%d ready=%d seekPending=%d samples=%d running=%d\n",
+    audioError.load(), WiFi.status(), audioStreamReady, audioSeekPending.load(),
+    audioProducedSamples.load(), networkAudio.isRunning());
   networkAudio.stopSong();
   currentProgramId = "";
   receiverState = ReceiverState::kIdle;
+  // A native error can stop playback during loop(), before its queued
+  // diagnostic events are dispatched. Drain the stopped stream once.
+  networkAudio.loop();
   Serial.println("audio playback failed");
 }
 
@@ -461,7 +513,7 @@ void updatePlayback() {
     audioSeekPending.store(false);
     audioStartMillis = audioProgressMillis = now;
     lastAudioPosition = networkAudio.getAudioFilePosition();
-    Serial.println("audio seek succeeded");
+    Serial.println("audio seek queued");
     // 4.0.0 queues its seek; the next library loop performs the native read.
     // Existing error/stall/EOF checks continue to guard that operation.
     return;

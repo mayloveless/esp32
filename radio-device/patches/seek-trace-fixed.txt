@@ -1,0 +1,23 @@
+startOffsetMs: 8073
+[seek] initial.status: HTTP=206
+[seek] initial.content-range: present=1
+[seek] initial.range-supported: supported=1 fileSize=2688044
+seeking to: 8 s
+audio seek queued
+[seek] queued: seconds=8 position=512044
+[seek] new-buffer.begin: position=512044 headerState=100
+[seek] file-seek.begin: acceptRanges=1 dataMode=3
+[seek] range.request: position=512044 length=-1
+[seek] range.sent: written=1214 expected=1214
+[seek] file-seek.request-result: ok=1
+[seek] range.status: HTTP=206
+[seek] range.validated: position=512044 fileSize=2688044
+[seek] range.header-result: ok=1 reason=0
+[seek] file-seek.header-result: ok=1
+[seek] new-buffer.seek-result: result=512044 requested=512044
+[seek] new-buffer.read: read=8192 expected=8192
+[seek] new-buffer.align: offset=0 codec=1
+[seek] new-buffer.result: position=512044 ok=1
+audio seek applied: position=512044
+audio playback completed
+completed request succeeded

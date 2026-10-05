@@ -14,6 +14,7 @@ preamble = r'''
 #include <atomic>
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <string>
@@ -24,12 +25,20 @@ uint32_t millis() { return clockMs; }
 constexpr int WL_CONNECTED = 3;
 struct { int connection = WL_CONNECTED; int status() { return connection; } } WiFi;
 struct {
+  std::vector<std::string> diagnostics;
   void println(const char*) {}
-  template<class... T> void printf(const char*, T...) {}
+  template<class... T> void printf(const char* format, T... args) {
+    char buffer[512];
+    std::snprintf(buffer, sizeof(buffer), format, args...);
+    diagnostics.emplace_back(buffer);
+  }
 } Serial;
 struct Audio {
   enum Event { evt_eof, evt_info, evt_log };
-  struct msg_t { Event e; const char* msg = nullptr; const char* s = nullptr; };
+  struct msg_t {
+    Event e; const char* msg = nullptr; const char* s = nullptr;
+    int32_t arg1 = 0, arg2 = 0;
+  };
   bool running = true;
   uint32_t position = 0;
   std::vector<uint16_t> seeks;
@@ -150,6 +159,34 @@ int main() {
   // A simultaneous failure and EOF cannot retire even after normal samples.
   reset(); WiFi.connection = 0; networkAudio.events.push_back({Audio::evt_eof});
   tick(); failed();
+
+  // Only recognized constant event IDs and numeric fields may reach Serial.
+  Serial.diagnostics.clear();
+  onAudioInfo({Audio::evt_info, "radio.seek.range.status", nullptr, 206});
+  assert(Serial.diagnostics.size() == 1);
+  assert(Serial.diagnostics[0] == "[seek] range.status: HTTP=206\n");
+  onAudioInfo({Audio::evt_info, "radio.seek.new-buffer.read", nullptr, -1, 65535});
+  assert(Serial.diagnostics.back() == "[seek] new-buffer.read: read=-1 expected=65535\n");
+  const auto count = Serial.diagnostics.size();
+  onAudioInfo({Audio::evt_info, "https://example.test/file.wav?token=DO_NOT_PRINT"});
+  onAudioInfo({Audio::evt_info, "radio.seek.range.status?token=DO_NOT_PRINT"});
+  onAudioInfo({Audio::evt_log, "request https://example.test/?token=DO_NOT_PRINT", "LOGE"});
+  assert(Serial.diagnostics.size() == count && audioError);
+  onAudioInfo({Audio::evt_info, "radio.seek.new-buffer.result", nullptr, -1, 0});
+  assert(Serial.diagnostics.size() == count + 1); // Failed native seek is never "applied".
+  onAudioInfo({Audio::evt_info, "radio.seek.new-buffer.result", nullptr, 512044, 1});
+  assert(Serial.diagnostics.back() == "audio seek applied: position=512044\n");
+
+  // The failed native operation queues diagnostics after loop's dispatch.
+  // Entering idle must not leave the last failure stage invisible.
+  reset(true, 8300); tick(); Serial.diagnostics.clear();
+  networkAudio.step = [] {
+    networkAudio.events.push_back({Audio::evt_info, "radio.seek.read.timeout", nullptr, 0, 65535});
+    onAudioInfo({Audio::evt_log, "redacted", "LOGE"});
+  };
+  tick(); failed();
+  assert(networkAudio.events.empty());
+  assert(Serial.diagnostics.back() == "[seek] read.timeout: read=0 expected=65535\n");
 }
 '''
 with tempfile.TemporaryDirectory(prefix='radio-playback-test-') as directory:
