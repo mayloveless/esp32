@@ -42,9 +42,16 @@ bool audioStreamReady = false;
 bool audioStopPending = false;
 std::atomic<bool> audioProducedSamples{false};
 std::atomic<bool> audioError{false};
+std::atomic<bool> audioSeekPending{false};
+uint32_t audioSeekSeconds = 0;
 uint32_t audioStartMillis = 0;
 uint32_t audioProgressMillis = 0;
 uint32_t lastAudioPosition = 0;
+
+void prepareStartOffset(uint32_t offsetMs) {
+  audioSeekSeconds = offsetMs / 1000;
+  audioSeekPending.store(offsetMs > 0);
+}
 
 String deviceApiUrl(const char* path) {
   String url(DEVICE_API_BASE_URL);
@@ -295,12 +302,7 @@ void startManifestPlayback(JsonObjectConst manifest) {
   Serial.println(title);
   Serial.print("signalKind: ");
   Serial.println(signalKind);
-  if (startOffsetMs > 0) {
-    Serial.printf(
-      "startOffsetMs received: %lu; Task 008 intentionally plays from 0 ms.\n",
-      startOffsetMs
-    );
-  }
+  Serial.printf("startOffsetMs: %lu\n", static_cast<unsigned long>(startOffsetMs));
   Serial.print("audio stream: ");
   Serial.println(summarizeAudioUrl(audioUrl));
 
@@ -309,6 +311,7 @@ void startManifestPlayback(JsonObjectConst manifest) {
   audioStopPending = false;
   audioProducedSamples.store(false);
   audioError.store(false);
+  prepareStartOffset(startOffsetMs);
   lastAudioPosition = 0;
 
   // Audio.connecttohost() 独占 HTTP(S) 流式读取、解码和唯一的 I2S 输出；
@@ -415,10 +418,15 @@ void updatePlayback() {
   networkAudio.loop();
 
   if (receiverState != ReceiverState::kPlaying) return;
+  // An error/disconnection must also take precedence over EOF and seek.
+  if (audioError.load() || WiFi.status() != WL_CONNECTED) {
+    failPlayback();
+    return;
+  }
   if (audioEof) {
     // 4.0.0 的音频头超时也会发 EOF。必须有 ready 和真实解码样本，
     // 且没有错误，才允许下线节目；不依赖可被关闭的库错误日志。
-    if (!audioStreamReady || !audioProducedSamples.load() || audioError.load()) {
+    if (audioSeekPending.load() || !audioStreamReady || !audioProducedSamples.load()) {
       failPlayback();
       return;
     }
@@ -440,13 +448,30 @@ void updatePlayback() {
   audioStopPending = false;
 
   const uint32_t now = millis();
+  if (audioSeekPending.load() && audioStreamReady) {
+    Serial.printf("seeking to: %lu s\n", static_cast<unsigned long>(audioSeekSeconds));
+    // The public API takes uint16_t seconds. Reject an unrepresentable
+    // offset rather than wrapping it into a different playback position.
+    if (audioSeekSeconds > UINT16_MAX ||
+        !networkAudio.setAudioPlayTime(static_cast<uint16_t>(audioSeekSeconds))) {
+      Serial.printf("audio seek failed: %lu s\n", static_cast<unsigned long>(audioSeekSeconds));
+      failPlayback();
+      return;
+    }
+    audioSeekPending.store(false);
+    audioStartMillis = audioProgressMillis = now;
+    lastAudioPosition = networkAudio.getAudioFilePosition();
+    Serial.println("audio seek succeeded");
+    // 4.0.0 queues its seek; the next library loop performs the native read.
+    // Existing error/stall/EOF checks continue to guard that operation.
+    return;
+  }
   const uint32_t position = networkAudio.getAudioFilePosition();
   if (position != lastAudioPosition) {
     lastAudioPosition = position;
     audioProgressMillis = now;
   }
-  if (audioError.load() || WiFi.status() != WL_CONNECTED ||
-      (!audioProducedSamples.load() && now - audioStartMillis >= kAudioStartTimeoutMs) ||
+  if ((!audioProducedSamples.load() && now - audioStartMillis >= kAudioStartTimeoutMs) ||
       (audioProducedSamples.load() && now - audioProgressMillis >= kAudioStallTimeoutMs))
     failPlayback();
 }
@@ -455,7 +480,7 @@ void updatePlayback() {
 
 // ESP32-audioI2S 的弱回调，在解码任务上执行；不改变样本或 I2S 输出。
 void audio_process_raw_samples(int32_t*, int16_t validSamples) {
-  if (validSamples > 0) audioProducedSamples.store(true);
+  if (validSamples > 0 && !audioSeekPending.load()) audioProducedSamples.store(true);
 }
 
 void setup() {

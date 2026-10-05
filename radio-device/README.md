@@ -1,8 +1,8 @@
-# Cosmic Radio Device — Task 008
+# Cosmic Radio Device — Task 008 / 008B
 
 这是 ESP32-S3 到 MAX98357A 的最小单节目播放固件。启动时连接 Wi-Fi，使用 Device Receiver API 取得 manifest，然后把其中短期 signed audio URL 直接交给音频库流式解码并输出到 I2S。
 
-本 sketch 不含 TFT、EC11、调谐静电、自动下一条、HTTP Range 或 `startOffsetMs` seek。收到 `startOffsetMs` 时会记录，但 **Task 008 有意从 0 ms 开始播放**。
+本 sketch 不含 TFT、EC11、调谐静电、自动下一条或自行实现的 HTTP Range。Task 008B 已加入 `startOffsetMs`：等待流就绪后，通过音频库原生 seek 接入节目中途。
 
 ## 硬件与接线
 
@@ -67,12 +67,16 @@ pnpm dev:device
 2. 在 Arduino IDE 中选择 ESP32-S3 N16R8 对应板型、启用 PSRAM，烧录 `radio-device.ino`。
 3. 打开 115200 baud Serial Monitor。
 4. 预期看到 `Wi-Fi connected`、`tune request`、`signal`、节目标题和 `audio playback started`。
-5. 扬声器应连续播出一条节目。
+5. 确认 `startOffsetMs`。大于 0 时应接着看到 `seeking to: N s` 与 `audio seek succeeded`，扬声器应从中途播放；0 时正常从头播放。
 6. 自然播完后，预期看到 `audio playback completed` 和 `completed request succeeded`；此时服务端会机会式补一条库存。
 
 `no_signal`、Wi-Fi 失败、manifest 解析失败或播放失败都会进入 idle，不会伪造 completed，也不会自动 tune 下一条。播放期间 `loop()` 每轮都让 decoder 继续运行，没有长时间 delay。
 
 Device tune 使用 HTTP/1.0，避免将 HTTP chunked 分块标记交给 JSON 解析器。音频库 4.0.0 的 EOF 延迟一轮派发，且音频头超时也可能发送 EOF：固件会先排空停止时的事件，确认流已就绪、产生过真实音频样本且没有已报告错误，再上报 completed。15 秒未产生样本或播放位置连续 30 秒没有推进会停止播放；断网也会停止，不上报完成。样本回调只设置原子标志，不创建任务或改变 I2S 输出。
+
+中途接入：保存 manifest 的 offset，在主循环收到 `stream ready` 后，每条节目最多调用一次 `setAudioPlayTime(startOffsetMs / 1000)`，使用秒级精度。正数不足 1 秒时调用原生 seek 到 0 秒；超过 API 的 `uint16_t` 秒数范围时拒绝，避免截断。等待 seek 期间的样本不算播放成功的依据。seek 成功后重新计算启动与进展超时；失败输出 `audio seek failed`，停止并进入 idle，不从头继续，不发送 completed，也不自动调台。
+
+4.0.0 的 seek 接口返回成功表示接受了请求，实际网络读取由随后的音频库循环执行，原有错误、断网与停滞保护继续生效。固件不自行计算 WAV 字节偏移、构造 Range 或下载整条文件。真机仍需确认实际听到的切入位置；若库的 HTTP WAV seek 不可靠，记录现象后停止，不以代理或整文件下载绕过。
 
 上板时还需验证：音频响应头正常但 body 卡住、播放中断网、音频 body 中途停传，均应输出失败且服务端节目不被下线；正常播完应只发送一次 completed。
 
@@ -84,17 +88,34 @@ tune 失败后还会对网关进行一次限时 HTTP GET 探测，只输出状�
 
 2026-10-05 实测：同名 Wi-Fi 原先接入不同网关，导致 Device API 连接超时。启用网关选择后，ESP32 进入电脑所在局域网，电脑 ping 设备成功、ARP MAC 与 STA MAC 一致，Device tune 返回 signal，并进入网络音频播放。路由器名称和 Wi-Fi 密码无需修改。
 
+Task 008 已实际出声，串口曾确认自然完成及 completed 成功。用户仍反馈音频不流畅，该问题暂缓排查，不能视为连续播放验收通过。008B 基于远程提交 `1f4f88f` 开发，之前的 EC11 工作完整保存于 stash `fc994c05c7085c68a5e70914aa2fe8dd55ea0479`，本检查点不启用旋钮。
+
+### 008B 真机验收记录（2026-10-05）
+
+主机回归与 ESP32 编译通过，固件占应用分区 2,078,987 字节（66%），烧录写入校验通过。真机选中《来自奥尔特云的回声》（节目 `1e2cc003-78bf-42de-8b45-1275322e3d09`，时长 60.287 秒），输出：
+
+```text
+startOffsetMs: 8301
+seeking to: 8 s
+audio seek succeeded
+audio playback failed
+```
+
+接口返回成功后，随后的库网络播放阶段失败，设备进入 idle。Wi-Fi 保持连接，未出现 completed；读取本地节目接口确认 `status=ready`、`retired_at=null`，没有误下线。现有日志只保留库错误标志，不能据此判断具体底层失败原因，亦不能把 API 接受请求算作实际 seek 验收通过。
+
+**真机中途接入尚未通过。** 按 008B 要求记录现象后停止；未改音频库、整文件下载、手工 Range 或代理，也未自动调台。后续需单独定位原生 HTTP WAV seek 的失败原因，并重新验证实际切入位置和自然完成。
+
 主机回归检查（Python 3 与支持 C++17 的 `clang++`，可通过 `CXX` 指定编译器）：
 
 ```bash
 python3 radio-device/tests/playback_test.py
 ```
 
-检查直接提取 sketch 的播放函数，用模拟音频库验证 EOF 延迟派发、音频头超时、错误、断网、无进展超时及计时器回绕。这不等同于 ESP32 编译或硬件验收。
+检查直接提取 sketch 的播放函数，用模拟音频库验证 EOF 延迟派发、音频头超时、错误、断网、无进展超时及计时器回绕；也覆盖 offset 0、等待 ready、单次 seek、毫秒转秒、范围检查、seek 失败不 completed、seek 后自然 EOF 与失败保护。这不等同于 ESP32 编译或硬件验收。
 
 ## 安全与调试边界
 
 - Serial 只输出 signed audio URL 的 host/path，绝不输出 query string、Device token 或 Wi-Fi 密码。
-- `startOffsetMs` 暂不做 seek / HTTP Range；日志会明确说明实际从 0 ms 播放。
+- `startOffsetMs` 通过库原生 seek 实现，日志记录 offset、实际请求秒数和结果；不自行构造 HTTP Range。
 - 本任务仅有 `NETWORK_AUDIO` 一个 I2S owner；没有 static/tuning、多个输出或 FreeRTOS 自建音频任务。
-- 2026-10-04 已使用 Arduino IDE 内置 CLI、ESP32 Core 3.3.12、ESP32-audioI2S-master 4.0.0、ArduinoJson 7.4.3 完成编译，并烧录到检测为 16MB Flash / 8MB PSRAM 的 ESP32-S3，写入校验通过。固件占应用分区约 65%。串口已确认 Wi-Fi 连接成功；音频播放及 completed 仍需在设备可访问电脑 API 后验收。
+- 使用 Arduino IDE 内置 CLI、ESP32 Core 3.3.12、ESP32-audioI2S-master 4.0.0、ArduinoJson 7.4.3 编译并烧录到检测为 16MB Flash / 8MB PSRAM 的 ESP32-S3。Task 008 的出声与 completed 已确认；008B 的实际 seek 未通过，详见上述记录。
