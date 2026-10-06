@@ -3,6 +3,9 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 #include <Audio.h>
+#include <FFat.h>
+#include <esp_partition.h>
+#include <wear_levelling.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
@@ -17,6 +20,7 @@
 #include "controls.h"
 #include "ReceiverControls.h"
 #include "RadioManifestPrefetch.h"
+#include "RadioTuningWav.h"
 
 #ifndef WIFI_GATEWAY_MAC
 #define WIFI_GATEWAY_MAC ""
@@ -30,6 +34,21 @@ constexpr uint8_t kI2SDinPin = 6;
 constexpr uint32_t kWifiConnectTimeoutMs = 15'000;
 constexpr uint32_t kAudioStartTimeoutMs = 15'000;
 constexpr uint32_t kAudioStallTimeoutMs = 30'000;
+constexpr uint8_t kNetworkVolume = 15;
+constexpr uint8_t kStaticVolume = 15;
+constexpr uint32_t kFeedbackTailMs = 150;
+std::atomic<uint32_t> feedbackChangedAt{0};
+std::atomic<bool> feedbackActivitySeen{false};
+
+enum class AudioOwner : uint8_t { kNone, kNetwork, kStaticLocalFile };
+std::atomic<AudioOwner> audioOwner{AudioOwner::kNone};
+bool tuningWavReady = false;
+bool staticEof = false;
+bool staticStopPending = false;
+std::atomic<bool> staticError{false};
+std::atomic<bool> staticProducedSamples{false};
+std::atomic<bool> staticStreamReady{false};
+bool staticReadyLogged = false;
 
 enum class ReceiverState : uint8_t {
   kBoot,
@@ -43,7 +62,7 @@ Audio networkAudio;
 ReceiverState receiverState = ReceiverState::kBoot;
 String currentProgramId;
 bool audioEof = false;
-bool audioStreamReady = false;
+std::atomic<bool> audioStreamReady{false};
 bool audioStopPending = false;
 std::atomic<bool> audioProducedSamples{false};
 std::atomic<bool> audioError{false};
@@ -90,6 +109,11 @@ RadioEncoder encoder;
 RadioTuneInput tuneInput;
 portMUX_TYPE controlsMux = portMUX_INITIALIZER_UNLOCKED;
 uint32_t acknowledgedTuneRevision = 0;
+uint32_t handledActivityRevision = 0;
+JsonDocument pendingPlaybackManifest;
+bool pendingPlaybackReady = false;
+uint32_t pendingPlaybackRevision = 0;
+bool feedbackLogged = false;
 String recentProgramIds[2];
 uint8_t recentProgramCount = 0;
 
@@ -100,6 +124,8 @@ struct ManifestPrefetchJob {
   uint32_t lifetimeMs = 0;
   int status = 0;
   bool parsed = false;
+  bool foreground = false;
+  uint32_t requestedRevision = 0;
   JsonDocument response;
 };
 
@@ -111,8 +137,13 @@ ManifestPrefetchJob* prefetchedManifest = nullptr;
 uint32_t prefetchGeneration = 0;
 bool prefetchBusy = false;
 bool prefetchAttempted = false;
+bool foregroundTunePending = false;
+uint32_t foregroundTuneRevision = 0;
 
 void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision);
+void finishTuningIdle();
+bool tuneSuperseded(uint32_t requestedRevision);
+void applyForegroundManifest(ManifestPrefetchJob& job);
 
 void clearPrefetchedManifest() {
   delete prefetchedManifest;
@@ -191,6 +222,13 @@ void pollManifestPrefetch() {
   ManifestPrefetchJob* job = nullptr;
   if (!prefetchResults || xQueueReceive(prefetchResults, &job, 0) != pdTRUE) return;
   prefetchBusy = false;
+  if (job->foreground) {
+    if (job->generation == prefetchGeneration && !tuneSuperseded(job->requestedRevision) &&
+        receiverState == ReceiverState::kTuning) applyForegroundManifest(*job);
+    else Serial.println("tune superseded while requesting manifest");
+    delete job;
+    return;
+  }
   const uint32_t age = millis() - job->startedAt;
   const char* result = job->response["result"] | "";
   JsonObjectConst manifest = job->response["manifest"].as<JsonObjectConst>();
@@ -237,7 +275,11 @@ void onEncoderChange() {
   const uint8_t phase = encoderPhase();
   const uint32_t now = millis();
   portENTER_CRITICAL_ISR(&controlsMux);
-  if (encoder.sample(phase, now)) tuneInput.request(now);
+  if (encoder.sample(phase, now)) {
+    tuneInput.request(now, encoder.direction());
+    feedbackChangedAt.store(now);
+    feedbackActivitySeen.store(true);
+  }
   portEXIT_CRITICAL_ISR(&controlsMux);
 }
 
@@ -250,6 +292,10 @@ RadioTuneInput readTuneInput() {
 
 bool tuneSuperseded(uint32_t requestedRevision) {
   return readTuneInput().revision != requestedRevision;
+}
+
+bool controlsHaveActivity() {
+  return readTuneInput().activityRevision != handledActivityRevision;
 }
 
 void rememberProgram(const String& programId) {
@@ -271,7 +317,7 @@ String tuneRequestBody() {
 void updateManifestPrefetch() {
   pollManifestPrefetch();
   if (!prefetchJobs || prefetchBusy || prefetchAttempted ||
-      receiverState != ReceiverState::kPlaying || !audioStreamReady ||
+      receiverState != ReceiverState::kPlaying || audioOwner.load() != AudioOwner::kNetwork || !audioStreamReady ||
       audioStopPending || !networkAudio.isRunning() ||
       !audioProducedSamples.load() || audioSeekPending.load() || audioError.load() ||
       WiFi.status() != WL_CONNECTED || tuneSuperseded(acknowledgedTuneRevision)) return;
@@ -286,14 +332,13 @@ void updateManifestPrefetch() {
   Serial.println("manifest prefetch request queued");
 }
 
-void stopForTuning() {
-  // User interruption is never a completed program. Clear queued EOF state;
-  // the next connecttohost() resets the library's old stream and decoder.
+void stopAudioForHandoff() {
+  // NONE gates decoder-thread samples before stopSong waits for decoding.
+  // loop() drains the 4.0.0 info queue; old events cannot change playback flags.
+  audioOwner.store(AudioOwner::kNone);
+  networkAudio.setVolume(0); // stopSong can leave queued PCM; NONE must stay silent.
   networkAudio.stopSong();
-  // 4.0.0 retains its info queue across connections. Drain the old stopped
-  // stream before resetting flags so its EOF/error cannot affect a new one.
   networkAudio.loop();
-  currentProgramId = "";
   audioEof = false;
   audioStreamReady = false;
   audioStopPending = false;
@@ -301,7 +346,64 @@ void stopForTuning() {
   audioError.store(false);
   prepareStartOffset(0);
   lastAudioPosition = 0;
+  staticEof = staticStopPending = staticReadyLogged = false;
+  staticError.store(false);
+  staticProducedSamples.store(false);
+  staticStreamReady.store(false);
+}
+
+void startLocalStatic() {
+  if (!tuningWavReady) return;
+  networkAudio.setVolume(kStaticVolume);
+  audioOwner.store(AudioOwner::kStaticLocalFile);
+  if (!networkAudio.connecttoFS(FFat, kTuningWavPath)) {
+    stopAudioForHandoff();
+    tuningWavReady = false;
+    Serial.println("local static failed to start; tuning stays silent");
+    return;
+  }
+  Serial.println("local static started");
+}
+
+void stopForTuning() {
+  // Manual interruption never retires the old network program.
+  stopAudioForHandoff();
+  currentProgramId = "";
   receiverState = ReceiverState::kTuning;
+  startLocalStatic();
+}
+
+void finishTuningIdle() {
+  stopAudioForHandoff();
+  foregroundTunePending = false;
+  pendingPlaybackReady = false;
+  pendingPlaybackManifest.clear();
+  portENTER_CRITICAL(&controlsMux);
+  tuneInput.hold(millis());
+  portEXIT_CRITICAL(&controlsMux);
+  currentProgramId = "";
+  receiverState = ReceiverState::kIdle;
+}
+
+void updateLocalStatic() {
+  if (receiverState != ReceiverState::kTuning || audioOwner.load() != AudioOwner::kStaticLocalFile) return;
+  networkAudio.loop();
+  if (staticProducedSamples.load() && !staticReadyLogged) {
+    staticReadyLogged = true;
+    Serial.printf("local static ready: volume=%u\n", kStaticVolume);
+  }
+  if (staticError.load() || (staticEof && !staticProducedSamples.load()) ||
+      (!networkAudio.isRunning() && !staticEof && staticStopPending)) {
+    stopAudioForHandoff();
+    tuningWavReady = false;
+    Serial.println("local static failed; tuning stays silent");
+    return;
+  }
+  if (staticEof) {
+    stopAudioForHandoff();
+    Serial.println("local static loop");
+    startLocalStatic();
+  } else staticStopPending = !networkAudio.isRunning();
 }
 
 void setupControls() {
@@ -528,6 +630,47 @@ void sendCompleted(const String& programId) {
   request.end();
 }
 
+bool blankFatVolume() {
+  const esp_partition_t* partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
+    ESP_PARTITION_SUBTYPE_DATA_FAT, "ffat");
+  if (!partition) return false;
+  wl_handle_t handle = WL_INVALID_HANDLE;
+  if (wl_mount(partition, &handle) != ESP_OK) return false;
+  // Check logical sectors, not raw flash: wl_mount initializes metadata even
+  // when there is no FAT filesystem yet. Those metadata pages are not files.
+  bool blank = true;
+  const size_t size = wl_size(handle);
+  uint8_t block[4096];
+  for (size_t offset = 0; blank && offset < size; offset += sizeof(block)) {
+    const size_t remaining = size - offset;
+    const size_t bytes = remaining < sizeof(block) ? remaining : sizeof(block);
+    if (wl_read(handle, offset, block, bytes) != ESP_OK) { blank = false; break; }
+    for (size_t i = 0; i < bytes; ++i) if (block[i] != 0xff) { blank = false; break; }
+    vTaskDelay(1);
+  }
+  const bool unmounted = wl_unmount(handle) == ESP_OK;
+  return size && blank && unmounted;
+}
+
+void setupTuningWav() {
+  const bool blank = blankFatVolume();
+  if (!FFat.begin(false)) {
+    // Initialize only a completely erased logical volume. Do not format a
+    // nonempty, unreadable filesystem belonging to another sketch.
+    if (!blank || !FFat.begin(true)) {
+      Serial.println("FFat unavailable; local static disabled (existing data preserved)");
+      return;
+    }
+    Serial.println("FFat initialized on blank volume");
+  }
+  const bool cached = radioTuningFileValid(FFat);
+  tuningWavReady = radioEnsureTuningFile(FFat, [] { vTaskDelay(1); });
+  Serial.println(tuningWavReady
+    ? (cached ? "local tuning WAV cached: 32000 Hz mono 16-bit, 6 s"
+              : "local tuning WAV generated: 32000 Hz mono 16-bit, 6 s")
+    : "local tuning WAV generation failed; static disabled");
+}
+
 void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision) {
   if (tuneSuperseded(requestedRevision)) return;
   const char* programId = manifest["programId"] | "";
@@ -538,10 +681,22 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision)
 
   if (strlen(programId) == 0 || strlen(audioUrl) == 0) {
     Serial.println("signal manifest is missing programId or audioUrl");
-    receiverState = ReceiverState::kIdle;
+    finishTuningIdle();
     return;
   }
 
+  // Selection/prefetch happens while turning. Blocking HTTPS/Range work must
+  // wait until the local feedback has had a chance to play and the dial stops.
+  if (receiverState == ReceiverState::kTuning && readTuneInput().moving(millis())) {
+    pendingPlaybackManifest.set(manifest);
+    pendingPlaybackRevision = requestedRevision;
+    pendingPlaybackReady = true;
+    Serial.println("manifest prepared; waiting for dial stop");
+    return;
+  }
+
+  stopAudioForHandoff();
+  audioOwner.store(AudioOwner::kNetwork);
   currentProgramId = programId;
   Serial.println("signal");
   Serial.print("program title: ");
@@ -570,11 +725,16 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision)
   }
   if (!connected) {
     Serial.println("audio playback failed to start");
-    currentProgramId = "";
-    receiverState = ReceiverState::kIdle;
+    finishTuningIdle();
     return;
   }
 
+  networkAudio.setVolume(kNetworkVolume);
+  if (requestedRevision != 0) {
+    portENTER_CRITICAL(&controlsMux);
+    tuneInput.hold(millis());
+    portEXIT_CRITICAL(&controlsMux);
+  }
   audioStartMillis = millis();
   audioProgressMillis = audioStartMillis;
   rememberProgram(currentProgramId);
@@ -587,7 +747,7 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision)
 void tuneOnce(uint32_t requestedRevision) {
   if (tuneSuperseded(requestedRevision)) return;
   if (WiFi.status() != WL_CONNECTED) {
-    receiverState = ReceiverState::kIdle;
+    finishTuningIdle();
     Serial.println("tune skipped: Wi-Fi is not connected; retry after reconnection");
     return;
   }
@@ -603,7 +763,7 @@ void tuneOnce(uint32_t requestedRevision) {
   request.useHTTP10(true);
   if (!request.begin(client, deviceApiUrl("/api/device/receiver/tune"))) {
     Serial.println("tune request failed to start");
-    receiverState = ReceiverState::kIdle;
+    finishTuningIdle();
     return;
   }
 
@@ -614,13 +774,11 @@ void tuneOnce(uint32_t requestedRevision) {
   const String payload = tuneRequestBody();
   if (tuneSuperseded(requestedRevision)) {
     request.end();
-    receiverState = ReceiverState::kIdle;
     return;
   }
   const int status = request.POST(payload);
   if (tuneSuperseded(requestedRevision)) {
     request.end();
-    receiverState = ReceiverState::kIdle;
     Serial.println("tune superseded while requesting manifest");
     return;
   }
@@ -628,7 +786,7 @@ void tuneOnce(uint32_t requestedRevision) {
     reportHttpFailure("tune", status);
     request.end();
     diagnoseGateway();
-    receiverState = ReceiverState::kIdle;
+    finishTuningIdle();
     return;
   }
 
@@ -645,7 +803,6 @@ void tuneOnce(uint32_t requestedRevision) {
   request.end();
 
   if (tuneSuperseded(requestedRevision)) {
-    receiverState = ReceiverState::kIdle;
     Serial.println("tune superseded while reading manifest");
     return;
   }
@@ -653,7 +810,7 @@ void tuneOnce(uint32_t requestedRevision) {
   if (error) {
     Serial.print("tune response JSON failed: ");
     Serial.println(error.c_str());
-    receiverState = ReceiverState::kIdle;
+    finishTuningIdle();
     return;
   }
 
@@ -662,42 +819,144 @@ void tuneOnce(uint32_t requestedRevision) {
     Serial.println("no_signal");
     // Keep exclusions on no_signal. A later physical turn may retry once,
     // but never silently relax history or request again automatically.
-    receiverState = ReceiverState::kIdle;
+    finishTuningIdle();
     return;
   }
   if (strcmp(result, "signal") != 0 || !response["manifest"].is<JsonObject>()) {
     Serial.println("tune response has an unknown result");
-    receiverState = ReceiverState::kIdle;
+    finishTuningIdle();
     return;
   }
 
   startManifestPlayback(response["manifest"].as<JsonObjectConst>(), requestedRevision);
 }
 
+void applyForegroundManifest(ManifestPrefetchJob& job) {
+  if (job.status < 200 || job.status >= 300) {
+    reportHttpFailure("tune", job.status);
+    finishTuningIdle();
+    return;
+  }
+  const char* result = job.response["result"] | "";
+  if (!job.parsed || (strcmp(result, "signal") && strcmp(result, "no_signal"))) {
+    Serial.println("tune response JSON/result failed");
+    finishTuningIdle();
+    return;
+  }
+  if (strcmp(result, "no_signal") == 0) {
+    Serial.println("no_signal");
+    finishTuningIdle();
+    return;
+  }
+  startManifestPlayback(job.response["manifest"].as<JsonObjectConst>(), job.requestedRevision);
+}
+
+void updateForegroundTune() {
+  if (!foregroundTunePending) return;
+  if (receiverState != ReceiverState::kTuning || tuneSuperseded(foregroundTuneRevision)) {
+    foregroundTunePending = false;
+    return;
+  }
+  if (prefetchBusy) return; // Only one HTTP request may run at a time.
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("tune skipped: Wi-Fi is not connected; retry after reconnection");
+    finishTuningIdle();
+    return;
+  }
+  auto* job = new (std::nothrow) ManifestPrefetchJob;
+  foregroundTunePending = false;
+  if (!job) { Serial.println("tune allocation failed"); finishTuningIdle(); return; }
+  job->body = tuneRequestBody();
+  job->generation = prefetchGeneration;
+  job->startedAt = millis();
+  job->foreground = true;
+  job->requestedRevision = foregroundTuneRevision;
+  if (xQueueSend(prefetchJobs, &job, 0) != pdTRUE) {
+    delete job;
+    Serial.println("tune queue failed");
+    finishTuningIdle();
+    return;
+  }
+  prefetchBusy = true;
+  Serial.println("tune request queued");
+}
+
+void requestForegroundTune(uint32_t requestedRevision) {
+  if (!prefetchJobs) { tuneOnce(requestedRevision); return; }
+  foregroundTuneRevision = requestedRevision;
+  foregroundTunePending = true;
+  updateForegroundTune();
+}
+
 void updateControls() {
   RadioTuneInput input = readTuneInput();
-  if (input.revision == acknowledgedTuneRevision) return;
-  if (receiverState != ReceiverState::kTuning) {
-    Serial.println("encoder activity");
-    if (receiverState == ReceiverState::kPlaying)
-      Serial.println("manual retune: stop current program");
-    stopForTuning();
+  if (input.activityRevision != handledActivityRevision) {
+    handledActivityRevision = input.activityRevision;
+    feedbackChangedAt.store(input.changedAt);
+    feedbackActivitySeen.store(true);
+    if (!feedbackLogged) {
+      Serial.println("encoder feedback");
+      feedbackLogged = true;
+    }
+    // Small movement uses the existing decoder's PCM callback; the network
+    // connection and prefetch stay intact. Stop only for an actual selection.
+    if (receiverState == ReceiverState::kIdle || receiverState == ReceiverState::kWifiFailed)
+      stopForTuning();
+    else if (receiverState == ReceiverState::kTuning && audioOwner.load() == AudioOwner::kNone)
+      startLocalStatic();
   }
-  // Stopping the old decoder may take time. Re-read activity afterward so a
-  // turn during that work cannot trigger a stale request or false settlement.
   input = readTuneInput();
-  if (!input.ready(acknowledgedTuneRevision, millis())) return;
-  Serial.println("tuning settled");
-  acknowledgedTuneRevision = input.revision;
-  if (!playPrefetchedManifest(input.revision)) {
-    invalidatePrefetch();  // Discard an in-flight result if foreground tune wins.
-    tuneOnce(input.revision);
+  if (input.ready(acknowledgedTuneRevision, millis())) {
+    Serial.println("dial travel threshold: retune");
+    acknowledgedTuneRevision = input.revision;
+    pendingPlaybackReady = false;
+    pendingPlaybackManifest.clear();
+    if (receiverState != ReceiverState::kTuning) {
+      Serial.println("manual retune: stop current program");
+      stopForTuning();
+    }
+    if (!playPrefetchedManifest(input.revision)) {
+      invalidatePrefetch();
+      requestForegroundTune(input.revision);
+    }
+    return;
+  }
+  // End noise quickly; keep the 300ms lock window for starting HTTPS once.
+  if (receiverState == ReceiverState::kTuning && audioOwner.load() == AudioOwner::kStaticLocalFile &&
+      uint32_t(millis() - input.changedAt) >= kFeedbackTailMs) {
+    stopAudioForHandoff();
+    Serial.println("dial stopped: static off");
+  }
+  if (input.activityRevision && !input.moving(millis())) {
+    portENTER_CRITICAL(&controlsMux);
+    const bool stillStopped = tuneInput.activityRevision == input.activityRevision;
+    if (stillStopped) tuneInput.settle();
+    portEXIT_CRITICAL(&controlsMux);
+    if (!stillStopped) return;
+    feedbackLogged = false;
+    if (receiverState == ReceiverState::kTuning && pendingPlaybackReady) {
+      JsonDocument manifest;
+      manifest.set(pendingPlaybackManifest);
+      const uint32_t revision = pendingPlaybackRevision;
+      pendingPlaybackReady = false;
+      pendingPlaybackManifest.clear();
+      Serial.println("dial locked: connect prepared program");
+      startManifestPlayback(manifest.as<JsonObjectConst>(), revision);
+    } else if (receiverState == ReceiverState::kTuning && !foregroundTunePending && !prefetchBusy)
+      receiverState = ReceiverState::kIdle;
   }
 }
 
 void onAudioInfo(Audio::msg_t message) {
-  if (message.e == Audio::evt_eof) audioEof = true;
-  if (message.e == Audio::evt_info && message.msg &&
+  const AudioOwner owner = audioOwner.load();
+  if (owner == AudioOwner::kStaticLocalFile) {
+    if (message.e == Audio::evt_eof) staticEof = true;
+    if (message.e == Audio::evt_info && message.msg && !strcmp(message.msg, "stream ready")) staticStreamReady.store(true);
+    if (message.e == Audio::evt_log && message.s && !strcmp(message.s, "LOGE")) staticError.store(true);
+    return;
+  }
+  if (owner == AudioOwner::kNetwork && message.e == Audio::evt_eof) audioEof = true;
+  if (owner == AudioOwner::kNetwork && message.e == Audio::evt_info && message.msg &&
       strcmp(message.msg, "stream ready") == 0) audioStreamReady = true;
   // The local diagnostic patch enqueues these constant IDs. evt_info is
   // dispatched by Audio.loop() on the main task. Never print arbitrary
@@ -742,35 +1001,33 @@ void onAudioInfo(Audio::msg_t message) {
       }
       break;
     }
-    if (strcmp(message.msg, "radio.seek.new-buffer.result") == 0 && message.arg2 == 1)
+    if (owner == AudioOwner::kNetwork && strcmp(message.msg, "radio.seek.new-buffer.result") == 0 && message.arg2 == 1)
       Serial.printf("audio seek applied: position=%ld\n", static_cast<long>(message.arg1));
   }
   // 日志可能从库的解码任务发出；只保存错误标志，不打印含 signed URL 的消息。
-  if (message.e == Audio::evt_log && message.s &&
+  if (owner == AudioOwner::kNetwork && message.e == Audio::evt_log && message.s &&
       strcmp(message.s, "LOGE") == 0) audioError.store(true);
 }
 
 void failPlayback() {
   Serial.printf("audio failure flags: libraryError=%d WiFi=%d ready=%d seekPending=%d samples=%d running=%d\n",
-    audioError.load(), WiFi.status(), audioStreamReady, audioSeekPending.load(),
+    audioError.load(), WiFi.status(), audioStreamReady.load(), audioSeekPending.load(),
     audioProducedSamples.load(), networkAudio.isRunning());
-  networkAudio.stopSong();
+  stopAudioForHandoff();
   invalidatePrefetch();
   currentProgramId = "";
   receiverState = ReceiverState::kIdle;
-  // A native error can stop playback during loop(), before its queued
-  // diagnostic events are dispatched. Drain the stopped stream once.
-  networkAudio.loop();
   Serial.println("audio playback failed");
 }
 
 void updatePlayback() {
+  if (audioOwner.load() != AudioOwner::kNetwork) return;
   networkAudio.loop();
 
   if (receiverState != ReceiverState::kPlaying) return;
   // A turn captured during Audio.loop() must win over an EOF dispatched in
   // that same call. Manual interruption never retires the old program.
-  if (tuneSuperseded(acknowledgedTuneRevision)) {
+  if (controlsHaveActivity() || tuneSuperseded(acknowledgedTuneRevision)) {
     updateControls();
     return;
   }
@@ -788,6 +1045,7 @@ void updatePlayback() {
     }
     audioEof = false;
     const String completedProgramId = currentProgramId;
+    stopAudioForHandoff();
     currentProgramId = "";
     receiverState = ReceiverState::kIdle;
     Serial.println("audio playback completed");
@@ -834,9 +1092,36 @@ void updatePlayback() {
 
 }  // namespace
 
-// ESP32-audioI2S 的弱回调，在解码任务上执行；不改变样本或 I2S 输出。
-void audio_process_raw_samples(int32_t*, int16_t validSamples) {
-  if (validSamples > 0 && !audioSeekPending.load()) audioProducedSamples.store(true);
+// The library can drain queued PCM after stopSong. NONE must output silence;
+// the volume ramp alone cannot guarantee that during an owner handoff.
+void audio_process_raw_samples(int32_t* samples, int16_t validSamples) {
+  const AudioOwner owner = audioOwner.load();
+  const bool feedback = owner == AudioOwner::kNetwork && feedbackActivitySeen.load() &&
+    uint32_t(millis() - feedbackChangedAt.load()) < kFeedbackTailMs;
+  const bool currentStreamReady =
+    (owner == AudioOwner::kNetwork && audioStreamReady.load() && !audioSeekPending.load()) ||
+    (owner == AudioOwner::kStaticLocalFile && staticStreamReady.load());
+  // This callback runs on the one decoder/I2S task. Replace, never mix, the
+  // network PCM with the same low-amplitude local noise on small dial moves.
+  // No filesystem, HTTP, allocation, Audio calls or Serial in this callback.
+  static RadioTuningNoise feedbackNoise;
+  static uint32_t feedbackSample = 0;
+  if (feedback && samples && validSamples > 0) {
+    for (int i = 0; i < validSamples; i += 2) {
+      const int32_t noise = int32_t(feedbackNoise.sample(feedbackSample)) * 65536;
+      samples[i] = noise;
+      if (i + 1 < validSamples) samples[i + 1] = noise;
+      feedbackSample = (feedbackSample + 1) % kTuningSamples;
+    }
+  } else {
+    feedbackSample = 0;
+    if (!currentStreamReady && samples && validSamples > 0)
+      memset(samples, 0, size_t(validSamples) * sizeof(*samples));
+  }
+  if (validSamples > 0 && owner == AudioOwner::kNetwork && currentStreamReady && !feedback)
+    audioProducedSamples.store(true);
+  if (validSamples > 0 && owner == AudioOwner::kStaticLocalFile && staticStreamReady.load())
+    staticProducedSamples.store(true);
 }
 
 void setup() {
@@ -845,11 +1130,12 @@ void setup() {
   Serial.println("Cosmic Radio Device boot");
   Audio::audio_info_callback = onAudioInfo;
 
-  // Task 008 只有 NETWORK_AUDIO 这一条 I2S 输出路径。
+  // Network and local static share this one Audio object and I2S output.
   networkAudio.setPinout(kI2SBclkPin, kI2SLrcPin, kI2SDinPin);
   networkAudio.setConnectionTimeout(8'000, 15'000);
-  networkAudio.setVolume(15);
+  networkAudio.setVolume(kNetworkVolume);
   setupControls();
+  setupTuningWav();
 
   if (!connectWifi()) {
     receiverState = ReceiverState::kWifiFailed;
@@ -860,12 +1146,15 @@ void setup() {
   setupManifestPrefetch();
 
   acknowledgedTuneRevision = readTuneInput().revision;
+  handledActivityRevision = readTuneInput().activityRevision;
   tuneOnce(acknowledgedTuneRevision);
 }
 
 void loop() {
   pollManifestPrefetch();
   updateControls();
+  updateLocalStatic();
+  updateForegroundTune();
   if (receiverState == ReceiverState::kPlaying) updatePlayback();
   updateManifestPrefetch();
   updateWifiDiagnostics();

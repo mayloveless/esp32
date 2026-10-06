@@ -1,0 +1,7 @@
+--- a/src/Audio.cpp
++++ b/src/Audio.cpp
+@@ -5205 +5205,3 @@
+-    xSemaphoreTake(mutex_audioTaskIsDecoding, 1 * configTICK_RATE_HZ);
++    // Native seek may hold this mutex during HTTP I/O. Never decode or give
++    // the mutex after a failed take; the current owner must finish first.
++    if (xSemaphoreTake(mutex_audioTaskIsDecoding, 1 * configTICK_RATE_HZ) != pdTRUE) return;

@@ -29,6 +29,8 @@ preamble = r'''
 #include "controls.h"
 #include "ReceiverControls.h"
 #include "RadioManifestPrefetch.h"
+#include "RadioTuningWav.h"
+int FFat = 0;
 using String = std::string;
 struct TestQueue { std::vector<void*> items; };
 using QueueHandle_t = TestQueue*;
@@ -73,18 +75,26 @@ struct Audio {
   enum Event { evt_eof, evt_info, evt_log };
   struct msg_t { Event e; const char* msg = nullptr; const char* s = nullptr; int32_t arg1 = 0, arg2 = 0; };
   bool running = false, connectOK = true;
-  int stops = 0, connects = 0;
+  int stops = 0, connects = 0, localConnects = 0, volume = 15;
+  bool localOK = true;
+  std::vector<String> operations;
   uint32_t position = 0;
   std::vector<uint16_t> seeks;
   std::vector<msg_t> events;
-  std::function<void()> loopStep, connectStep;
+  std::function<void()> loopStep, connectStep, stopStep;
   bool connecttohost(const char*) {
-    ++connects; if (connectStep) connectStep(); running = connectOK; return connectOK;
+    operations.push_back("network"); ++connects; if (connectStep) connectStep(); running = connectOK; return connectOK;
   }
-  void stopSong() { ++stops; running = false; }
+  void stopSong() { operations.push_back("stop"); ++stops; running = false; if (stopStep) stopStep(); }
+  void setVolume(uint8_t value) { volume = value; }
+  bool connecttoFS(int, const char* path) {
+    assert(String(path) == kTuningWavPath); operations.push_back("static");
+    ++localConnects; running = localOK; return localOK;
+  }
   void loop();
   bool isRunning() { return running; }
   uint32_t getAudioFilePosition() { return position; }
+  uint32_t getAudioCurrentTime() { return position; }
   bool setAudioPlayTime(uint16_t seconds) { seeks.push_back(seconds); return true; }
 };
 String responseJson = R"({"result":"signal","manifest":{"programId":"new","title":"test","signalKind":"music","audioUrl":"https://example.test/song.wav?token=HIDDEN","startOffsetMs":8301}})";
@@ -120,6 +130,7 @@ void sendCompleted(const String& id) { assert(!id.empty()); completedIds.push_ba
 '''
 cases = r'''
 void Audio::loop() {
+  operations.push_back("drain");
   auto pending = events; events.clear();
   for (const auto& message : pending) onAudioInfo(message);
   if (running && loopStep) loopStep();
@@ -132,6 +143,12 @@ void reset() {
     vQueueDelete(q);
   }
   prefetchJobs = prefetchResults = nullptr;
+  foregroundTunePending = false; foregroundTuneRevision = 0;
+  handledActivityRevision = 0; pendingPlaybackReady = feedbackLogged = false; pendingPlaybackManifest.clear();
+  pendingPlaybackRevision = 0; feedbackChangedAt = 0; feedbackActivitySeen = false;
+  audioOwner.store(AudioOwner::kNone); tuningWavReady = false;
+  staticEof = staticStopPending = staticReadyLogged = false;
+  staticError = staticProducedSamples = staticStreamReady = false;
   prefetchGeneration = 0; prefetchBusy = prefetchAttempted = false;
   taskCreateOK = true; responseDate = "Tue, 06 Oct 2026 00:00:00 GMT";
   networkAudio = Audio{}; receiverState = ReceiverState::kIdle;
@@ -176,202 +193,179 @@ void startPrefetch() {
   assert(prefetchBusy && prefetchJobs->items.size() == 1);
   responseJson = R"({"result":"signal","manifest":{"programId":"cached","title":"prepared","audioUrl":"https://example.test/next.wav?token=HIDDEN","startOffsetMs":8301,"audioExpiresAt":"2026-10-06T00:15:00.500Z"}})";
 }
+void select(uint32_t now) {
+  // Physical travel, rather than forcing the selection revision in tests.
+  const uint32_t before = tuneInput.revision;
+  while (tuneInput.revision == before) tuneInput.request(now);
+}
+void settle(uint32_t now) { clockMs = now; updateControls(); }
 int main() {
-  // One valid phase edge is enough, in either direction; no full detent needed.
   RadioEncoder phase; phase.begin(3);
-  assert(phase.sample(1, 10)); assert(phase.sample(0, 15));
-  assert(phase.sample(2, 20)); assert(phase.sample(3, 25));
-  assert(phase.sample(2, 30)); assert(phase.sample(0, 35));
-  assert(phase.sample(1, 40)); assert(phase.sample(3, 45));
-  phase.begin(3); assert(!phase.sample(3, 0)); assert(!phase.sample(0, 5)); // impossible two-bit jump
-  assert(phase.sample(1, 10)); assert(!phase.sample(0, 11)); // short bounce
-  assert(phase.sample(2, 12)); assert(!phase.sample(2, 20));
-  phase.begin(3); assert(phase.sample(1, UINT32_MAX)); assert(phase.sample(0, 1));
-  RadioTuneInput wrapped; wrapped.request(UINT32_MAX - 100);
-  assert(!wrapped.ready(0, 198)); assert(wrapped.ready(0, 199));
+  int forward = 0, backward = 0;
+  for (auto state : {1, 0, 2, 3}) { assert(phase.sample(state, clockMs += 3)); forward += phase.direction(); }
+  for (auto state : {2, 0, 1, 3}) { assert(phase.sample(state, clockMs += 3)); backward += phase.direction(); }
+  assert(forward == -backward && (forward == 4 || forward == -4));
+  phase.begin(3); assert(!phase.sample(0, 30)); assert(phase.sample(1, 50)); assert(!phase.sample(3, 51));
+  RadioTuneInput dial;
+  for (int i = 0; i < 3; ++i) dial.request(i * 3);
+  assert(dial.revision == 0); dial.request(9); assert(dial.ready(0, 9));
+  for (int i = 0; i < 200; ++i) dial.request(20 + i * 3);
+  assert(dial.revision == 1); // one selection while waiting for acceptance
+  dial.hold(1000);
+  for (int i = 0; i < 15; ++i) dial.request(1100);
+  assert(dial.revision == 1); dial.request(1100); assert(dial.revision == 2);
+  dial.hold(2000);
+  for (int i = 0; i < 8; ++i) { dial.request(2100, 1); dial.request(2103, -1); }
+  assert(dial.revision == 2 && dial.travel == 0);
+  for (int i = 0; i < 4; ++i) dial.request(6000, -1);
+  assert(dial.revision == 3);
+  RadioTuneInput wrapped; wrapped.hold(UINT32_MAX - 100);
+  for (int i = 0; i < 4; ++i) wrapped.request(198);
+  assert(wrapped.revision == 0 && wrapped.moving(497) && !wrapped.moving(498));
+  wrapped.settle(); for (int i = 0; i < 4; ++i) wrapped.request(4000);
+  assert(wrapped.revision == 1);
 
-  // Interrupt old playback, drain queued EOF and clear pending seek/error.
-  reset(); play("old", 8301);
-  audioStreamReady = audioEof = audioStopPending = true;
-  audioProducedSamples = audioError = true;
+  // Actual ISR triggers PCM feedback before the main loop can run. Neither
+  // small motion nor release may stop/reconnect or discard a prepared manifest.
+  reset(); play(); startPrefetch(); finishPrefetch(); tuningWavReady = true;
+  pins[RADIO_ENCODER_SW] = LOW; updateControls(); assert(!feedbackActivitySeen);
+  clockMs = 100; pins[RADIO_ENCODER_DT] = LOW; onEncoderChange();
+  assert(feedbackActivitySeen && tuneInput.revision == 0);
+  int32_t pcm[1024]; for (auto& sample : pcm) sample = 123456789;
+  audioProducedSamples = false; audio_process_raw_samples(pcm, 1024);
+  assert(!audioProducedSamples && !staticProducedSamples);
+  bool nonzero = false;
+  for (int i = 0; i < 1024; i += 2) {
+    assert(pcm[i] == pcm[i + 1] && pcm[i] >= -4096 * 65536 && pcm[i] <= 4096 * 65536);
+    nonzero |= pcm[i] != 0;
+  }
+  assert(nonzero && networkAudio.connects == 1 && networkAudio.stops == 1);
+  updateControls(); assert(currentProgramId == "old" && audioOwner == AudioOwner::kNetwork);
+  clockMs = 250; for (auto& sample : pcm) sample = 123456789;
+  audio_process_raw_samples(pcm, 1024);
+  for (auto sample : pcm) assert(sample == 123456789);
+  assert(audioProducedSamples); settle(400);
+  assert(networkAudio.connects == 1 && networkAudio.localConnects == 0 && requestCalls == 1 && prefetchedManifest);
+  assert(receiverState == ReceiverState::kPlaying && completedIds.empty());
+
+  // Crossing the angle starts static and prepares cache now, but never runs
+  // blocking connect in the rotation burst, including 8 seconds of motion.
+  reset(); play(); startPrefetch(); finishPrefetch(); tuningWavReady = true;
   networkAudio.events.push_back({Audio::evt_eof});
-  tuneInput.request(0); updateControls();
-  assert(receiverState == ReceiverState::kTuning && !networkAudio.running);
-  assert(currentProgramId.empty() && networkAudio.events.empty());
-  assert(!audioEof && !audioStreamReady && !audioStopPending && !audioProducedSamples && !audioError && !audioSeekPending);
-  assert(completedIds.empty() && requestCalls == 0 && networkAudio.stops == 1);
-  assert(countLog("encoder activity") == 1 && countLog("manual retune: stop current program") == 1);
-  // A continuous burst makes exactly one request 300 ms after its last edge.
-  for (uint32_t t = 10; t <= 100; t += 10) {
-    clockMs = t; tuneInput.request(t); updateControls(); assert(requestCalls == 0);
+  select(0); updateControls();
+  assert(pendingPlaybackReady && currentProgramId.empty() && networkAudio.connects == 1);
+  assert(audioOwner == AudioOwner::kStaticLocalFile && networkAudio.localConnects == 1);
+  assert(!audioEof && !audioError && !audioProducedSamples && !audioSeekPending && completedIds.empty());
+  onAudioInfo({Audio::evt_info, "stream ready"}); audio_process_raw_samples(nullptr, 128);
+  for (clockMs = 100; clockMs <= 8000; clockMs += 100) {
+    tuneInput.request(clockMs); updateControls(); updateLocalStatic();
+    if (clockMs == 6000) {
+      networkAudio.events.push_back({Audio::evt_eof}); updateLocalStatic();
+      assert(networkAudio.localConnects == 2);
+      onAudioInfo({Audio::evt_info, "stream ready"}); audio_process_raw_samples(nullptr, 128);
+    }
   }
-  clockMs = 399; updateControls(); assert(requestCalls == 0);
-  clockMs = 400; updateControls(); assert(requestCalls == 1);
-  assert(countLog("tuning settled") == 1 && countLog("encoder activity") == 1);
-  assert(exclusions(requestBodies[0]) == std::vector<String>{"old"});
-  assert(receiverState == ReceiverState::kPlaying && currentProgramId == "new");
-  assert(recentProgramCount == 2 && recentProgramIds[0] == "new" && recentProgramIds[1] == "old");
-  assert(audioSeekPending && audioSeekSeconds == 8);
-  onAudioInfo({Audio::evt_info, "stream ready"}); updatePlayback();
-  assert(networkAudio.seeks == std::vector<uint16_t>{8} && !audioSeekPending);
-  clockMs = 500; updateControls(); updatePlayback(); assert(requestCalls == 1 && networkAudio.seeks.size() == 1);
-  audio_process_raw_samples(nullptr, 128);
-  networkAudio.loopStep = [] { networkAudio.running = false; networkAudio.events.push_back({Audio::evt_eof}); };
-  updatePlayback(); updatePlayback();
-  assert(completedIds == std::vector<String>{"new"});
-  assert(receiverState == ReceiverState::kIdle && requestCalls == 1);
-
-  // The button has no function. ISR phase capture still initiates rotation.
-  reset(); play(); pins[RADIO_ENCODER_SW] = LOW; clockMs = 1000; updateControls();
-  assert(tuneInput.revision == 0 && networkAudio.running && requestCalls == 0);
-  pins[RADIO_ENCODER_DT] = LOW; onEncoderChange(); updateControls();
-  assert(receiverState == ReceiverState::kTuning && requestCalls == 0);
-  clockMs = 1299; updateControls(); assert(requestCalls == 0);
-  clockMs = 1300; updateControls(); assert(requestCalls == 1);
-
-  // Most recent two distinct accepted signals, with real JSON serialization.
-  reset(); rememberProgram("A"); rememberProgram("A"); assert(recentProgramCount == 1);
-  rememberProgram("B"); rememberProgram("C");
-  assert(exclusions(tuneRequestBody()) == (std::vector<String>{"C", "B"}));
-  responseJson = R"({"result":"no_signal"})"; tuneOnce(0);
-  assert(receiverState == ReceiverState::kIdle && requestCalls == 1);
-  assert(exclusions(requestBodies.back()) == (std::vector<String>{"C", "B"}));
-  clockMs = 1000; updateControls(); assert(requestCalls == 1); // no hidden retry
-  tuneInput.request(clockMs); updateControls(); clockMs = 1300; updateControls();
-  assert(requestCalls == 2 && recentProgramCount == 2);
-  assert(exclusions(requestBodies.back()) == (std::vector<String>{"C", "B"}));
-  assert(completedIds.empty());
-
-  // Input during POST, JSON read or audio connect supersedes the old result.
-  for (int stage = 0; stage < 3; ++stage) {
-    reset(); play();
-    auto rotate = [] { ++clockMs; tuneInput.request(clockMs); };
-    if (stage == 0) postStep = rotate;
-    if (stage == 1) readStep = rotate;
-    if (stage == 2) networkAudio.connectStep = rotate;
-    tuneInput.request(100); clockMs = 400; updateControls();
-    assert(requestCalls == 1 && !networkAudio.running && currentProgramId.empty());
-    assert(recentProgramCount == 1 && recentProgramIds[0] == "old" && completedIds.empty());
-    postStep = readStep = networkAudio.connectStep = {};
-    updateControls(); assert(requestCalls == 1);
-    clockMs = 701; updateControls(); assert(requestCalls == 2);
-    assert(receiverState == ReceiverState::kPlaying && currentProgramId == "new");
-  }
-  // Rotation captured during Audio.loop wins over old EOF in the same call.
-  reset(); play(); audioStreamReady = true; audio_process_raw_samples(nullptr, 128);
-  networkAudio.loopStep = [] {
-    tuneInput.request(millis()); networkAudio.running = false;
-    networkAudio.events.push_back({Audio::evt_eof});
-  };
-  updatePlayback();
-  assert(receiverState == ReceiverState::kTuning && completedIds.empty() && requestCalls == 0);
-  assert(!audioEof && networkAudio.events.empty());
-  // Failures remain idle, retain history, and never retry/complete themselves.
-  reset(); play(); requestStatus = 500;
-  tuneInput.request(0); clockMs = 300; updateControls();
-  assert(receiverState == ReceiverState::kIdle && requestCalls == 1 && recentProgramCount == 1);
-  clockMs = 1000; updateControls(); assert(requestCalls == 1 && completedIds.empty());
-  reset(); play(); WiFi.connection = 0;
-  tuneInput.request(0); clockMs = 300; updateControls();
-  assert(receiverState == ReceiverState::kIdle && requestCalls == 0 && completedIds.empty());
-  reset(); play(); audioStreamReady = true; audioError = true;
-  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
-  assert(receiverState == ReceiverState::kIdle && completedIds.empty());
-
-  // Conservative server Date / URL expiry lifetime, without an ESP32 UTC clock.
-  assert(radioManifestLifetime("2026-10-06T00:15:00.500Z", "Tue, 06 Oct 2026 00:00:00 GMT") == 300000);
-  assert(radioManifestLifetime("2026-10-06T00:00:40Z", "Tue, 06 Oct 2026 00:00:00 GMT") == 10000);
-  assert(radioManifestLifetime("2026-10-06T00:00:30Z", "Tue, 06 Oct 2026 00:00:00 GMT") == 0);
-  assert(radioManifestLifetime("2026-10-05T23:59:00Z", "Tue, 06 Oct 2026 00:00:00 GMT") == 0);
-  assert(radioManifestLifetime("2026-02-29T00:15:00Z", "Sun, 01 Feb 2026 00:00:00 GMT") == 0);
-  assert(radioManifestLifetime("2028-02-29T00:15:00Z", "Tue, 29 Feb 2028 00:00:00 GMT") == 300000);
-  assert(radioManifestLifetime("2026-10-06T00:15:00+08:00", "Tue, 06 Oct 2026 00:00:00 GMT") == 0);
-  assert(radioManifestLifetime("2026-10-06T00:15:00Z", "") == 0);
-
-  // Queueing is nonblocking: only the simulated worker makes HTTP requests.
-  reset(); play(); setupManifestPrefetch(); updateManifestPrefetch();
-  assert(!prefetchBusy && requestCalls == 0); // no decoded audio yet
-  audioStreamReady = true; audio_process_raw_samples(nullptr, 128);
-  updateManifestPrefetch(); updateManifestPrefetch();
-  assert(prefetchBusy && requestCalls == 0 && prefetchJobs->items.size() == 1);
-  responseJson = R"({"result":"signal","manifest":{"programId":"cached","audioUrl":"https://example.test/next.wav?token=HIDDEN","startOffsetMs":8301,"audioExpiresAt":"2026-10-06T00:15:00.500Z"}})";
-  clockMs = 100; finishPrefetch();
-  assert(prefetchedManifest && recentProgramCount == 1 && recentProgramIds[0] == "old");
-  assert(exclusions(requestBodies[0]) == std::vector<String>{"old"});
-  assert(receiverState == ReceiverState::kPlaying && currentProgramId == "old" && networkAudio.running);
-  updateManifestPrefetch(); assert(requestCalls == 1); // no recurring refill
-  tuneInput.request(100); updateControls(); assert(!networkAudio.running && completedIds.empty());
-  clockMs = 399; updateControls(); assert(requestCalls == 1);
-  clockMs = 400; updateControls();
-  assert(requestCalls == 1 && !prefetchedManifest && currentProgramId == "cached");
-  assert(recentProgramCount == 2 && recentProgramIds[0] == "cached" && recentProgramIds[1] == "old");
-  assert(audioSeekPending && audioSeekSeconds == 8);
+  assert(tuneInput.revision == 1 && networkAudio.connects == 1 && requestCalls == 1);
+  assert(!audioProducedSamples && completedIds.empty());
+  settle(8149); assert(audioOwner == AudioOwner::kStaticLocalFile);
+  settle(8150); assert(audioOwner == AudioOwner::kNone && networkAudio.volume == 0 && networkAudio.connects == 1);
+  settle(8299); assert(networkAudio.connects == 1);
+  settle(8300); assert(currentProgramId == "cached" && networkAudio.connects == 2 && !pendingPlaybackReady);
+  assert(audioSeekSeconds == 8 && audioSeekPending && recentProgramCount == 2);
   onAudioInfo({Audio::evt_info, "stream ready"}); updatePlayback();
   assert(networkAudio.seeks == std::vector<uint16_t>{8});
-  assert(completedIds.empty());
-  audio_process_raw_samples(nullptr, 128);
-  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
+  audio_process_raw_samples(nullptr, 128); networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
   assert(completedIds == std::vector<String>{"cached"} && receiverState == ReceiverState::kIdle);
 
-  // A result arriving during the 300 ms settling window can still be used.
-  reset(); play(); startPrefetch(); tuneInput.request(0); updateControls();
-  assert(receiverState == ReceiverState::kTuning && completedIds.empty());
-  clockMs = 100; finishPrefetch(); assert(prefetchedManifest);
-  clockMs = 300; updateControls(); assert(currentProgramId == "cached" && requestCalls == 1);
+  // HTTP is queued at threshold. Ready results wait for release, and motion
+  // during the job cannot trigger repeated HTTP requests/reconnects.
+  reset(); play(); setupManifestPrefetch(); tuningWavReady = true;
+  select(0); updateControls(); assert(prefetchBusy && requestCalls == 0);
+  postStep = [] { clockMs = 100; for (int i = 0; i < 100; ++i) tuneInput.request(clockMs); };
+  finishPrefetch(); assert(pendingPlaybackReady && currentProgramId.empty() && networkAudio.connects == 1);
+  postStep = {}; updateControls(); assert(requestCalls == 1 && !foregroundTunePending);
+  settle(250); assert(audioOwner == AudioOwner::kNone);
+  settle(400); assert(currentProgramId == "new" && networkAudio.connects == 2 && requestCalls == 1);
+  // Tiny input in the protected window preserves the live connection.
+  clockMs = 500; for (int i = 0; i < 4; ++i) tuneInput.request(clockMs);
+  updateControls(); settle(800); assert(requestCalls == 1 && networkAudio.connects == 2 && currentProgramId == "new");
+  // Large travel overrides the protection and still makes one selection.
+  clockMs = 900; select(clockMs); updateControls(); finishPrefetch();
+  assert(requestCalls == 2 && pendingPlaybackReady && networkAudio.connects == 2);
+  settle(1200); assert(networkAudio.connects == 3 && completedIds.empty());
 
-  // A new turn during a cache hit's audio connect discards that selection.
-  reset(); play(); startPrefetch(); finishPrefetch();
-  networkAudio.connectStep = [] { ++clockMs; tuneInput.request(clockMs); };
-  tuneInput.request(0); clockMs = 300; updateControls();
-  assert(receiverState == ReceiverState::kTuning && currentProgramId.empty() && !networkAudio.running);
-  assert(recentProgramCount == 1 && completedIds.empty() && requestCalls == 1);
-  networkAudio.connectStep = {}; clockMs = 601; updateControls();
-  assert(requestCalls == 2 && currentProgramId == "cached");
+  // Small turns during connect do not supersede or immediately reconnect it.
+  reset(); play(); startPrefetch(); finishPrefetch(); tuningWavReady = true;
+  select(0); updateControls();
+  networkAudio.connectStep = [] { clockMs = 350; for (int i = 0; i < 30; ++i) tuneInput.request(clockMs); };
+  settle(300); networkAudio.connectStep = {}; updateControls(); settle(650);
+  assert(currentProgramId == "cached" && requestCalls == 1 && networkAudio.connects == 2);
+  assert(completedIds.empty());
 
-  // Expired cache, no_signal, bad JSON/header and HTTP failure use one manual tune.
+  // Actual selection captured during Audio.loop wins over EOF in that loop.
+  reset(); play(); tuningWavReady = true; audioStreamReady = true; audio_process_raw_samples(nullptr, 128);
+  networkAudio.loopStep = [] { select(millis()); networkAudio.events.push_back({Audio::evt_eof}); };
+  updatePlayback(); networkAudio.loopStep = {};
+  assert(receiverState == ReceiverState::kTuning && completedIds.empty() && !audioEof);
+
+  // Background result invalidated by foreground selection cannot auto play.
+  reset(); play(); startPrefetch(); select(0); updateControls();
+  assert(foregroundTunePending); finishPrefetch(); assert(!prefetchedManifest && currentProgramId.empty());
+  updateForegroundTune(); finishPrefetch(); assert(pendingPlaybackReady && requestCalls == 2);
+  settle(300); assert(currentProgramId == "cached" && networkAudio.connects == 2);
+
+  // Expired/invalid caches fall back once, retaining native seek.
   for (int scenario = 0; scenario < 5; ++scenario) {
     reset(); play(); startPrefetch();
     if (scenario == 1) responseJson = R"({"result":"no_signal"})";
     if (scenario == 2) responseJson = "{";
     if (scenario == 3) responseDate = "";
     if (scenario == 4) requestStatus = 500;
-    finishPrefetch();
-    clockMs = 300000; updateManifestPrefetch(); assert(requestCalls == 1);
-    responseJson = R"({"result":"signal","manifest":{"programId":"fresh","audioUrl":"https://example.test/fresh.wav","startOffsetMs":5042}})";
-    requestStatus = 200;
-    tuneInput.request(clockMs); updateControls(); clockMs += 300; updateControls();
-    assert(requestCalls == 2 && currentProgramId == "fresh" && audioSeekSeconds == 5);
-    assert(!prefetchedManifest && completedIds.empty());
+    finishPrefetch(); clockMs = 300000;
+    responseJson = R"({"result":"signal","manifest":{"programId":"fresh","audioUrl":"https://example.test/a.wav","startOffsetMs":5042}})";
+    requestStatus = 200; select(clockMs); updateControls(); finishPrefetch();
+    assert(pendingPlaybackReady && currentProgramId.empty()); settle(300300);
+    assert(currentProgramId == "fresh" && requestCalls == 2 && audioSeekSeconds == 5);
   }
-  // Rapid tune while a background request is pending invalidates its result.
-  reset(); play(); startPrefetch();
-  tuneInput.request(0); updateControls(); clockMs = 300; updateControls();
-  assert(requestCalls == 1 && currentProgramId == "cached");
-  finishPrefetch(); assert(!prefetchedManifest && requestCalls == 2 && !prefetchBusy);
-  updateManifestPrefetch(); assert(prefetchJobs->items.empty()); // fresh playback not ready yet
+  // no_signal/error returns idle, releases the latch; there is no automatic retry.
+  for (int scenario = 0; scenario < 4; ++scenario) {
+    reset(); play(); setupManifestPrefetch(); tuningWavReady = true;
+    select(0); updateControls();
+    if (scenario == 0) responseJson = R"({"result":"no_signal"})";
+    if (scenario == 1) requestStatus = -1;
+    if (scenario == 2) responseJson = "{";
+    if (scenario == 3) responseJson = R"({"result":"signal","manifest":{}})";
+    finishPrefetch(); assert(receiverState == ReceiverState::kIdle && audioOwner == AudioOwner::kNone);
+    assert(!pendingPlaybackReady && !tuneInput.selectionLatched && networkAudio.volume == 0);
+    settle(10000); updateForegroundTune(); updateManifestPrefetch();
+    assert(requestCalls == 1 && recentProgramCount == 1 && completedIds.empty());
+  }
+  reset(); rememberProgram("A"); rememberProgram("A"); rememberProgram("B"); rememberProgram("C");
+  assert((exclusions(tuneRequestBody()) == std::vector<String>{"C", "B"}));
+  responseJson = R"({"result":"no_signal"})"; tuneOnce(0);
+  assert(recentProgramCount == 2 && (exclusions(requestBodies.back()) == std::vector<String>{"C", "B"}));
 
-  // Failed audio connect is not a reason to tune again or mark completion.
-  reset(); play(); startPrefetch(); finishPrefetch(); networkAudio.connectOK = false;
-  tuneInput.request(0); updateControls(); clockMs = 300; updateControls();
-  assert(requestCalls == 1 && receiverState == ReceiverState::kIdle && completedIds.empty());
-  assert(recentProgramCount == 1);
-  // Natural EOF keeps the prepared next manifest but never auto plays it.
-  reset(); play(); startPrefetch(); finishPrefetch();
-  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
-  assert(completedIds == std::vector<String>{"old"} && receiverState == ReceiverState::kIdle);
-  updateManifestPrefetch(); assert(requestCalls == 1 && networkAudio.connects == 1 && prefetchedManifest);
-  tuneInput.request(0); clockMs = 300; updateControls();
-  assert(currentProgramId == "cached" && requestCalls == 1);
-  // Cache lifetime works across millis wrap and cannot replay a recent ID.
+  // Silent degradation if local file fails, selection can still proceed.
+  for (int scenario = 0; scenario < 3; ++scenario) {
+    reset(); play(); tuningWavReady = true; networkAudio.localOK = scenario != 0;
+    select(0); updateControls();
+    if (scenario == 1) onAudioInfo({Audio::evt_log, "hidden", "LOGE"});
+    if (scenario == 2) onAudioInfo({Audio::evt_eof});
+    updateLocalStatic(); assert(!tuningWavReady && completedIds.empty());
+    settle(300); assert(currentProgramId == "new" && requestCalls == 1);
+  }
+  // Startup/worker-failure fallback and wraparound/recent-ID cache protection.
+  reset(); taskCreateOK = false; setupManifestPrefetch(); play(); select(0); updateControls();
+  assert(requestCalls == 1 && pendingPlaybackReady); settle(300); assert(currentProgramId == "new");
   reset(); play(); clockMs = UINT32_MAX - 100; startPrefetch(); finishPrefetch();
   clockMs = 50; assert(playPrefetchedManifest(0) && currentProgramId == "cached");
   reset(); play(); startPrefetch(); finishPrefetch(); rememberProgram("cached");
-  assert(!playPrefetchedManifest(0) && !prefetchedManifest && requestCalls == 1);
-  // Resource failure disables prefetch but preserves the existing manual flow.
-  reset(); taskCreateOK = false; setupManifestPrefetch(); play();
-  audioStreamReady = true; audio_process_raw_samples(nullptr, 128); updateManifestPrefetch();
-  assert(!prefetchJobs && !prefetchResults && requestCalls == 0);
-  tuneInput.request(0); clockMs = 300; updateControls(); assert(requestCalls == 1);
+  assert(!playPrefetchedManifest(0) && !prefetchedManifest);
+  // NONE and pre-ready PCM are silent, not network-success evidence.
+  reset(); int32_t tail[] = {100, -100}; audio_process_raw_samples(tail, 2);
+  assert(tail[0] == 0 && tail[1] == 0);
+  audioOwner = AudioOwner::kStaticLocalFile; tail[0] = 100; audio_process_raw_samples(tail, 2);
+  assert(tail[0] == 0 && !audioProducedSamples);
   reset();
 }
 '''

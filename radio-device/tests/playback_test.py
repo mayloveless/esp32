@@ -9,8 +9,10 @@ import tempfile
 sketch = (Path(__file__).resolve().parents[1] / 'radio-device.ino').read_text()
 globals_ = sketch[sketch.index('constexpr uint8_t'):sketch.index('String deviceApiUrl')]
 playback = sketch[sketch.index('void onAudioInfo'):sketch.index('}  // namespace')]
+handoff = sketch[sketch.index('void stopAudioForHandoff() {'):sketch.index('void startLocalStatic()')]
 hook = sketch[sketch.index('void audio_process_raw_samples'):sketch.index('void setup()')]
 preamble = r'''
+#include "RadioTuningWav.h"
 #include <atomic>
 #include <cassert>
 #include <cstdint>
@@ -48,6 +50,7 @@ struct Audio {
   void loop();
   bool isRunning() { return running; }
   void stopSong() { running = false; }
+  void setVolume(uint8_t) {}
   uint32_t getAudioFilePosition() { return position; }
   bool setAudioPlayTime(uint16_t seconds) {
     seeks.push_back(seconds);
@@ -58,6 +61,7 @@ int completed = 0;
 void sendCompleted(const String& id) { assert(id == "program"); ++completed; }
 uint32_t acknowledgedTuneRevision = 0;
 bool tuneSuperseded(uint32_t) { return false; }
+bool controlsHaveActivity() { return false; }
 void updateControls() {}
 void invalidatePrefetch() {}
 '''
@@ -71,6 +75,7 @@ void Audio::loop() {
 void reset(bool started = true, uint32_t offsetMs = 0) {
   networkAudio = Audio{};
   receiverState = ReceiverState::kPlaying;
+  audioOwner.store(AudioOwner::kNetwork);
   currentProgramId = "program";
   audioEof = audioStopPending = false;
   audioStreamReady = started;
@@ -166,6 +171,7 @@ int main() {
 
   // Only recognized constant event IDs and numeric fields may reach Serial.
   Serial.diagnostics.clear();
+  audioOwner.store(AudioOwner::kNetwork);
   onAudioInfo({Audio::evt_info, "radio.seek.range.status", nullptr, 206});
   assert(Serial.diagnostics.size() == 1);
   assert(Serial.diagnostics[0] == "[seek] range.status: HTTP=206\n");
@@ -182,7 +188,7 @@ int main() {
   assert(Serial.diagnostics.back() == "audio seek applied: position=512044\n");
 
   // The failed native operation queues diagnostics after loop's dispatch.
-  // Entering idle must not leave the last failure stage invisible.
+  // Entering idle drains all events with owner NONE, without setting new flags.
   reset(true, 8300); tick(); Serial.diagnostics.clear();
   networkAudio.step = [] {
     networkAudio.events.push_back({Audio::evt_info, "radio.seek.read.timeout", nullptr, 0, 65535});
@@ -191,12 +197,13 @@ int main() {
   tick(); failed();
   assert(networkAudio.events.empty());
   assert(Serial.diagnostics.back() == "[seek] read.timeout: read=0 expected=65535\n");
+  assert(!audioError && !audioEof); // NONE retains numeric diagnostics only.
 }
 '''
 with tempfile.TemporaryDirectory(prefix='radio-playback-test-') as directory:
     source = Path(directory) / 'playback.cpp'
     binary = Path(directory) / 'playback-test'
-    source.write_text(preamble + globals_ + playback + hook + cases)
-    subprocess.run([os.environ.get('CXX', 'clang++'), '-std=c++17', '-Wall', '-Wextra', str(source), '-o', str(binary)], check=True)
+    source.write_text(preamble + globals_ + handoff + playback + hook + cases)
+    subprocess.run([os.environ.get('CXX', 'clang++'), '-std=c++17', '-Wall', '-Wextra', '-I', str(Path(__file__).resolve().parents[1]), str(source), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 print('Playback regression checks passed (host fakes, not hardware).')

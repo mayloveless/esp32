@@ -61,3 +61,20 @@ audio seek applied: position=512044
 编译占用 2,083,967 字节（66% flash）、全局变量 60,260 字节（18% RAM）。主机两组回归、实际 ESP32-S3 编译、烧录校验与补丁正反向应用均通过。
 
 用户随后再次确认 5 秒 seek（位置 320044）时 Range 206、8 KiB 重填及 WAV 对齐成功；声音断续仍存在，按用户要求暂缓排查，可继续后续开发。
+
+## 009B 解码互斥锁修复（2026-10-06）
+
+009B 的 FFat static → NETWORK 切换后，原生 seek 中真机出现 `xTaskPriorityDisinherit` 断言。ELF 回溯定位到 Audio::playAudioData() 的 xSemaphoreGive（原文件第 5259 行）：xSemaphoreTake 的 1 秒超时返回值被忽略，线程在未获得锁时继续解码并释放其他线程持有的 mutex。newInBuffStart 在 Range HTTP I/O 期间持有此锁，可能超过 1 秒；即使 m_f_lockInBuffer 已设，已经越过前置检查的解码线程仍可能正在等锁。
+
+最小补丁只让 playAudioData 在 xSemaphoreTake != pdTRUE 时返回本轮，不解码、不释放未获得的锁；成功获得锁后保持原有解码与释放逻辑。没有增加 delay、扩大超时、第二个 Audio 或修改 Range 行为，原 seek 修复仍保留。新增指纹为 library-hashes.json 中 Audio.cpp 的 mutexGuard，fixed 指纹仍表示之前的 HTTP seek 基线。
+
+先按上节应用 HTTP seek 修复，再应用：
+
+```bash
+patch --dry-run -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-decode-mutex.patch
+patch -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-decode-mutex.patch
+python3 radio-device/tests/library_mutex_test.py
+python3 radio-device/tests/library_seek_test.py
+```
+
+回退本次 guard 使用同一补丁的 `patch -R`，会回到有该断言风险的 HTTP seek 基线。修改后必须重新编译并烧录；只有拉取 sketch 不会更新本机 Arduino 库。主机回归直接提取库的 playAudioData，验证失败获取锁不解码/不 give、之后成功迭代恢复、EOF 分支仅释放已获得锁，及原有前置 guard；原生 HTTP seek 回归同时通过。
