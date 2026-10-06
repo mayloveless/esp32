@@ -13,6 +13,8 @@ handoff = sketch[sketch.index('void stopAudioForHandoff() {'):sketch.index('void
 hook = sketch[sketch.index('void audio_process_raw_samples'):sketch.index('void setup()')]
 preamble = r'''
 #include "RadioTuningWav.h"
+#include "RadioDisplayModel.h"
+void renderDisplay(RadioDisplayModel& model) { model.dirty = false; }
 #include <atomic>
 #include <cassert>
 #include <cstdint>

@@ -21,12 +21,27 @@
 #include "ReceiverControls.h"
 #include "RadioManifestPrefetch.h"
 #include "RadioTuningWav.h"
+#include "RadioDisplay.h"
 
 #ifndef WIFI_GATEWAY_MAC
 #define WIFI_GATEWAY_MAC ""
 #endif
 
 namespace {
+
+RadioDisplay radioDisplay;
+void renderDisplay(RadioDisplayModel& model) {
+  const bool wasDirty = model.dirty;
+  const uint32_t started = millis();
+  radioDisplay.renderIfDirty(model);
+  if (wasDirty && !model.dirty) {
+    constexpr const char* labels[] = {
+      "BOOTING", "CONNECTING", "TUNING", "LOCKING", "PLAYING", "NO NETWORK", "NO SIGNAL", "SIGNAL LOST"
+    };
+    Serial.printf("[display] %s refreshMs=%lu\n", labels[static_cast<uint8_t>(model.status)],
+      static_cast<unsigned long>(millis() - started));
+  }
+}
 
 constexpr uint8_t kI2SBclkPin = 4;
 constexpr uint8_t kI2SLrcPin = 5;
@@ -71,10 +86,15 @@ uint32_t audioSeekSeconds = 0;
 uint32_t audioStartMillis = 0;
 uint32_t audioProgressMillis = 0;
 uint32_t lastAudioPosition = 0;
+RadioDisplayModel displayModel;
+std::atomic<bool> displaySeekWaiting{false};
+std::atomic<bool> displayProducedSamples{false};
 
 void prepareStartOffset(uint32_t offsetMs) {
   audioSeekSeconds = offsetMs / 1000;
   audioSeekPending.store(offsetMs > 0);
+  displaySeekWaiting.store(offsetMs > 0);
+  displayProducedSamples.store(false);
 }
 
 String deviceApiUrl(const char* path) {
@@ -141,7 +161,7 @@ bool foregroundTunePending = false;
 uint32_t foregroundTuneRevision = 0;
 
 void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision);
-void finishTuningIdle();
+void finishTuningIdle(RadioDisplayStatus status = RadioDisplayStatus::SignalLost);
 bool tuneSuperseded(uint32_t requestedRevision);
 void applyForegroundManifest(ManifestPrefetchJob& job);
 
@@ -370,10 +390,12 @@ void stopForTuning() {
   stopAudioForHandoff();
   currentProgramId = "";
   receiverState = ReceiverState::kTuning;
+  displayModel.selectProgram("", "");
+  displayModel.setStatus(RadioDisplayStatus::Tuning);
   startLocalStatic();
 }
 
-void finishTuningIdle() {
+void finishTuningIdle(RadioDisplayStatus status) {
   stopAudioForHandoff();
   foregroundTunePending = false;
   pendingPlaybackReady = false;
@@ -383,6 +405,7 @@ void finishTuningIdle() {
   portEXIT_CRITICAL(&controlsMux);
   currentProgramId = "";
   receiverState = ReceiverState::kIdle;
+  displayModel.setIdle(WiFi.status() == WL_CONNECTED ? status : RadioDisplayStatus::NoNetwork);
 }
 
 void updateLocalStatic() {
@@ -687,6 +710,7 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision)
 
   // Selection/prefetch happens while turning. Blocking HTTPS/Range work must
   // wait until the local feedback has had a chance to play and the dial stops.
+  displayModel.selectProgram(title, signalKind);
   if (receiverState == ReceiverState::kTuning && readTuneInput().moving(millis())) {
     pendingPlaybackManifest.set(manifest);
     pendingPlaybackRevision = requestedRevision;
@@ -715,6 +739,8 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision)
   prepareStartOffset(startOffsetMs);
   lastAudioPosition = 0;
 
+  displayModel.setStatus(RadioDisplayStatus::Locking);
+  renderDisplay(displayModel); // Show the selected title before blocking TLS/seek.
   // Audio.connecttohost() 独占 HTTP(S) 流式读取、解码和唯一的 I2S 输出；
   // sketch 只交付当前 signed URL，绝不会把整条音频下载进 RAM 或 PSRAM。
   const bool connected = networkAudio.connecttohost(audioUrl);
@@ -752,6 +778,8 @@ void tuneOnce(uint32_t requestedRevision) {
     return;
   }
   receiverState = ReceiverState::kTuning;
+  displayModel.setStatus(RadioDisplayStatus::Tuning);
+  renderDisplay(displayModel);
   Serial.println("tune request");
   Serial.print("Device API: ");
   Serial.println(summarizeAudioUrl(deviceApiUrl("/api/device/receiver/tune")));
@@ -819,7 +847,7 @@ void tuneOnce(uint32_t requestedRevision) {
     Serial.println("no_signal");
     // Keep exclusions on no_signal. A later physical turn may retry once,
     // but never silently relax history or request again automatically.
-    finishTuningIdle();
+    finishTuningIdle(RadioDisplayStatus::NoSignal);
     return;
   }
   if (strcmp(result, "signal") != 0 || !response["manifest"].is<JsonObject>()) {
@@ -845,7 +873,7 @@ void applyForegroundManifest(ManifestPrefetchJob& job) {
   }
   if (strcmp(result, "no_signal") == 0) {
     Serial.println("no_signal");
-    finishTuningIdle();
+    finishTuningIdle(RadioDisplayStatus::NoSignal);
     return;
   }
   startManifestPlayback(job.response["manifest"].as<JsonObjectConst>(), job.requestedRevision);
@@ -942,8 +970,10 @@ void updateControls() {
       pendingPlaybackManifest.clear();
       Serial.println("dial locked: connect prepared program");
       startManifestPlayback(manifest.as<JsonObjectConst>(), revision);
-    } else if (receiverState == ReceiverState::kTuning && !foregroundTunePending && !prefetchBusy)
+    } else if (receiverState == ReceiverState::kTuning && !foregroundTunePending && !prefetchBusy) {
       receiverState = ReceiverState::kIdle;
+      displayModel.setIdle(RadioDisplayStatus::NoSignal);
+    }
   }
 }
 
@@ -1001,8 +1031,10 @@ void onAudioInfo(Audio::msg_t message) {
       }
       break;
     }
-    if (owner == AudioOwner::kNetwork && strcmp(message.msg, "radio.seek.new-buffer.result") == 0 && message.arg2 == 1)
+    if (owner == AudioOwner::kNetwork && strcmp(message.msg, "radio.seek.new-buffer.result") == 0 && message.arg2 == 1) {
+      displaySeekWaiting.store(false);
       Serial.printf("audio seek applied: position=%ld\n", static_cast<long>(message.arg1));
+    }
   }
   // 日志可能从库的解码任务发出；只保存错误标志，不打印含 signed URL 的消息。
   if (owner == AudioOwner::kNetwork && message.e == Audio::evt_log && message.s &&
@@ -1017,6 +1049,8 @@ void failPlayback() {
   invalidatePrefetch();
   currentProgramId = "";
   receiverState = ReceiverState::kIdle;
+  displayModel.setIdle(WiFi.status() == WL_CONNECTED
+    ? RadioDisplayStatus::SignalLost : RadioDisplayStatus::NoNetwork);
   Serial.println("audio playback failed");
 }
 
@@ -1048,6 +1082,8 @@ void updatePlayback() {
     stopAudioForHandoff();
     currentProgramId = "";
     receiverState = ReceiverState::kIdle;
+    displayModel.setIdle(RadioDisplayStatus::NoSignal);
+    renderDisplay(displayModel); // completed HTTP may block; the program has ended.
     Serial.println("audio playback completed");
     sendCompleted(completedProgramId);
     return;
@@ -1092,6 +1128,19 @@ void updatePlayback() {
 
 }  // namespace
 
+// Foreground only. Small dial feedback is visual TUNING even while the
+// existing receiver keeps its network connection and business state.
+void updateDisplay() {
+  const RadioTuneInput input = readTuneInput();
+  displayModel.update(WiFi.status() == WL_CONNECTED,
+    input.activityRevision && input.moving(millis()),
+    receiverState == ReceiverState::kTuning, pendingPlaybackReady,
+    receiverState == ReceiverState::kPlaying && audioOwner.load() == AudioOwner::kNetwork,
+    audioStreamReady.load(), displayProducedSamples.load(),
+    audioSeekPending.load() || displaySeekWaiting.load());
+  renderDisplay(displayModel);
+}
+
 // The library can drain queued PCM after stopSong. NONE must output silence;
 // the volume ramp alone cannot guarantee that during an owner handoff.
 void audio_process_raw_samples(int32_t* samples, int16_t validSamples) {
@@ -1118,8 +1167,10 @@ void audio_process_raw_samples(int32_t* samples, int16_t validSamples) {
     if (!currentStreamReady && samples && validSamples > 0)
       memset(samples, 0, size_t(validSamples) * sizeof(*samples));
   }
-  if (validSamples > 0 && owner == AudioOwner::kNetwork && currentStreamReady && !feedback)
+  if (validSamples > 0 && owner == AudioOwner::kNetwork && currentStreamReady && !feedback) {
     audioProducedSamples.store(true);
+    if (!displaySeekWaiting.load()) displayProducedSamples.store(true);
+  }
   if (validSamples > 0 && owner == AudioOwner::kStaticLocalFile && staticStreamReady.load())
     staticProducedSamples.store(true);
 }
@@ -1128,6 +1179,8 @@ void setup() {
   Serial.begin(115200);
   delay(300);
   Serial.println("Cosmic Radio Device boot");
+  if (!radioDisplay.begin()) Serial.println("display unavailable: frame allocation failed");
+  renderDisplay(displayModel);
   Audio::audio_info_callback = onAudioInfo;
 
   // Network and local static share this one Audio object and I2S output.
@@ -1137,8 +1190,12 @@ void setup() {
   setupControls();
   setupTuningWav();
 
+  displayModel.setStatus(RadioDisplayStatus::Connecting);
+  renderDisplay(displayModel);
   if (!connectWifi()) {
     receiverState = ReceiverState::kWifiFailed;
+    displayModel.setStatus(RadioDisplayStatus::NoNetwork);
+    renderDisplay(displayModel);
     Serial.println("Wi-Fi diagnostic idle; no automatic reboot or tune retry.");
     return;
   }
@@ -1153,10 +1210,12 @@ void setup() {
 void loop() {
   pollManifestPrefetch();
   updateControls();
+  updateDisplay();
   updateLocalStatic();
   updateForegroundTune();
   if (receiverState == ReceiverState::kPlaying) updatePlayback();
   updateManifestPrefetch();
   updateWifiDiagnostics();
+  updateDisplay();
   vTaskDelay(1);
 }

@@ -1,8 +1,8 @@
-# Cosmic Radio Device — Task 008 / 008B / 009A / 009B
+# Cosmic Radio Device — Task 008 / 008B / 009A / 009B / 010A
 
 这是 ESP32-S3 到 MAX98357A 的最小单节目播放固件。启动时连接 Wi-Fi，使用 Device Receiver API 取得 manifest，然后把其中短期 signed audio URL 直接交给音频库流式解码并输出到 I2S。
 
-本 sketch 支持 EC11 旋转调台与 `startOffsetMs`，等待流就绪后通过音频库原生 seek 接入节目中途。开机自动播放一条，此后仅用户旋转会换台；当前节目出声后后台预取下一条 manifest。009B 增加 FFat 本地调谐沙沙声，与网络节目共用同一个 Audio 对象。不含 TFT、按键功能或自动播放下一条。
+本 sketch 支持 EC11 旋转调台与 `startOffsetMs`，等待流就绪后通过音频库原生 seek 接入节目中途。开机自动播放一条，此后仅用户旋转会换台；当前节目出声后后台预取下一条 manifest。009B 增加 FFat 本地调谐沙沙声，与网络节目共用同一个 Audio 对象。010A 增加 ST7735 状态、节目类型与中文标题显示。不含字幕、按键功能或自动播放下一条。
 
 ## 硬件与接线
 
@@ -19,6 +19,48 @@
 | GAIN | 悬空 |
 
 4Ω 3W 扬声器只接 MAX98357A 的 `SPK+` 与 `SPK-`。`SPK-` 是 bridge output，**绝不能接 GND**。ESP32-S3 GPIO 也不耐 5V。
+
+## ST7735 状态屏（010A）
+
+使用已验证的 1.8" ST7735 128×160 面板，`initR(INITR_BLACKTAB)`，横屏 `setRotation(3)`，显示区域 160×128。用户因走线需要，将原 rotation 1 翻转 180° 为 3；接线不变。翻转版编译和烧录校验通过，应用与 RAM 占用不变；启动、11 秒原生 seek、PLAYING 及预取正常，串口已释放。
+
+| ST7735 | ESP32-S3 |
+| --- | --- |
+| VCC / LED | 3.3V |
+| GND | GND（共地） |
+| CS | GPIO10 |
+| RESET | GPIO8 |
+| DC | GPIO9 |
+| MOSI | GPIO11 |
+| SCK | GPIO12 |
+
+不使用 MISO。`RadioDisplay.h` 在编译期验证 TFT 五个引脚互不重复，且不占用 I2S GPIO4/5/6 或 controls.h 配置的 EC11 GPIO7/15/16。
+
+显示库沿用本机安装：Adafruit GFX Library **1.12.6**（1.12.x）、Adafruit ST7735 and ST7789 Library **1.11.0**（1.11.x）、U8g2_for_Adafruit_GFX **1.8.0**（1.8.x），以及 Adafruit BusIO **1.17.4** 依赖。上述版本已用于本次编译；范围内其他版本仍需编译验证。
+
+中文使用 `u8g2_font_wqy12_t_gb2312`，约 12px、7,539 个字形；库内字体数组 **208,526 字节**（约 204 KiB）。标题最多三行，按实际字形宽度排版，超过区域直接截断。模型最多保留 192 字节完整 UTF-8，非法字符替换为 `?`，换行等控制字符转为空格；字库未覆盖的 Unicode 字形（如 emoji）显示 `?`，常见中文正常显示。没有字幕或滚动标题。
+
+`RadioDisplayModel.h` 只保存显示内容与 dirty flag；`RadioDisplay.cpp` 只负责绘制。画布在 setup 初始化后一次分配 **40,960 字节**，文字先画入画布，再通过一次 SPI 写入显示完整帧。只有状态、标题或类型实际变化时刷新，同一状态反复提交不刷新；ISR、音频回调和 HTTP worker 不操作 TFT。画布分配失败会在 Serial 报告并禁用显示，保留原音频链路。
+
+开机依次显示 BOOTING / CONNECTING；转动时显示 TUNING，小幅反馈结束后恢复原节目界面。manifest 已准备或接入 HTTPS 时显示 LOCKING SIGNAL 与已知标题；seek 排队仍保持 LOCKING，原生 seek 应用后真正输出网络节目采样才显示 SIGNAL LOCKED。NEWS / CHAT / ALIEN / MUSIC 使用 ASCII。no_signal 及自然播完显示 NO SIGNAL，播放或 tune 失败显示 SIGNAL LOST，断网显示 NO NETWORK。屏幕不显示 IP、HTTP 错误码、授权信息、URL 或 programId。Wi-Fi 的启动网关选择和原有重连行为保持不变，TURN TO RETRY 提示不新增网络扫描或自动 tune。
+
+本次最终构建（ESP32 Core 3.3.12、现有 3MB APP / 9.9MB FATFS 分区）占应用 **2,396,747 / 3,145,728 字节（76%）**，剩余 **748,981 字节**；相比 009B 增加 259,152 字节。静态 RAM **62,956 字节（19%）**，此外画布在运行时分配 40,960 字节。ELF 确认 GB2312 字体为 208,526 字节，保留原分区与音频功能。
+
+010A 已通过六组 host regression、ESP32 编译与烧录写入校验。首版三分钟串口记录到四次原生 seek 应用成功（8 / 13 / 13 / 10 秒），均在 seek 应用后产生节目采样才显示 PLAYING；三次实体换台命中 manifest 预取，本地 static 产生样本，MUSIC / ALIEN / NEWS 的 manifest 均正常接入。首条节目自然 EOF 后显示 NO SIGNAL，仅一次 completed 且接口成功，随后保持 idle，直到下一次物理旋转。状态刷新耗时 18–24 ms，同一播放状态没有持续重绘；未记录到重启、mutex 断言、播放失败或 RingBuffer_Log。
+
+该次实测发现，旋转中预取标题到达会导致第二次 TUNING 重绘。已修正模型：TUNING 中保存隐藏的标题/类型不再标 dirty，进入 LOCKING 时才一起显示；连续边沿和 manifest 到达不重复刷 TUNING 的回归已通过。串口证明的是软件状态与播放链路，屏幕实际中文、朝向、连续旋转闪烁和音频听感仍待用户确认，不能据此标记完整硬件验收通过。原有断续和换台等待数秒的问题保留；网络连接及 Range 期间仍沿用原主循环阻塞行为，显示不会改变这一限制。010B 尚未开始。
+
+最终修正版再次编译与烧录校验通过；重新采集完整开机日志，确认 BOOTING / CONNECTING，FFat tuning WAV 命中缓存；拒绝错误网关后连接正确 AP，12 秒 / 768044 的原生 seek 成功，之后才提交 PLAYING 帧，预取耗时 1,838 ms。最终版刷新耗时 18–22 ms；两分钟采集未记录到播放失败或重启，结束后已释放串口。该轮没有新的实体旋转输入，修正后连续旋转只刷一次 TUNING 的真机验收仍待用户测试。
+
+用户已确认屏幕有显示，并因走线要求翻转 180°。有状态提示后等待可以暂时接受，但最新反馈仍然不能快速播放；本版先保留并提交，换台接入延迟尚未解决，不能把显示反馈视为速度验收通过。
+
+010A 的独立模型回归：
+
+```bash
+python3 radio-device/tests/display_model_test.py
+```
+
+覆盖状态映射、持续转动不重复标 dirty、新标题/类型、UTF-8 边界、三行截断和 malformed UTF-8（启用 AddressSanitizer / UBSan）。控制回归另外直接执行 sketch 的映射函数，验证 seek 排队、seek 应用、实际采样、临时旋转反馈和失败对应的屏幕状态。显示驱动不参与 host tests。
 
 ## EC11 旋转调台（009A / 009B 校准）
 
@@ -134,6 +176,7 @@ HTTP WAV seek 的原始诊断与失败证据见 [diagnostics/README.md](diagnost
 ```bash
 python3 radio-device/tests/playback_test.py
 python3 radio-device/tests/controls_test.py
+python3 radio-device/tests/display_model_test.py
 python3 radio-device/tests/library_seek_test.py
 python3 radio-device/tests/tuning_wav_test.py
 python3 radio-device/tests/library_mutex_test.py

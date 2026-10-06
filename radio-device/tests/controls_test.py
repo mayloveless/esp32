@@ -13,6 +13,7 @@ controls = sketch[sketch.index('static_assert(RADIO_ENCODER'):sketch.index('stru
 flow = sketch[sketch.index('void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision) {'):sketch.index('void onAudioInfo')]
 playback = sketch[sketch.index('void onAudioInfo'):sketch.index('}  // namespace')]
 hook = sketch[sketch.index('void audio_process_raw_samples'):sketch.index('void setup()')]
+display_update = sketch[sketch.index('void updateDisplay() {'):sketch.index('// The library can drain queued PCM')]
 json_headers = Path(os.environ.get('ARDUINO_LIBRARY_DIR', str(Path.home() / 'Documents/Arduino/libraries'))) / 'ArduinoJson/src'
 preamble = r'''
 #include <ArduinoJson.h>
@@ -30,6 +31,8 @@ preamble = r'''
 #include "ReceiverControls.h"
 #include "RadioManifestPrefetch.h"
 #include "RadioTuningWav.h"
+#include "RadioDisplayModel.h"
+void renderDisplay(RadioDisplayModel& model) { model.dirty = false; }
 int FFat = 0;
 using String = std::string;
 struct TestQueue { std::vector<void*> items; };
@@ -136,6 +139,7 @@ void Audio::loop() {
   if (running && loopStep) loopStep();
 }
 void reset() {
+  displayModel = RadioDisplayModel{};
   clearPrefetchedManifest();
   for (QueueHandle_t q : {prefetchJobs, prefetchResults}) {
     if (!q) continue;
@@ -336,8 +340,13 @@ int main() {
     if (scenario == 2) responseJson = "{";
     if (scenario == 3) responseJson = R"({"result":"signal","manifest":{}})";
     finishPrefetch(); assert(receiverState == ReceiverState::kIdle && audioOwner == AudioOwner::kNone);
+    updateDisplay();
+    assert(displayModel.status == (scenario == 0 ? RadioDisplayStatus::NoSignal : RadioDisplayStatus::SignalLost)
+      || displayModel.status == RadioDisplayStatus::Tuning); // feedback may still be active
     assert(!pendingPlaybackReady && !tuneInput.selectionLatched && networkAudio.volume == 0);
     settle(10000); updateForegroundTune(); updateManifestPrefetch();
+    updateDisplay();
+    assert(displayModel.status == (scenario == 0 ? RadioDisplayStatus::NoSignal : RadioDisplayStatus::SignalLost));
     assert(requestCalls == 1 && recentProgramCount == 1 && completedIds.empty());
   }
   reset(); rememberProgram("A"); rememberProgram("A"); rememberProgram("B"); rememberProgram("C");
@@ -366,12 +375,37 @@ int main() {
   assert(tail[0] == 0 && tail[1] == 0);
   audioOwner = AudioOwner::kStaticLocalFile; tail[0] = 100; audio_process_raw_samples(tail, 2);
   assert(tail[0] == 0 && !audioProducedSamples);
+  // Actual sketch mapping: connect isn't locked, and local/noise PCM cannot
+  // prove network success. Small feedback temporarily changes only the view.
+  reset(); play("display", 8000); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Locking);
+  audio_process_raw_samples(nullptr, 2); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Locking);
+  onAudioInfo({Audio::evt_info, "stream ready"}); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Locking);
+  updatePlayback(); updateDisplay(); // native seek accepted, still no samples
+  assert(displayModel.status == RadioDisplayStatus::Locking);
+  audio_process_raw_samples(nullptr, 2); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Locking); // queued isn't applied
+  onAudioInfo({Audio::evt_info, "radio.seek.new-buffer.result", nullptr, 512044, 1});
+  updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Locking); // wait for PCM after seek
+  audio_process_raw_samples(nullptr, 2); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Playing);
+  tuneInput.request(clockMs += 3); updateControls(); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Tuning && receiverState == ReceiverState::kPlaying);
+  clockMs += 300; updateControls(); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Playing);
+  failPlayback(); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::SignalLost);
+  WiFi.connection = 0; updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::NoNetwork);
   reset();
 }
 '''
 with tempfile.TemporaryDirectory(prefix='radio-controls-test-') as directory:
     cpp, binary = Path(directory) / 'controls.cpp', Path(directory) / 'controls-test'
-    cpp.write_text(preamble + globals_ + controls + flow + playback + hook + cases)
+    cpp.write_text(preamble + globals_ + controls + flow + playback + display_update + hook + cases)
     subprocess.run([os.environ.get('CXX', 'clang++'), '-std=c++17', '-Wall', '-Wextra', '-I', str(root), '-I', str(json_headers), str(cpp), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 print('Controls/tune/prefetch/playback checks passed (real ArduinoJson, host I/O fakes).')
