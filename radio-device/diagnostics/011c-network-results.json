@@ -1,0 +1,66 @@
+{
+  "baseline": "49ec18c0579534541f8355e0efa565b49d39aa20",
+  "taskRevision": "52315f0",
+  "build": {
+    "networkDiagnostics": 1,
+    "fastWavStart": 1,
+    "initialBytes": 4096,
+    "flashBytes": 2416391,
+    "staticRamBytes": 70860
+  },
+  "sourceDefaults": {
+    "networkDiagnostics": 0,
+    "fastWavStart": 0
+  },
+  "actualSuccessfulConnections": 1,
+  "programsWithPcm": 1,
+  "failedRealConnectCalls": 4,
+  "independentProbeCount": 3,
+  "independentTcpTimeoutCount": 3,
+  "failedIps": [
+    "104.18.38.10",
+    "172.64.149.246"
+  ],
+  "manualResetConfirmed": true,
+  "incompleteManualRequestExcluded": true,
+  "fatalCount": 0,
+  "fiveSuccessfulConnectionsCollected": false,
+  "conclusion": "Root cause unresolved; diagnostic probe disabled comparison also failed TCP. User confirmed saved 011B 8192 restoration works; pause 011C and continue independent work.",
+  "userReportedComparison": {
+    "working": "011B",
+    "failing": "011C",
+    "networkChanged": false
+  },
+  "probeOffComparison": {
+    "networkDiagnostics": 0,
+    "fastWavStart": 1,
+    "initialBytes": 4096,
+    "flashBytes": 2412535,
+    "staticRamBytes": 70332,
+    "hardwareResult": "Diagnostic-off comparison is paused; user requested restore of saved 011B 8192 firmware. See independent restoration trace.",
+    "log": "011c-probe-off-trace.txt",
+    "uploadHashVerified": true,
+    "actualSuccessfulConnections": 3,
+    "playbackFailures": 2,
+    "failedRealConnectCalls": 2
+  },
+  "restoration": {
+    "version": "saved 011B 8192 acceptance firmware",
+    "requestedByUser": true,
+    "status": "flashed and startup PCM verified",
+    "diagnosticExperimentPaused": true,
+    "trace": "011b-restoration-trace.txt",
+    "uploadHashVerified": true,
+    "firstPcmMs": 3285,
+    "initialBytes": 8192,
+    "tlsConnections": 1,
+    "prefetchReady": true,
+    "firmwareSha256": "9b32d1695037b46fddcdd4b9e80407b53dd2d3c61c37cbef22a344c38f56bb06",
+    "stabilityAcceptance": "User confirmed restored operation; new successful connection count is recorded separately from the prior 10-success acceptance.",
+    "userConfirmedNormal": true,
+    "observedSuccessfulConnections": 3,
+    "hardwareResult": "startup and subsequent physical retunes output PCM; user confirmed normal"
+  },
+  "taskStatus": "deferred; runtime diagnostics removed; 011B source baseline retained",
+  "runtimeDiagnosticCodeCommitted": false
+}

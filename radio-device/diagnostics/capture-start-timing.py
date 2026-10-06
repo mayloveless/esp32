@@ -65,6 +65,15 @@ try:
                 text = line.decode('utf-8', errors='replace').strip()
                 transport_error = re.search(r'\[E\].*\[(?:ssl_client|NetworkClientSecure|NetworkClient|NetworkManager)\.cpp:', text)
                 if text.startswith(prefixes) or transport_error:
+                    if text.startswith('audio stream:'):
+                        # Older firmware prints signed object paths here.
+                        # Keep only the authority for firmware A/B captures.
+                        value = text[len('audio stream:'):].strip()
+                        value = re.sub(r'^https?://', '', value)
+                        authority = re.split(r'[/\s?#]', value, maxsplit=1)[0]
+                        text = 'audio stream: ' + (authority if re.fullmatch(r'[A-Za-z0-9.-]+(?::[0-9]+)?', authority) else '[redacted]')
+                    if transport_error and ('http://' in text or 'https://' in text):
+                        continue  # No URL paths, even when an SDK message changes.
                     # Defense in depth: no URL query may enter saved evidence.
                     text = re.sub(r'(https?://[^\s?]+)\?\S+', r'\1?[redacted]', text)
                     log.write(f'[{time.monotonic() - started:9.3f} s] {text}\n')

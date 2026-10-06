@@ -1,0 +1,44 @@
+{
+  "hostname": "lhiojnqooreavzmkrzji.supabase.co",
+  "scope": "Computer comparison only; not evidence of ESP32 reachability",
+  "routerDNS": {
+    "exitCode": 9,
+    "ipv4": []
+  },
+  "computerDNS": {
+    "exitCode": 0,
+    "ipv4": [
+      "198.18.2.106"
+    ]
+  },
+  "routes": {
+    "198.18.2.106": {
+      "gateway": "198.18.0.1",
+      "interface": "utun8"
+    }
+  },
+  "wifiBoundTcp443NoPayload": [
+    {
+      "localIP": "192.168.31.182",
+      "interface": "en0",
+      "interfaceIndex": 6,
+      "remoteIP": "104.18.38.10",
+      "port": 443,
+      "ok": false,
+      "errno": null,
+      "type": "TimeoutError",
+      "elapsedMs": 4000
+    },
+    {
+      "localIP": "192.168.31.182",
+      "interface": "en0",
+      "interfaceIndex": 6,
+      "remoteIP": "172.64.149.246",
+      "port": 443,
+      "ok": false,
+      "errno": null,
+      "type": "TimeoutError",
+      "elapsedMs": 4000
+    }
+  ]
+}

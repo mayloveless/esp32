@@ -102,6 +102,16 @@ python3 radio-device/tests/display_model_test.py
 
 必要日志为 encoder feedback、manual retune: stop current program、dial travel threshold: retune、manifest prepared; waiting for dial stop、dial stopped: static off、dial locked: connect prepared program、tune request，不逐 loop 输出。
 
+## 011B 基线与 011C 暂缓（2026-10-07）
+
+用户已确认恢复的 011B / 8192 固件正常。当前板上是先前连续 10 次成功验收的已保存固件；本次恢复烧录校验通过，另记录到启动及两次实体换台成功，首 PCM 分别为 3285 / 3189 / 3487 ms，manifest 预取正常。它们是新的恢复样本，不复用先前 10 次数据。
+
+011C 未完成验收，已移除运行源码中的诊断探针及对应测试，播放器与 controls 测试恢复到 `49ec18c` 的 011B 基线，保留失败后释放调台选择锁的修复。诊断过程与安全证据见 [暂缓记录](diagnostics/011c-network-diagnostics.md)。当前源码和已保存固件属于同一 011B 播放方案，但本次没有重新编译烧录包含后期调台锁修复的源码，不称为二进制完全一致。
+
+可跳过 011C 继续独立功能开发；网络稳定性仍未收口，fast 默认启用条件仍未满足，保持 `RADIO_FAST_WAV_START=0`。若需复现当前板上的实验播放参数，在 Arduino CLI 的 `compiler.cpp.extra_flags` 中显式传入 `-DRADIO_FAST_WAV_START=1 -DRADIO_FAST_WAV_INITIAL_BYTES=8192`，并应用既有音频库补丁；这只是参数复现，不能替代新固件的硬件验收。设备先保持当前可用固件。
+
+串口采集器只保存 audio stream 的 hostname，并丢弃含 URL 的原生传输错误，避免旧固件的 signed path/query 落入新日志。
+
 ## Arduino 依赖
 
 在 Arduino IDE 的 Boards Manager 安装 **esp32 by Espressif Systems 3.x**，然后选择 ESP32-S3 对应开发板，并启用板载 PSRAM。当前 `ESP32-audioI2S` 4.0.0 上游要求 Arduino-ESP32 Core 3 与 PSRAM。

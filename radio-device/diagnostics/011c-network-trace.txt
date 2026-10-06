@@ -1,0 +1,54 @@
+# capture opened; no reset
+[   17.263 s] [net] audio.begin: attempt=1 host=lhiojnqooreavzmkrzji.supabase.co
+[   17.274 s] [net] wifi: attempt=1 point=begin status=3 rssi=-48 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[   21.201 s] [net] audio.result: attempt=1 method=fast ok=1 elapsedMs=3898
+[   21.213 s] [net] audio.tls-connected: attempt=1 connection=1
+[   21.215 s] [net] audio.http: attempt=1 status=206
+[   21.246 s] [net] audio.http: attempt=1 status=206
+[   21.294 s] [net] audio.pcm: attempt=1
+[  158.124 s] [net] probe.begin: attempt=1 cause=playback-failure audioTls=1 audioHttp=206
+[  158.138 s] [net] wifi: attempt=1 point=failure status=3 rssi=-46 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  158.144 s] [net] gateway.tcp: attempt=1 port=80 ok=1 errno=0 elapsedMs=5
+[  158.153 s] [net] api.dns: attempt=1 host=192.168.31.182 ok=1 error=0 ip=192.168.31.182
+[  158.163 s] [net] api.tcp: attempt=1 port=3000 ok=1 errno=0 elapsedMs=7
+[  158.174 s] [net] storage.dns: attempt=1 host=lhiojnqooreavzmkrzji.supabase.co ok=1 error=0 ip=172.64.149.246 elapsedMs=0
+[  162.180 s] [net] storage.tcp: attempt=1 ip=172.64.149.246 port=443 ok=0 errno=116 elapsedMs=4002
+[  162.194 s] [net] wifi: attempt=1 point=probe-end status=3 rssi=-43 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  162.196 s] [net] probe.end: attempt=1 layer=tcp
+[  210.940 s] [net] audio.begin: attempt=2 host=lhiojnqooreavzmkrzji.supabase.co
+[  210.952 s] [net] wifi: attempt=2 point=begin status=3 rssi=-45 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  236.706 s] [net] audio.begin: attempt=1 host=lhiojnqooreavzmkrzji.supabase.co
+[  236.717 s] [net] wifi: attempt=1 point=begin status=3 rssi=-45 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  254.958 s] [ 29995][E][ssl_client.cpp:157] start_ssl_client(): socket error on fd 48, errno: 113, "Software caused connection abort"
+[  254.967 s] [ 30006][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[  254.973 s] [net] audio.result: attempt=1 method=fast ok=0 elapsedMs=18226
+[  254.981 s] [net] probe.begin: attempt=1 cause=fast-connect audioTls=0 audioHttp=0
+[  254.996 s] [net] wifi: attempt=1 point=failure status=3 rssi=-45 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  255.002 s] [net] gateway.tcp: attempt=1 port=80 ok=1 errno=0 elapsedMs=4
+[  255.008 s] [net] api.dns: attempt=1 host=192.168.31.182 ok=1 error=0 ip=192.168.31.182
+[  255.017 s] [net] api.tcp: attempt=1 port=3000 ok=1 errno=0 elapsedMs=5
+[  255.028 s] [net] storage.dns: attempt=1 host=lhiojnqooreavzmkrzji.supabase.co ok=1 error=0 ip=104.18.38.10 elapsedMs=1
+[  259.033 s] [net] storage.tcp: attempt=1 ip=104.18.38.10 port=443 ok=0 errno=116 elapsedMs=4002
+[  259.047 s] [net] wifi: attempt=1 point=probe-end status=3 rssi=-47 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  259.050 s] [net] probe.end: attempt=1 layer=tcp
+[  277.458 s] [ 52495][E][ssl_client.cpp:157] start_ssl_client(): socket error on fd 48, errno: 113, "Software caused connection abort"
+[  277.467 s] [ 52506][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[  277.473 s] [net] audio.result: attempt=1 method=legacy ok=0 elapsedMs=18418
+[  279.431 s] [net] audio.begin: attempt=2 host=lhiojnqooreavzmkrzji.supabase.co
+[  279.442 s] [net] wifi: attempt=2 point=begin status=3 rssi=-42 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  297.957 s] [ 72995][E][ssl_client.cpp:157] start_ssl_client(): socket error on fd 48, errno: 113, "Software caused connection abort"
+[  297.966 s] [ 73006][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[  297.971 s] [net] audio.result: attempt=2 method=fast ok=0 elapsedMs=18499
+[  297.980 s] [net] probe.begin: attempt=2 cause=fast-connect audioTls=0 audioHttp=0
+[  297.994 s] [net] wifi: attempt=2 point=failure status=3 rssi=-43 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  297.999 s] [net] gateway.tcp: attempt=2 port=80 ok=1 errno=0 elapsedMs=3
+[  298.006 s] [net] api.dns: attempt=2 host=192.168.31.182 ok=1 error=0 ip=192.168.31.182
+[  298.017 s] [net] api.tcp: attempt=2 port=3000 ok=1 errno=0 elapsedMs=8
+[  298.028 s] [net] storage.dns: attempt=2 host=lhiojnqooreavzmkrzji.supabase.co ok=1 error=0 ip=104.18.38.10 elapsedMs=1
+[  302.034 s] [net] storage.tcp: attempt=2 ip=104.18.38.10 port=443 ok=0 errno=116 elapsedMs=4002
+[  302.048 s] [net] wifi: attempt=2 point=probe-end status=3 rssi=-42 channel=9 bssid=50:4F:3B:CC:FB:4E ip=192.168.31.48 gateway=192.168.31.1 dns=192.168.31.1
+[  302.051 s] [net] probe.end: attempt=2 layer=tcp
+[  320.458 s] [ 95497][E][ssl_client.cpp:157] start_ssl_client(): socket error on fd 48, errno: 113, "Software caused connection abort"
+[  320.467 s] [ 95508][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[  320.472 s] [net] audio.result: attempt=2 method=legacy ok=0 elapsedMs=18417
+# capture closed
