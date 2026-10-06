@@ -1,8 +1,8 @@
-# Cosmic Radio Device — Task 008 / 008B
+# Cosmic Radio Device — Task 008 / 008B / 009A
 
 这是 ESP32-S3 到 MAX98357A 的最小单节目播放固件。启动时连接 Wi-Fi，使用 Device Receiver API 取得 manifest，然后把其中短期 signed audio URL 直接交给音频库流式解码并输出到 I2S。
 
-本 sketch 不含 TFT、EC11、调谐静电、自动下一条或自行实现的 HTTP Range。Task 008B 已加入 `startOffsetMs`：等待流就绪后，通过音频库原生 seek 接入节目中途。
+本 sketch 支持 EC11 旋转调台与 `startOffsetMs`，等待流就绪后通过音频库原生 seek 接入节目中途。开机自动播放一条，此后仅用户旋转会换台；当前节目出声后后台预取下一条 manifest。不含 TFT、调谐静电、按键功能或自动播放下一条。
 
 ## 硬件与接线
 
@@ -19,6 +19,18 @@
 | GAIN | 悬空 |
 
 4Ω 3W 扬声器只接 MAX98357A 的 `SPK+` 与 `SPK-`。`SPK-` 是 bridge output，**绝不能接 GND**。ESP32-S3 GPIO 也不耐 5V。
+
+## EC11 旋转调台（009A）
+
+沿用鼓机接线，在 [controls.h](controls.h) 中配置：VCC → 3.3V、GND → GND、S1/CLK → GPIO7、S2/DT → GPIO15、KEY/SW → GPIO16。CLK/DT 使用内部上拉；GPIO16 仅保留定义，按键无功能。
+
+第一次有效相位变化即记录旋转，主循环停止旧节目、排空旧回调、清除 seek/EOF/错误状态并进入 tuning。任一方向都视为调台，不等待完整 detent。中断只更新少量输入状态，不操作网络、Serial 或音频；忽略无效两位跳变和间隔小于 2 ms 的边沿，主循环没有去抖 delay。
+
+最后一次有效动作后停稳 300 ms，优先使用有效预取 manifest；缓存未命中时只发送一次现场 Device tune。HTTP 请求、读取 manifest 或连接音频期间有新旋转时，丢弃旧结果，等新动作停稳。旋转即使发生在 Audio.loop 内，也先处理手动停播，再判断 EOF，防止误 completed。
+
+每个成功接受的节目加入内存中最近两条历史；Device tune 的 excludeProgramIds 带上这些 ID。no_signal 保持 idle，保留排除项，不放宽历史或自动重试。中途换走的节目不 completed、不 retire；新 signal 继续使用既有 startOffsetMs、库补丁和失败保护，自然 EOF 才 completed。
+
+必要日志为 encoder activity、manual retune: stop current program、tuning settled、tune request，不逐 loop 输出。
 
 ## Arduino 依赖
 
@@ -70,7 +82,7 @@ pnpm dev:device
 5. 确认 `startOffsetMs`。大于 0 时应接着看到 `seeking to: N s` 与 `audio seek queued`，随后实际跳转成功才有 `audio seek applied: position=N`；扬声器应从中途播放；0 时正常从头播放。
 6. 自然播完后，预期看到 `audio playback completed` 和 `completed request succeeded`；此时服务端会机会式补一条库存。
 
-`no_signal`、Wi-Fi 失败、manifest 解析失败或播放失败都会进入 idle，不会伪造 completed，也不会自动 tune 下一条。播放期间 `loop()` 每轮都让 decoder 继续运行，没有长时间 delay。
+`no_signal`、Wi-Fi 失败、manifest 解析失败或播放失败都会进入 idle，不会伪造 completed，也不会自动 tune 下一条。Wi-Fi 已连接时可旋转手动重试。播放期间 `loop()` 每轮都让 decoder 继续运行，没有长时间 delay。
 
 Device tune 使用 HTTP/1.0，避免将 HTTP chunked 分块标记交给 JSON 解析器。音频库 4.0.0 的 EOF 延迟一轮派发，且音频头超时也可能发送 EOF：固件会先排空停止时的事件，确认流已就绪、产生过真实音频样本且没有已报告错误，再上报 completed。15 秒未产生样本或播放位置连续 30 秒没有推进会停止播放；断网也会停止，不上报完成。样本回调只设置原子标志，不创建任务或改变 I2S 输出。
 
@@ -88,7 +100,7 @@ tune 失败后还会对网关进行一次限时 HTTP GET 探测，只输出状�
 
 2026-10-05 实测：同名 Wi-Fi 原先接入不同网关，导致 Device API 连接超时。启用网关选择后，ESP32 进入电脑所在局域网，电脑 ping 设备成功、ARP MAC 与 STA MAC 一致，Device tune 返回 signal，并进入网络音频播放。路由器名称和 Wi-Fi 密码无需修改。
 
-Task 008 已实际出声，串口曾确认自然完成及 completed 成功。用户仍反馈音频不流畅，该问题暂缓排查，不能视为连续播放验收通过。008B 基于远程提交 `1f4f88f` 开发，之前的 EC11 工作完整保存于 stash `fc994c05c7085c68a5e70914aa2fe8dd55ea0479`，本检查点不启用旋钮。
+Task 008 已实际出声，串口曾确认自然完成及 completed 成功。用户仍反馈音频不流畅，该问题暂缓排查，不能视为连续播放验收通过。008B 基于远程提交 `1f4f88f` 开发，当时的 EC11 工作保存于 stash `fc994c05c7085c68a5e70914aa2fe8dd55ea0479`，008B 检查点未启用旋钮；009A 已恢复并按新任务调整，stash 备份仍保留。
 
 ### 008B 真机验收记录（2026-10-05）
 
@@ -117,13 +129,59 @@ HTTP WAV seek 的原始诊断与失败证据见 [diagnostics/README.md](diagnost
 
 ```bash
 python3 radio-device/tests/playback_test.py
+python3 radio-device/tests/controls_test.py
+python3 radio-device/tests/library_seek_test.py
 ```
 
 检查直接提取 sketch 的播放函数，用模拟音频库验证 EOF 延迟派发、音频头超时、错误、断网、无进展超时及计时器回绕；也覆盖 offset 0、等待 ready、单次 seek、毫秒转秒、范围检查、seek 失败不 completed、seek 后自然 EOF 与失败保护。这不等同于 ESP32 编译或硬件验收。
+
+009A 控制检查直接提取实际调台、manifest 与播放函数，使用真实 ArduinoJson 和主机 I/O 替身；验证旋转立即停播、300 ms 合并、最近两条 JSON 排除项、no_signal 不重试/不清历史、请求期间过期结果丢弃、旧 EOF 排空、seek 保留及自然完成。需要已安装的 ArduinoJson 7.x 头文件，非默认库目录可设置 ARDUINO_LIBRARY_DIR。
+
+### 009A 验收进度
+
+远端任务提交 5201794 已快进拉取。恢复 stash 时只有 README 冲突，已保留 seek 基线并合并 009A 的旋钮说明，stash 备份仍保留。主机播放与控制回归通过；ESP32 Core 3.3.12 编译通过，固件占应用分区 2,091,295 字节（66%），烧录写入校验通过。已安装音频库的三个文件哈希与 seek 修复记录一致。
+
+真机串口记录到两次 `encoder activity → manual retune: stop current program → tuning settled → tune request`，每段只有一次请求，均取得新 signal。《复古合成器 · 1174d2》（77c41f3b-916a-447e-bfdf-9ca59be7ed3e）以 startOffsetMs=7944 接入，原生 seek 至 7 秒 / 448044 成功；随后被旋转中断，没有 completed。下一条《异星信号 · f610e5》（c4602009-81ea-40ae-9859-4b6607ef7ddc）以 startOffsetMs=11982 接入，原生 seek 至 11 秒 / 704044 成功，最后自然 EOF，只上报一次 completed 并成功。
+
+只读本地节目接口确认被中断的节目 `status=ready, retired_at=null`，自然播完的节目 `retired_at` 已设置。串口没有输出认证信息或 signed URL query。300 ms 边界、连续边沿合并、两条排除项的真实 JSON、请求期间新输入和旧 EOF 保护由主机回归覆盖；串口本身不记录每个边沿，不能单凭上述日志验证用户持续旋转的准确时序。用户确认可以切换，但反馈停稳后静音数秒才出声；双向手感和连续旋转的准确时序尚未单独确认。
+
+声音断续按用户要求保留，不在本任务优化，也不开始 009B。
+
+### 换台等待排查（2026-10-05）
+
+用户确认换台可用，主要问题是停稳后静音数秒。Device tune 只选现有 ready 库存，不会在这个请求中生成节目；库存预热不能直接消除音频 HTTPS 建连及 seek 重连的等待。
+
+通过串口接收时间戳测量，新 signal 的连接流程如下。首次样本为重启后自动 tune，第二次为旋钮调台，均在正确网关上；不含启动 Wi-Fi 扫描，也不含旋转停稳的 300 ms。seek 诊断事件由库在操作返回后集中派发，因此最后一项是重连、响应解析和重填的合计，不能从事件行间隔拆成各自耗时。
+
+| 阶段 | 默认省电的样本 | 禁用省电的样本 |
+| --- | --- | --- |
+| tune 请求 → signal | 3.87 s | 3.06 s |
+| signal → 音频连接建立 | 2.76 s | 1.23 s |
+| 连接建立 → seek 接受 | 2.17 s | 1.28 s |
+| seek 接受 → seek applied | 4.04 s | 2.75 s |
+| tune 请求 → seek applied | 12.85 s | 8.32 s |
+
+当前 sketch 在进入 STA 模式后调用 `WiFi.setSleep(false)`，并记录设置是否成功；接收器由 USB 供电，此设置会增加 Wi-Fi 功耗。调整版编译通过（2,091,663 字节，66%），烧录校验通过；新节目 seek 至 8 秒 / 512044 成功，之后第二次旋转也获得新 signal。音频库、300 ms 合并、历史排除项和 lifecycle 流程不变，没有增加自动调台、音频预取或缓存。
+
+这是两个不同节目、不同时间的实测样本，网络和服务端耗时有波动，不能归因全部差值或承诺固定 8 秒；也不能以 seek applied 代替精确的扬声器首声时间。用户复测确认仍然等待很久，换台响应速度尚未验收通过。关闭省电的小调整保留，但不标记延迟问题已解决。
+
+### Manifest 后台预取（2026-10-06，经用户授权扩大范围）
+
+用户确认继续进行 manifest 预取，允许在旋转之前请求下一条节目信息。每个成功接受且开始产生音频样本的节目只尝试一次后台 Device tune，带上当前最近两条节目排除项。一个优先级为 1 的 FreeRTOS HTTP worker 仅请求/解析小型 JSON，不访问音频库、I2S、Serial、旋钮或当前播放状态；主循环以不等待的队列操作提交请求和接收结果，网络请求不会阻塞当前 audio loop。worker 使用 8 KiB 栈，最多一项任务与一项结果。
+
+缓存只保存一条 manifest，含 signed URL；不预取或缓存音频 body，也没有第二条音频链路。后台返回 signal 时不修改最近节目历史，不调用 completed，也不会自动播放。手动停播后停稳 300 ms，若缓存仍有效且不在最近两条历史中，则输出 `manifest prefetch hit`，直接进入原有音频连接、startOffsetMs 原生 seek 和失败保护。消费缓存时才将新节目加入历史。
+
+寿命以服务端 HTTP Date 与 manifest 的 audioExpiresAt 差值计算，预留 30 秒安全余量，最长保留 5 分钟，且从请求开始计时；不依赖 ESP32 UTC 时间。日期缺失/非法、URL 临近过期、no_signal、HTTP/JSON 失败或历史不匹配都不会自动重试。用户之后旋转时才按原流程现场 tune。自然 EOF 保持 idle，缓存也必须等下一次旋转才能播放。
+
+快速旋转发生在后台请求未完成时，现场 tune 可以先执行；此时后台旧结果按代次丢弃，不能覆盖新的播放或 no_signal。缓存音频连接失败仍按原失败保护停播，不以失败为由再次请求节目。缓存是一次库存选择的快照；期间管理页的手动下线不会实时推送到设备。HTTPS 音频连接及 Range seek 仍在换台现场执行，因此预取只省掉 manifest 请求的等待，不承诺立即出声。
+
+主机回归覆盖非阻塞入队、单次后台尝试、真实排除项 JSON、缓存命中与过期、UTC 日期及 millis 回绕、后台旧结果、停稳期间结果到达、新旋转打断缓存音频连接、失败回退、自然 EOF 与手动中断保护。真机编译通过（2,098,815 字节，66%；静态 RAM 60,932 字节，18%），烧录写入校验通过。启动节目原生 seek 至 7 秒 / 448044 成功并开始产生样本，随后后台请求 1,809 ms 完成，输出 `manifest prefetch ready`，有效期剩余 298,191 ms。随后当前节目自然 EOF，仅一次 completed 且接口成功；设备保持 idle，没有自动播放下一条。四分钟串口采集已正常退出并释放串口，尚未收到实体旋转，缓存命中及其耗时仍待用户验证。验证时请在新节目出声后等待约 5 秒再旋转；若设备已闲置超过缓存寿命，第一次会回退现场 tune，之后再测下一次。
+
+用户随后反馈换台“快点儿了”，确认实际等待有所改善；该次操作未同步采集串口，尚未量化缓存命中后的首声耗时。调台沙沙声尚未实现，仍属于后续 009B；本检查点调台期间保持静音。原有音频断续问题仍暂缓。
 
 ## 安全与调试边界
 
 - Serial 只输出 signed audio URL 的 host/path，绝不输出 query string、Device token 或 Wi-Fi 密码。
 - `startOffsetMs` 通过库原生 seek 实现，日志记录 offset、实际请求秒数和结果；不自行构造 HTTP Range。
 - 本任务仅有 `NETWORK_AUDIO` 一个 I2S owner；没有 static/tuning、多个输出或 FreeRTOS 自建音频任务。
-- 使用 Arduino IDE 内置 CLI、ESP32 Core 3.3.12、ESP32-audioI2S-master 4.0.0、ArduinoJson 7.4.3 编译并烧录到检测为 16MB Flash / 8MB PSRAM 的 ESP32-S3。Task 008 的出声与 completed 已确认；008B 的实际 seek 未通过，详见上述记录。
+- 使用 Arduino IDE 内置 CLI、ESP32 Core 3.3.12、ESP32-audioI2S-master 4.0.0、ArduinoJson 7.4.3 编译并烧录到检测为 16MB Flash / 8MB PSRAM 的 ESP32-S3。Task 008 的出声与 completed 已确认；008B 原始失败及后续 seek 修复验收见上述记录。

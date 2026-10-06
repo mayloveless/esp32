@@ -56,6 +56,10 @@ struct Audio {
 };
 int completed = 0;
 void sendCompleted(const String& id) { assert(id == "program"); ++completed; }
+uint32_t acknowledgedTuneRevision = 0;
+bool tuneSuperseded(uint32_t) { return false; }
+void updateControls() {}
+void invalidatePrefetch() {}
 '''
 cases = r'''
 void Audio::loop() {
