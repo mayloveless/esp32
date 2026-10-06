@@ -10,7 +10,7 @@ root = Path(__file__).resolve().parents[1]
 sketch = (root / 'radio-device.ino').read_text()
 globals_ = sketch[sketch.index('constexpr uint8_t'):sketch.index('String deviceApiUrl')]
 controls = sketch[sketch.index('static_assert(RADIO_ENCODER'):sketch.index('struct WifiDiagnosticEvent')]
-flow = sketch[sketch.index('void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision) {'):sketch.index('void onAudioInfo')]
+flow = sketch[sketch.index('void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,\n  const RadioCaptionTrack* captions) {'):sketch.index('void onAudioInfo')]
 playback = sketch[sketch.index('void onAudioInfo'):sketch.index('}  // namespace')]
 hook = sketch[sketch.index('void audio_process_raw_samples'):sketch.index('void setup()')]
 display_update = sketch[sketch.index('void updateDisplay() {'):sketch.index('// The library can drain queued PCM')]
@@ -32,6 +32,8 @@ preamble = r'''
 #include "RadioManifestPrefetch.h"
 #include "RadioTuningWav.h"
 #include "RadioDisplayModel.h"
+#include "RadioCaptions.h"
+int captionGlyphWidth(uint32_t cp) { return cp < 128 ? 6 : 12; }
 void renderDisplay(RadioDisplayModel& model) { model.dirty = false; }
 int FFat = 0;
 using String = std::string;
@@ -81,7 +83,7 @@ struct Audio {
   int stops = 0, connects = 0, localConnects = 0, volume = 15;
   bool localOK = true;
   std::vector<String> operations;
-  uint32_t position = 0;
+  uint32_t position = 0, currentTimeSec = 0;
   std::vector<uint16_t> seeks;
   std::vector<msg_t> events;
   std::function<void()> loopStep, connectStep, stopStep;
@@ -97,7 +99,7 @@ struct Audio {
   void loop();
   bool isRunning() { return running; }
   uint32_t getAudioFilePosition() { return position; }
-  uint32_t getAudioCurrentTime() { return position; }
+  uint32_t getAudioCurrentTime() { return currentTimeSec; }
   bool setAudioPlayTime(uint16_t seconds) { seeks.push_back(seconds); return true; }
 };
 String responseJson = R"({"result":"signal","manifest":{"programId":"new","title":"test","signalKind":"music","audioUrl":"https://example.test/song.wav?token=HIDDEN","startOffsetMs":8301}})";
@@ -140,6 +142,7 @@ void Audio::loop() {
 }
 void reset() {
   displayModel = RadioDisplayModel{};
+  captionTrack.clear(); captionCursor.reset();
   clearPrefetchedManifest();
   for (QueueHandle_t q : {prefetchJobs, prefetchResults}) {
     if (!q) continue;
@@ -400,6 +403,51 @@ int main() {
   assert(displayModel.status == RadioDisplayStatus::SignalLost);
   WiFi.connection = 0; updateDisplay();
   assert(displayModel.status == RadioDisplayStatus::NoNetwork);
+
+  // Real HTTP filter and native seek gating preserve and time captions.
+  reset();
+  responseJson = R"({"result":"signal","manifest":{"programId":"captions","title":"safe title","signalKind":"chat","audioUrl":"https://example.test/c.wav","startOffsetMs":8301,"captions":[{"startMs":1000,"endMs":3000,"speaker":"A","text":"已经播过"},{"startMs":5000,"endMs":10000,"speaker":"B","text":"中途字幕","ignored":"not retained"}]}})";
+  tuneOnce(0); updateDisplay();
+  assert(captionTrack.count == 2 && displayModel.captionIndex == -1);
+  onAudioInfo({Audio::evt_info, "stream ready"}); updatePlayback();
+  networkAudio.currentTimeSec = 8;
+  audio_process_raw_samples(nullptr, 128); updateDisplay();
+  assert(displayModel.captionIndex == -1); // queued seek must not advance captions
+  onAudioInfo({Audio::evt_info, "radio.seek.new-buffer.result", nullptr, 512044, 1});
+  audio_process_raw_samples(nullptr, 128); updateDisplay();
+  assert(displayModel.captionIndex == 1 && String(displayModel.captionLines[0]) == "中途字幕");
+  networkAudio.currentTimeSec = 10; clockMs += 200; updateDisplay();
+  assert(displayModel.captionIndex == -1 && !displayModel.captionLines[0][0]);
+  networkAudio.currentTimeSec = 8; clockMs += 200; updateDisplay();
+  assert(displayModel.captionIndex == 1);
+  const int beforeStops = networkAudio.stops;
+  tuneInput.request(clockMs += 3); updateControls(); updateDisplay();
+  assert(displayModel.status == RadioDisplayStatus::Tuning && displayModel.captionIndex == -1);
+  clockMs += 300; updateControls(); updateDisplay();
+  assert(displayModel.captionIndex == 1 && networkAudio.stops == beforeStops);
+  failPlayback(); updateDisplay();
+  assert(captionTrack.count == 0 && displayModel.captionIndex == -1 && completedIds.empty());
+  for (const auto& line : Serial.lines)
+    assert(line.find("中途字幕") == String::npos && line.find("已经播过") == String::npos);
+
+  // Prefetch owns bounded captions after its temporary JSON is compacted;
+  // staged manifest has no caption JSON, and survives deletion of the job.
+  reset(); play(); startPrefetch();
+  responseJson = R"({"result":"signal","manifest":{"programId":"caption-cache","title":"cached title","signalKind":"alien","audioUrl":"https://example.test/a.wav","startOffsetMs":8301,"audioExpiresAt":"2026-10-06T00:15:00.500Z","captions":[{"startMs":0,"endMs":20000,"speaker":"alien","text":"预取译文"}]}})";
+  finishPrefetch();
+  assert(prefetchedManifest && prefetchedManifest->captions.count == 1);
+  assert(prefetchedManifest->response["manifest"]["captions"].isNull());
+  select(0); updateControls();
+  assert(pendingPlaybackReady && pendingPlaybackManifest["captions"].isNull());
+  assert(!prefetchedManifest && captionTrack.count == 1 && String(captionTrack.text(0)) == "预取译文");
+  settle(300);
+  assert(currentProgramId == "caption-cache" && captionTrack.count == 1);
+  onAudioInfo({Audio::evt_info, "stream ready"}); updatePlayback();
+  onAudioInfo({Audio::evt_info, "radio.seek.new-buffer.result", nullptr, 512044, 1});
+  networkAudio.currentTimeSec = 8; audio_process_raw_samples(nullptr, 128); updateDisplay();
+  assert(String(displayModel.captionLines[0]) == "预取译文" && String(displayModel.captionLabel()) == "译文");
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
+  assert(captionTrack.count == 0 && displayModel.captionIndex == -1 && completedIds.size() == 1);
   reset();
 }
 '''

@@ -28,10 +28,13 @@ class RadioDisplay {
  public:
   bool begin();
   void renderIfDirty(RadioDisplayModel& model);
+  int glyphWidth(uint32_t cp);
  private:
   Adafruit_ST7735 tft_{&SPI, kTftCsPin, kTftDcPin, kTftResetPin};
   GFXcanvas16* frame_ = nullptr;
   U8G2_FOR_ADAFRUIT_GFX titleFont_;
   uint16_t glyph(uint32_t cp);
   void text(int16_t y, const char* value);
+  void unicodeLine(int16_t x, int16_t baseline, const char* value, int width);
+  void captionView(const RadioDisplayModel& model);
 };

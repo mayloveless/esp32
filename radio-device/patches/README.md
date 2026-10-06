@@ -1,4 +1,4 @@
-# ESP32-audioI2S 4.0.0 HTTP WAV seek 修复
+# ESP32-audioI2S 4.0.0 设备补丁
 
 针对诊断确认的失败：首次 `Range: bytes=0-` 返回有效 206 / Content-Range，却没有 Accept-Ranges，库未设置支持标志；后续 seek 返回 -1 后仍读取旧连接。
 
@@ -78,3 +78,22 @@ python3 radio-device/tests/library_seek_test.py
 ```
 
 回退本次 guard 使用同一补丁的 `patch -R`，会回到有该断言风险的 HTTP seek 基线。修改后必须重新编译并烧录；只有拉取 sketch 不会更新本机 Arduino 库。主机回归直接提取库的 playAudioData，验证失败获取锁不解码/不 give、之后成功迭代恢复、EOF 分支仅释放已获得锁，及原有前置 guard；原生 HTTP seek 回归同时通过。
+
+
+## 010B 字幕播放时钟修复（2026-10-06）
+
+`getAudioCurrentTime()` 在首次解码前 seek 的路径并非持续绝对时间。`setAudioPlayTime()` 使用尚未初始化的 `m_cat.tota_samples` 设置 `sum_samples`，随后 `calculateAudioTime()` 的 firstCall 又清零该计数；`m_haveNewFilePos` 只把当前返回值设为 seek 秒数，没有同步 nominal 样本计数，下一块因此退回 0 秒。即使先解码再 seek，duration 取整也可能让计数短暂退回一秒。
+
+新增 [caption-clock.patch](esp32-audioI2S-4.0.0-caption-clock.patch) 在实际 seek 应用的 `m_haveNewFilePos` 分支，按应用后的字节位置、nominal bitrate 和 sample rate 重设 `sum_samples`，计入当前已解码块。只有 nominal 时钟路径受此修正；字幕继续直接使用库的绝对整秒时钟，无墙钟补间，也不二次叠加 startOffsetMs。补丁不修改 HTTP Range、预填、decoder/I2S 数据、mutex 或 completed 流程。
+
+依赖前述 HTTP seek 和 decode-mutex 两个补丁，应用前的 Audio.cpp 应匹配 `mutexGuard` 指纹，应用后匹配 `captionClock` 指纹。已经应用时不要重复安装：
+
+```bash
+patch --dry-run -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-caption-clock.patch
+patch -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-caption-clock.patch
+python3 radio-device/tests/library_caption_clock_test.py
+python3 radio-device/tests/library_seek_test.py
+python3 radio-device/tests/library_mutex_test.py
+```
+
+回退该时钟修正使用此补丁的 `patch -R`，保留 HTTP seek 与 mutex 补丁，恢复旧时钟回零问题。必须重新编译和烧录。主机回归正反向验证指纹，并分别编译真实基线和当前库的时钟/seek 函数：复现早期 seek 的 8 → 0 → 1 秒，验证修复后 8 → 8 → 9 秒；同时覆盖已开始解码后 seek、duration 取整、seek 到零及音频停滞时墙钟不推进。原 seek 和 mutex 回归保持通过。

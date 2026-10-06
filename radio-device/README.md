@@ -1,8 +1,8 @@
-# Cosmic Radio Device — Task 008 / 008B / 009A / 009B / 010A
+# Cosmic Radio Device — Task 008 / 008B / 009A / 009B / 010A / 010B
 
 这是 ESP32-S3 到 MAX98357A 的最小单节目播放固件。启动时连接 Wi-Fi，使用 Device Receiver API 取得 manifest，然后把其中短期 signed audio URL 直接交给音频库流式解码并输出到 I2S。
 
-本 sketch 支持 EC11 旋转调台与 `startOffsetMs`，等待流就绪后通过音频库原生 seek 接入节目中途。开机自动播放一条，此后仅用户旋转会换台；当前节目出声后后台预取下一条 manifest。009B 增加 FFat 本地调谐沙沙声，与网络节目共用同一个 Audio 对象。010A 增加 ST7735 状态、节目类型与中文标题显示。不含字幕、按键功能或自动播放下一条。
+本 sketch 支持 EC11 旋转调台与 `startOffsetMs`，等待流就绪后通过音频库原生 seek 接入节目中途。开机自动播放一条，此后仅用户旋转会换台；当前节目出声后后台预取下一条 manifest。009B 增加 FFat 本地调谐沙沙声，与网络节目共用同一个 Audio 对象。010A 增加 ST7735 状态、节目类型与中文标题显示，010B 接入 manifest 字幕与 ALIEN 中文译文。不含按键功能或自动播放下一条。
 
 ## 硬件与接线
 
@@ -38,7 +38,7 @@
 
 显示库沿用本机安装：Adafruit GFX Library **1.12.6**（1.12.x）、Adafruit ST7735 and ST7789 Library **1.11.0**（1.11.x）、U8g2_for_Adafruit_GFX **1.8.0**（1.8.x），以及 Adafruit BusIO **1.17.4** 依赖。上述版本已用于本次编译；范围内其他版本仍需编译验证。
 
-中文使用 `u8g2_font_wqy12_t_gb2312`，约 12px、7,539 个字形；库内字体数组 **208,526 字节**（约 204 KiB）。标题最多三行，按实际字形宽度排版，超过区域直接截断。模型最多保留 192 字节完整 UTF-8，非法字符替换为 `?`，换行等控制字符转为空格；字库未覆盖的 Unicode 字形（如 emoji）显示 `?`，常见中文正常显示。没有字幕或滚动标题。
+中文使用 `u8g2_font_wqy12_t_gb2312`，约 12px、7,539 个字形；库内字体数组 **208,526 字节**（约 204 KiB）。标题最多三行，按实际字形宽度排版，超过区域直接截断。模型最多保留 192 字节完整 UTF-8，非法字符替换为 `?`，换行等控制字符转为空格；字库未覆盖的 Unicode 字形（如 emoji）显示 `?`，常见中文正常显示。010B 字幕复用同一字体；标题不滚动。
 
 `RadioDisplayModel.h` 只保存显示内容与 dirty flag；`RadioDisplay.cpp` 只负责绘制。画布在 setup 初始化后一次分配 **40,960 字节**，文字先画入画布，再通过一次 SPI 写入显示完整帧。只有状态、标题或类型实际变化时刷新，同一状态反复提交不刷新；ISR、音频回调和 HTTP worker 不操作 TFT。画布分配失败会在 Serial 报告并禁用显示，保留原音频链路。
 
@@ -48,7 +48,7 @@
 
 010A 已通过六组 host regression、ESP32 编译与烧录写入校验。首版三分钟串口记录到四次原生 seek 应用成功（8 / 13 / 13 / 10 秒），均在 seek 应用后产生节目采样才显示 PLAYING；三次实体换台命中 manifest 预取，本地 static 产生样本，MUSIC / ALIEN / NEWS 的 manifest 均正常接入。首条节目自然 EOF 后显示 NO SIGNAL，仅一次 completed 且接口成功，随后保持 idle，直到下一次物理旋转。状态刷新耗时 18–24 ms，同一播放状态没有持续重绘；未记录到重启、mutex 断言、播放失败或 RingBuffer_Log。
 
-该次实测发现，旋转中预取标题到达会导致第二次 TUNING 重绘。已修正模型：TUNING 中保存隐藏的标题/类型不再标 dirty，进入 LOCKING 时才一起显示；连续边沿和 manifest 到达不重复刷 TUNING 的回归已通过。串口证明的是软件状态与播放链路，屏幕实际中文、朝向、连续旋转闪烁和音频听感仍待用户确认，不能据此标记完整硬件验收通过。原有断续和换台等待数秒的问题保留；网络连接及 Range 期间仍沿用原主循环阻塞行为，显示不会改变这一限制。010B 尚未开始。
+该次实测发现，旋转中预取标题到达会导致第二次 TUNING 重绘。已修正模型：TUNING 中保存隐藏的标题/类型不再标 dirty，进入 LOCKING 时才一起显示；连续边沿和 manifest 到达不重复刷 TUNING 的回归已通过。串口证明的是软件状态与播放链路，屏幕实际中文、朝向、连续旋转闪烁和音频听感仍待用户确认，不能据此标记完整硬件验收通过。原有断续和换台等待数秒的问题保留；网络连接及 Range 期间仍沿用原主循环阻塞行为，显示不会改变这一限制。010B 的后续实现与验收记录见下节。
 
 最终修正版再次编译与烧录校验通过；重新采集完整开机日志，确认 BOOTING / CONNECTING，FFat tuning WAV 命中缓存；拒绝错误网关后连接正确 AP，12 秒 / 768044 的原生 seek 成功，之后才提交 PLAYING 帧，预取耗时 1,838 ms。最终版刷新耗时 18–22 ms；两分钟采集未记录到播放失败或重启，结束后已释放串口。该轮没有新的实体旋转输入，修正后连续旋转只刷一次 TUNING 的真机验收仍待用户测试。
 
@@ -61,6 +61,30 @@ python3 radio-device/tests/display_model_test.py
 ```
 
 覆盖状态映射、持续转动不重复标 dirty、新标题/类型、UTF-8 边界、三行截断和 malformed UTF-8（启用 AddressSanitizer / UBSan）。控制回归另外直接执行 sketch 的映射函数，验证 seek 排队、seek 应用、实际采样、临时旋转反馈和失败对应的屏幕状态。显示驱动不参与 host tests。
+
+## ST7735 字幕 / ALIEN 译文（010B）
+
+基于远端 `70b515d` 的 [Task 010B](../radio/docs/tasks/010b-st7735-captions.md)。Device JSON filter 同时为同步 tune、foreground worker 和 manifest prefetch 保留 `captions[].startMs/endMs/speaker/text`。解析后复制到设备持有的 `RadioCaptionTrack`，预取 JSON 删除字幕并重新压缩；旋转中的待播放 JSON 只持有节目元数据，字幕由当前 track 独立保存。删除临时 JSON、释放预取 job 后仍能安全使用，不保存指向 JSON 字符串的指针。
+
+每份 track 最多 **24 条**，speaker 最多 **48 UTF-8 字节**；共享 text pool **4,096 字节（含终止符）**，单条 text 最多 **1,536 字节**。单条预算比任务建议的 256 字节大，以容纳 renderer 合并的长文本，同时用共享池限制总占用。超限按完整 UTF-8 字符截断，非法序列替换为 `?`，控制字符转为空格；无效时间或缺少文本的条目跳过，池满或条数满丢弃后续条目。日志只记录收到、保留、无效、丢弃及截断计数和字节数，不打印字幕正文。
+
+一份 track 固定 **5,656 字节**；当前节目与至多一个后台/缓存 job 共 **11,312 字节**，分页 cursor **1,036 字节**，显示模型 **836 字节**（比 010A 增加 634 字节）。字幕新增常驻/缓存预算合计约 **12,982 字节（12.68 KiB）**，不包含原有元数据 JSON 和解析响应时的临时 JSON；临时解析占用随返回文本量变化，解析完成即释放字幕字符串。没有新增大字体或 framebuffer，继续复用 208,526 字节 GB2312 字体与 40,960 字节画布。
+
+仅在 NETWORK owner、stream ready、seek 已应用且确实产生网络 PCM 后显示字幕。每 **200ms** 读取 `getAudioCurrentTime()*1000`，匹配 `startMs <= playbackMs < endMs`；空白区清句，缺失或无效字幕不会停止音频。已提取并执行本机 ESP32-audioI2S 4.0.0 实际时钟/seek 函数，发现首次解码前 seek 会在首个绝对秒数之后退回从零计数。新增独立的 [caption clock 补丁](patches/README.md) 在实际 seek 应用时重设 nominal 样本计数；修复后持续返回节目内的**绝对整秒位置**，因此不能再加 `startOffsetMs`。原 HTTP seek 和 mutex 补丁保持原样。没有用墙钟补间，精度受库的整秒解码时钟限制，不声称毫秒级声画同步。
+
+当前字幕按实际 wqy12 glyph advance 排成每页三行；按该条字幕内音频进度选择页，分页几何只在换句时计算。caption/page 不变时不测量、不标 dirty、不写 TFT。NEWS/CHAT 顶部为类型和 LOCKED，紧凑标题下显示“字幕”，CHAT speaker 在标签旁按宽度裁切；ALIEN 的现有中文 caption text 原样作为“译文”，无翻译或 AI 请求。MUSIC 保留 010A 无字幕界面。TUNING、LOCKING、失败、断网、无信号及自然完成清掉旧句，新节目重新匹配；小幅旋转反馈结束后按真实音频位置恢复。ISR、音频回调、HTTP worker 不操作显示。
+
+字幕及 native clock 两组新增回归覆盖首尾边界/间隙、中途 seek、分页进度、UTF-8/坏输入/容量限制、不重复 dirty、所有非播放状态清句、MUSIC 和 ALIEN。controls 回归进一步使用实际 JSON filter、预取与待播放函数，验证 seek 排队期间不推进、真正 PCM 后从中途显示、预取 job 释放后字幕仍有效、旋转清句/恢复、失败不 completed、自然完成一次 completed。原有六组播放、旋钮、显示模型、WAV、seek 与 mutex 回归保持通过。
+
+只读本地节目 API 的真实库存汇总（2026-10-06，未退休 ready）：4 条存储 format=chat 的节目各有 9–10 条字幕，text pool 为 1,179–1,360 字节、最长单句 222 字节；1 条 NEWS 合并为单条 1,128 字节字幕；4 条 MUSIC 均无字幕。该统计按存储 format 分组，不能据此判断 ALIEN 是否可用；Receiver signalKind 另由库存分类规则决定。后续真机已接入 ALIEN，其 10 条字幕共 1,360 字节，无截断。由这些数据将单条上限调到 1.5 KiB，让合并的 NEWS 完整分页；字幕条数与总池预算足以覆盖上述现有样本。仅汇总数量与字节数，没有输出正文或 signed URL。
+
+最终固件已通过 ESP32 Core 3.3.12 构建（原 3MB APP / 9.9MB FATFS 分区）：应用 **2,406,707 / 3,145,728 字节（76%）**，剩余 **739,021 字节**；静态 RAM **70,276 / 327,680 字节（21%）**，比 010A 增加 7,320 字节。另有原 framebuffer 40,960 字节和至多一个 job 的 heap caption track 5,656 字节，字幕最大预算如上。已烧录并通过写入校验。
+
+时钟修正前的首轮 CHAT 从 startOffsetMs=5051 原生 seek 到 5 秒 / 320044，seek 应用和实际 PCM 后首帧日志为 playbackMs=5000；10 条字幕全部保留，text pool 1,179 字节，无无效/丢弃/截断。日志已经观察到 caption 1 和 3 各两页随真实播放时钟推进；首个含字幕帧刷新 60ms，后续字幕帧 23–28ms，同 caption/page 没有重复刷新。该轮观察到字幕空白区清句（32 秒、35 秒），自然结束后显示 NO SIGNAL，completed 仅一次且成功，随后保持 idle；完整记录促使补上首次解码前 seek 的时钟回零回归。修正后的最终版又烧录并通过写入校验；四分钟串口采集已结束并释放串口；记录见 [时钟修正前](diagnostics/captions-before-clock.txt) 与 [最终版](diagnostics/captions-clock-fixed.txt)，用户验收反馈见下文。
+
+最终版实体旋转已记录 MUSIC → CHAT → NEWS → MUSIC → ALIEN，四次调台均命中预取、经过 local static、原生 Range 206 / 8 KiB / seek 应用后才进入 PLAYING。CHAT 从 12 秒直接匹配 caption 1，之后在 16 秒进入下一页；NEWS 的 1,128 字节完整保留，14 秒接入直接显示 11 页中的第 3 页；ALIEN 从 13 秒显示 caption 0 第 3/3 页，14 秒清空，15 秒显示下一条并在 24 秒换页，没有退回已播过的字幕。MUSIC 没有 caption 事件。字幕帧刷新约 21–27ms；后续 ALIEN 播放时钟持续推进到 58 秒、换句换页正常，同页不重绘，调台中的 TUNING 均 18ms，旧节目未 completed，未观察到播放失败、重启或 mutex 断言。
+
+用户随后完成硬件验收并反馈：“字幕这部分没啥问题，旋转沙沙声也 ok，就是节目起播还是有点儿慢”。字幕显示与旋转沙沙声按本轮用户反馈验收通过；节目起播速度仍未通过，作为未解决项保留。原有音频断续专项也未在本轮单独验收或修复。本任务保留音频 owner、旋钮阈值、4 秒保护、原 HTTP seek 补丁、HTTP 调度与节目生命周期。
 
 ## EC11 旋转调台（009A / 009B 校准）
 
@@ -163,7 +187,7 @@ audio playback failed
 
 **真机中途接入尚未通过。** 按 008B 要求记录现象后停止；未改音频库、整文件下载、手工 Range 或代理，也未自动调台。后续需单独定位原生 HTTP WAV seek 的失败原因，并重新验证实际切入位置和自然完成。
 
-HTTP WAV seek 的原始诊断与失败证据见 [diagnostics/README.md](diagnostics/README.md)。后续经授权修复了音频库的 Range 判定与重填路径，当前构建需要应用 [patches/README.md](patches/README.md) 中的 HTTP seek 补丁及 009B 解码锁补丁；仅拉取 sketch 不会更新本机 Arduino 库。
+HTTP WAV seek 的原始诊断与失败证据见 [diagnostics/README.md](diagnostics/README.md)。后续经授权修复了音频库的 Range 判定与重填路径，当前构建需要应用 [patches/README.md](patches/README.md) 中的 HTTP seek 补丁、009B 解码锁补丁及 010B nominal 时钟补丁；仅拉取 sketch 不会更新本机 Arduino 库。
 
 ### HTTP WAV seek 修复（2026-10-05）
 
@@ -180,6 +204,8 @@ python3 radio-device/tests/display_model_test.py
 python3 radio-device/tests/library_seek_test.py
 python3 radio-device/tests/tuning_wav_test.py
 python3 radio-device/tests/library_mutex_test.py
+python3 radio-device/tests/captions_test.py
+python3 radio-device/tests/library_caption_clock_test.py
 ```
 
 检查直接提取 sketch 的播放函数，用模拟音频库验证 EOF 延迟派发、音频头超时、错误、断网、无进展超时及计时器回绕；也覆盖 offset 0、等待 ready、单次 seek、毫秒转秒、范围检查、seek 失败不 completed、seek 后自然 EOF 与失败保护。这不等同于 ESP32 编译或硬件验收。

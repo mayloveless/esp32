@@ -15,6 +15,7 @@
 #include <cstring>
 #include <atomic>
 #include <new>
+#include <utility>
 
 #include "secrets.h"
 #include "controls.h"
@@ -22,6 +23,7 @@
 #include "RadioManifestPrefetch.h"
 #include "RadioTuningWav.h"
 #include "RadioDisplay.h"
+#include "RadioCaptions.h"
 
 #ifndef WIFI_GATEWAY_MAC
 #define WIFI_GATEWAY_MAC ""
@@ -30,6 +32,7 @@
 namespace {
 
 RadioDisplay radioDisplay;
+int captionGlyphWidth(uint32_t cp) { return radioDisplay.glyphWidth(cp); }
 void renderDisplay(RadioDisplayModel& model) {
   const bool wasDirty = model.dirty;
   const uint32_t started = millis();
@@ -89,6 +92,8 @@ uint32_t lastAudioPosition = 0;
 RadioDisplayModel displayModel;
 std::atomic<bool> displaySeekWaiting{false};
 std::atomic<bool> displayProducedSamples{false};
+RadioCaptionTrack captionTrack;
+RadioCaptionCursor captionCursor;
 
 void prepareStartOffset(uint32_t offsetMs) {
   audioSeekSeconds = offsetMs / 1000;
@@ -147,6 +152,7 @@ struct ManifestPrefetchJob {
   bool foreground = false;
   uint32_t requestedRevision = 0;
   JsonDocument response;
+  RadioCaptionTrack captions;
 };
 
 void fetchPrefetchJob(ManifestPrefetchJob& job);
@@ -160,7 +166,8 @@ bool prefetchAttempted = false;
 bool foregroundTunePending = false;
 uint32_t foregroundTuneRevision = 0;
 
-void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision);
+void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,
+  const RadioCaptionTrack* captions = nullptr);
 void finishTuningIdle(RadioDisplayStatus status = RadioDisplayStatus::SignalLost);
 bool tuneSuperseded(uint32_t requestedRevision);
 void applyForegroundManifest(ManifestPrefetchJob& job);
@@ -189,6 +196,10 @@ void fillManifestFilter(JsonDocument& filter) {
   filter["manifest"]["audioUrl"] = true;
   filter["manifest"]["audioExpiresAt"] = true;
   filter["manifest"]["startOffsetMs"] = true;
+  filter["manifest"]["captions"][0]["startMs"] = true;
+  filter["manifest"]["captions"][0]["endMs"] = true;
+  filter["manifest"]["captions"][0]["speaker"] = true;
+  filter["manifest"]["captions"][0]["text"] = true;
 }
 
 // This worker only fetches JSON. Audio, encoder, history and Serial belong to loop().
@@ -212,6 +223,14 @@ void fetchPrefetchJob(ManifestPrefetchJob& job) {
       DeserializationOption::Filter(filter), DeserializationOption::NestingLimit(4));
     if (job.parsed) job.lifetimeMs = radioManifestLifetime(
       job.response["manifest"]["audioExpiresAt"] | "", request.header("Date").c_str());
+    if (job.parsed) {
+      job.captions.load(job.response["manifest"]["captions"].as<JsonArrayConst>());
+      job.response["manifest"].remove("captions");
+      // Retain only bounded, owned caption data in the prefetch cache. Free
+      // the temporary JSON strings and slots used by the incoming captions.
+      JsonDocument compact;
+      if (compact.set(job.response)) job.response = std::move(compact);
+    }
   }
   request.end();
 }
@@ -281,7 +300,7 @@ bool playPrefetchedManifest(uint32_t requestedRevision) {
     return false;
   }
   Serial.printf("manifest prefetch hit: ageMs=%lu\n", static_cast<unsigned long>(age));
-  startManifestPlayback(manifest, requestedRevision);
+  startManifestPlayback(manifest, requestedRevision, &job->captions);
   delete job;
   return true;  // Audio failure still stays idle; it is not a reason to auto tune.
 }
@@ -390,6 +409,8 @@ void stopForTuning() {
   stopAudioForHandoff();
   currentProgramId = "";
   receiverState = ReceiverState::kTuning;
+  captionTrack.clear();
+  captionCursor.reset();
   displayModel.selectProgram("", "");
   displayModel.setStatus(RadioDisplayStatus::Tuning);
   startLocalStatic();
@@ -405,6 +426,8 @@ void finishTuningIdle(RadioDisplayStatus status) {
   portEXIT_CRITICAL(&controlsMux);
   currentProgramId = "";
   receiverState = ReceiverState::kIdle;
+  captionTrack.clear();
+  captionCursor.reset();
   displayModel.setIdle(WiFi.status() == WL_CONNECTED ? status : RadioDisplayStatus::NoNetwork);
 }
 
@@ -694,7 +717,8 @@ void setupTuningWav() {
     : "local tuning WAV generation failed; static disabled");
 }
 
-void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision) {
+void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,
+  const RadioCaptionTrack* captions) {
   if (tuneSuperseded(requestedRevision)) return;
   const char* programId = manifest["programId"] | "";
   const char* title = manifest["title"] | "(untitled)";
@@ -710,9 +734,23 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision)
 
   // Selection/prefetch happens while turning. Blocking HTTPS/Range work must
   // wait until the local feedback has had a chance to play and the dial stops.
+  if (captions && captions != &captionTrack) captionTrack = *captions;
+  else if (!captions) captionTrack.load(manifest["captions"].as<JsonArrayConst>());
+  captionCursor.reset();
+  displayModel.clearCaption();
+  if (captions != &captionTrack) {
+    Serial.printf("[caption] loaded: received=%lu kept=%u invalid=%lu dropped=%lu textTruncated=%lu speakerTruncated=%lu bytes=%u\n",
+      static_cast<unsigned long>(captionTrack.received), unsigned(captionTrack.count),
+      static_cast<unsigned long>(captionTrack.invalid), static_cast<unsigned long>(captionTrack.dropped),
+      static_cast<unsigned long>(captionTrack.textTruncated), static_cast<unsigned long>(captionTrack.speakerTruncated),
+      unsigned(captionTrack.usedBytes));
+  }
   displayModel.selectProgram(title, signalKind);
   if (receiverState == ReceiverState::kTuning && readTuneInput().moving(millis())) {
     pendingPlaybackManifest.set(manifest);
+    pendingPlaybackManifest.remove("captions");
+    JsonDocument compact;
+    if (compact.set(pendingPlaybackManifest)) pendingPlaybackManifest = std::move(compact);
     pendingPlaybackRevision = requestedRevision;
     pendingPlaybackReady = true;
     Serial.println("manifest prepared; waiting for dial stop");
@@ -818,7 +856,7 @@ void tuneOnce(uint32_t requestedRevision) {
     return;
   }
 
-  // 只从小型 Device manifest 流中保留播放所需字段；captions 不会进入 ESP32 内存。
+  // 只保留播放元数据与 captions；字幕随后复制到有界的设备自有结构。
   JsonDocument filter;
   fillManifestFilter(filter);
   JsonDocument response;
@@ -876,7 +914,7 @@ void applyForegroundManifest(ManifestPrefetchJob& job) {
     finishTuningIdle(RadioDisplayStatus::NoSignal);
     return;
   }
-  startManifestPlayback(job.response["manifest"].as<JsonObjectConst>(), job.requestedRevision);
+  startManifestPlayback(job.response["manifest"].as<JsonObjectConst>(), job.requestedRevision, &job.captions);
 }
 
 void updateForegroundTune() {
@@ -969,7 +1007,7 @@ void updateControls() {
       pendingPlaybackReady = false;
       pendingPlaybackManifest.clear();
       Serial.println("dial locked: connect prepared program");
-      startManifestPlayback(manifest.as<JsonObjectConst>(), revision);
+      startManifestPlayback(manifest.as<JsonObjectConst>(), revision, &captionTrack);
     } else if (receiverState == ReceiverState::kTuning && !foregroundTunePending && !prefetchBusy) {
       receiverState = ReceiverState::kIdle;
       displayModel.setIdle(RadioDisplayStatus::NoSignal);
@@ -1049,6 +1087,8 @@ void failPlayback() {
   invalidatePrefetch();
   currentProgramId = "";
   receiverState = ReceiverState::kIdle;
+  captionTrack.clear();
+  captionCursor.reset();
   displayModel.setIdle(WiFi.status() == WL_CONNECTED
     ? RadioDisplayStatus::SignalLost : RadioDisplayStatus::NoNetwork);
   Serial.println("audio playback failed");
@@ -1082,6 +1122,8 @@ void updatePlayback() {
     stopAudioForHandoff();
     currentProgramId = "";
     receiverState = ReceiverState::kIdle;
+    captionTrack.clear();
+    captionCursor.reset();
     displayModel.setIdle(RadioDisplayStatus::NoSignal);
     renderDisplay(displayModel); // completed HTTP may block; the program has ended.
     Serial.println("audio playback completed");
@@ -1138,6 +1180,16 @@ void updateDisplay() {
     receiverState == ReceiverState::kPlaying && audioOwner.load() == AudioOwner::kNetwork,
     audioStreamReady.load(), displayProducedSamples.load(),
     audioSeekPending.load() || displaySeekWaiting.load());
+  if (displayModel.status == RadioDisplayStatus::Playing && displayModel.captionLayout()) {
+    const int8_t previousCaption = displayModel.captionIndex;
+    const uint16_t previousPage = displayModel.captionPage;
+    const uint64_t playbackMs = uint64_t(networkAudio.getAudioCurrentTime()) * 1000;
+    captionCursor.update(captionTrack, displayModel, playbackMs, millis(), captionGlyphWidth);
+    if (previousCaption != displayModel.captionIndex || previousPage != displayModel.captionPage)
+      Serial.printf("[caption] index=%d page=%u/%u playbackMs=%llu\n", int(displayModel.captionIndex),
+        displayModel.captionIndex < 0 ? 0u : unsigned(displayModel.captionPage + 1),
+        unsigned(displayModel.captionPages), static_cast<unsigned long long>(playbackMs));
+  } else captionCursor.pause(displayModel);
   renderDisplay(displayModel);
 }
 

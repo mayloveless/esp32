@@ -1,0 +1,13 @@
+--- a/src/Audio.cpp
++++ b/src/Audio.cpp
+@@ -6281,6 +6281,10 @@
+             m_avr_bitrate = m_cat.avrBitRate;
+         }
+         m_audioCurrentTime = round(newTime);
++        // A seek can precede the first decoder call, which resets sum_samples.
++        // Rebase the nominal clock at the applied position, including this block.
++        if (m_cat.nominalBitRate)
++            m_cat.sum_samples = uint64_t(posWhithinAudioBlock) * 8 * m_i2s_items.sampleRate / m_cat.nominalBitRate + samples_decoder_out;
+         m_cat.sumBytesIn = posWhithinAudioBlock;
+         m_haveNewFilePos = 0;
+         m_cat.syltIdx = 0;

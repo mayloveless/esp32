@@ -1,0 +1,46 @@
+Before caption clock fix: first-decode seek resets nominal samples.
+[   1.959 s] [display] BOOTING refreshMs=18
+[   2.065 s] [display] CONNECTING refreshMs=18
+[   8.677 s] [display] TUNING refreshMs=19
+[  11.351 s] [caption] loaded: received=10 kept=10 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1179
+[  11.357 s] signalKind: chat
+[  11.359 s] startOffsetMs: 5051
+[  11.388 s] [display] LOCKING refreshMs=21
+[  15.476 s] audio seek applied: position=320044
+[  15.481 s] manifest prefetch request queued
+[  15.524 s] [caption] index=0 page=1/1 playbackMs=5000
+[  15.583 s] [display] PLAYING refreshMs=60
+[  17.230 s] manifest prefetch ready: requestMs=1755 validMs=298245
+[  46.094 s] [caption] index=1 page=1/2 playbackMs=9000
+[  46.119 s] [display] PLAYING refreshMs=27
+[  64.489 s] [caption] index=1 page=2/2 playbackMs=14000
+[  64.513 s] [display] PLAYING refreshMs=24
+[  77.094 s] [caption] index=2 page=1/1 playbackMs=18000
+[  77.116 s] [display] PLAYING refreshMs=23
+[  95.299 s] [caption] index=3 page=1/2 playbackMs=24000
+[  95.326 s] [display] PLAYING refreshMs=28
+[ 106.493 s] [caption] index=3 page=2/2 playbackMs=28000
+[ 106.516 s] [display] PLAYING refreshMs=24
+[ 118.494 s] [caption] index=-1 page=0/0 playbackMs=32000
+[ 118.513 s] [display] PLAYING refreshMs=21
+[ 121.497 s] [caption] index=4 page=1/1 playbackMs=33000
+[ 121.521 s] [display] PLAYING refreshMs=25
+[ 128.494 s] [caption] index=-1 page=0/0 playbackMs=35000
+[ 128.513 s] [display] PLAYING refreshMs=21
+[ 131.903 s] [caption] index=5 page=1/2 playbackMs=36000
+[ 131.929 s] [display] PLAYING refreshMs=27
+[ 147.101 s] [caption] index=5 page=2/2 playbackMs=41000
+[ 147.125 s] [display] PLAYING refreshMs=25
+[ 168.305 s] [caption] index=6 page=1/1 playbackMs=46000
+[ 168.330 s] [display] PLAYING refreshMs=25
+[ 180.907 s] [caption] index=7 page=1/2 playbackMs=50000
+[ 180.932 s] [display] PLAYING refreshMs=26
+[ 191.905 s] [caption] index=7 page=2/2 playbackMs=53000
+[ 191.928 s] [display] PLAYING refreshMs=24
+[ 202.109 s] [caption] index=8 page=1/1 playbackMs=56000
+[ 202.133 s] [display] PLAYING refreshMs=26
+[ 212.310 s] [caption] index=9 page=1/2 playbackMs=59000
+[ 212.335 s] [display] PLAYING refreshMs=26
+[ 214.072 s] [display] NO SIGNAL refreshMs=18
+[ 214.072 s] audio playback completed
+[ 215.768 s] completed request succeeded

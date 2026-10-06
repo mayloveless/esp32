@@ -13,7 +13,8 @@ library = Path(os.environ.get('RADIO_AUDIO_LIBRARY_DIR', str(Path.home() / 'Docu
 source = (library / 'src/Audio.cpp').read_text()
 hashes = json.loads((root / 'patches/library-hashes.json').read_text())
 for filename, fingerprint in hashes.items():
-    assert hashlib.sha256((library / 'src' / filename).read_bytes()).hexdigest() == fingerprint.get('mutexGuard', fingerprint['fixed']), f'Apply the current seek fix first: {filename}'
+    expected = fingerprint.get('captionClock', fingerprint.get('mutexGuard', fingerprint['fixed']))
+    assert hashlib.sha256((library / 'src' / filename).read_bytes()).hexdigest() == expected, f'Apply the current library patches first: {filename}'
 
 def function(signature):
     start = source.index(signature)

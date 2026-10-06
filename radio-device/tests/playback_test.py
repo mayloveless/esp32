@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 
 sketch = (Path(__file__).resolve().parents[1] / 'radio-device.ino').read_text()
+json_headers = Path(os.environ.get('ARDUINO_LIBRARY_DIR', str(Path.home() / 'Documents/Arduino/libraries'))) / 'ArduinoJson/src'
 globals_ = sketch[sketch.index('constexpr uint8_t'):sketch.index('String deviceApiUrl')]
 playback = sketch[sketch.index('void onAudioInfo'):sketch.index('}  // namespace')]
 handoff = sketch[sketch.index('void stopAudioForHandoff() {'):sketch.index('void startLocalStatic()')]
@@ -14,6 +15,7 @@ hook = sketch[sketch.index('void audio_process_raw_samples'):sketch.index('void 
 preamble = r'''
 #include "RadioTuningWav.h"
 #include "RadioDisplayModel.h"
+#include "RadioCaptions.h"
 void renderDisplay(RadioDisplayModel& model) { model.dirty = false; }
 #include <atomic>
 #include <cassert>
@@ -206,6 +208,6 @@ with tempfile.TemporaryDirectory(prefix='radio-playback-test-') as directory:
     source = Path(directory) / 'playback.cpp'
     binary = Path(directory) / 'playback-test'
     source.write_text(preamble + globals_ + handoff + playback + hook + cases)
-    subprocess.run([os.environ.get('CXX', 'clang++'), '-std=c++17', '-Wall', '-Wextra', '-I', str(Path(__file__).resolve().parents[1]), str(source), '-o', str(binary)], check=True)
+    subprocess.run([os.environ.get('CXX', 'clang++'), '-std=c++17', '-Wall', '-Wextra', '-I', str(Path(__file__).resolve().parents[1]), '-I', str(json_headers), str(source), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 print('Playback regression checks passed (host fakes, not hardware).')

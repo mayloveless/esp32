@@ -1,0 +1,115 @@
+Caption clock fixed: native seconds stay absolute after early seek.
+[   1.958 s] [display] BOOTING refreshMs=18
+[   2.063 s] [display] CONNECTING refreshMs=18
+[   8.479 s] [display] TUNING refreshMs=19
+[  10.561 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[  10.567 s] signalKind: music
+[  10.567 s] startOffsetMs: 14506
+[  10.597 s] [display] LOCKING refreshMs=19
+[  14.646 s] audio seek applied: position=896044
+[  14.651 s] manifest prefetch request queued
+[  14.674 s] [display] PLAYING refreshMs=21
+[  16.209 s] manifest prefetch ready: requestMs=1565 validMs=298435
+[  27.602 s] encoder feedback
+[  27.622 s] [display] TUNING refreshMs=18
+[  27.633 s] dial travel threshold: retune
+[  27.638 s] manual retune: stop current program
+[  27.646 s] local static started
+[  27.649 s] manifest prefetch hit: ageMs=13007
+[  27.658 s] [caption] loaded: received=9 kept=9 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1230
+[  27.747 s] local static ready: volume=15
+[  27.876 s] local static started
+[  27.947 s] local static ready: volume=15
+[  28.076 s] local static started
+[  28.147 s] local static ready: volume=15
+[  28.305 s] local static started
+[  28.371 s] local static ready: volume=15
+[  28.496 s] local static started
+[  28.563 s] local static ready: volume=15
+[  28.824 s] dial locked: connect prepared program
+[  28.830 s] signalKind: chat
+[  28.833 s] startOffsetMs: 12565
+[  28.866 s] [display] LOCKING refreshMs=19
+[  35.834 s] audio seek applied: position=768044
+[  35.839 s] manifest prefetch request queued
+[  35.851 s] [caption] index=1 page=1/2 playbackMs=12000
+[  35.877 s] [display] PLAYING refreshMs=27
+[  37.336 s] manifest prefetch ready: requestMs=1504 validMs=298496
+[  53.846 s] [caption] index=1 page=2/2 playbackMs=16000
+[  53.870 s] [display] PLAYING refreshMs=26
+[  57.307 s] encoder feedback
+[  57.326 s] [display] TUNING refreshMs=18
+[  57.343 s] dial travel threshold: retune
+[  57.347 s] manual retune: stop current program
+[  57.356 s] local static started
+[  57.359 s] manifest prefetch hit: ageMs=21529
+[  57.368 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1129
+[  57.450 s] local static ready: volume=15
+[  58.250 s] local static started
+[  58.322 s] local static ready: volume=15
+[  58.580 s] dial locked: connect prepared program
+[  58.588 s] signalKind: news
+[  58.588 s] startOffsetMs: 14318
+[  58.623 s] [display] LOCKING refreshMs=21
+[  63.175 s] audio seek applied: position=896044
+[  63.180 s] manifest prefetch request queued
+[  63.231 s] [caption] index=0 page=3/11 playbackMs=14000
+[  63.260 s] [display] PLAYING refreshMs=26
+[  65.171 s] manifest prefetch ready: requestMs=1997 validMs=298003
+[  80.904 s] encoder feedback
+[  80.924 s] [display] TUNING refreshMs=18
+[  80.936 s] dial travel threshold: retune
+[  80.941 s] manual retune: stop current program
+[  80.951 s] local static started
+[  80.953 s] manifest prefetch hit: ageMs=17781
+[  80.962 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[  81.057 s] local static ready: volume=15
+[  81.805 s] dial locked: connect prepared program
+[  81.811 s] signalKind: music
+[  81.811 s] startOffsetMs: 6509
+[  81.846 s] [display] LOCKING refreshMs=19
+[  84.697 s] encoder feedback
+[  87.555 s] audio seek applied: position=384044
+[  87.560 s] manifest prefetch request queued
+[  87.585 s] [display] PLAYING refreshMs=21
+[  89.139 s] manifest prefetch ready: requestMs=1586 validMs=298414
+[  90.138 s] encoder feedback
+[  90.157 s] [display] TUNING refreshMs=18
+[  90.177 s] dial travel threshold: retune
+[  90.182 s] manual retune: stop current program
+[  90.195 s] local static started
+[  90.195 s] manifest prefetch hit: ageMs=2642
+[  90.203 s] [caption] loaded: received=10 kept=10 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1360
+[  90.274 s] local static ready: volume=15
+[  90.848 s] local static started
+[  90.921 s] local static ready: volume=15
+[  91.306 s] local static started
+[  91.377 s] local static ready: volume=15
+[  91.553 s] local static started
+[  91.625 s] local static ready: volume=15
+[  91.912 s] dial locked: connect prepared program
+[  91.917 s] signalKind: alien
+[  91.920 s] startOffsetMs: 13442
+[  91.954 s] [display] LOCKING refreshMs=20
+[  93.905 s] encoder feedback
+[  96.009 s] audio seek applied: position=832044
+[  96.014 s] manifest prefetch request queued
+[  96.025 s] [caption] index=0 page=3/3 playbackMs=13000
+[  96.045 s] [display] PLAYING refreshMs=21
+[  97.552 s] manifest prefetch ready: requestMs=1545 validMs=298455
+[  99.018 s] [caption] index=-1 page=0/0 playbackMs=14000
+[  99.037 s] [display] PLAYING refreshMs=21
+[ 102.226 s] [caption] index=1 page=1/2 playbackMs=15000
+[ 102.256 s] [display] PLAYING refreshMs=25
+[ 128.820 s] [caption] index=1 page=2/2 playbackMs=24000
+[ 128.843 s] [display] PLAYING refreshMs=23
+[ 159.222 s] [caption] index=2 page=1/1 playbackMs=34000
+[ 159.246 s] [display] PLAYING refreshMs=25
+[ 174.628 s] [caption] index=3 page=1/2 playbackMs=39000
+[ 174.668 s] [display] PLAYING refreshMs=26
+[ 199.831 s] [caption] index=3 page=2/2 playbackMs=47000
+[ 199.855 s] [display] PLAYING refreshMs=25
+[ 223.038 s] [caption] index=4 page=1/1 playbackMs=54000
+[ 223.061 s] [display] PLAYING refreshMs=24
+[ 235.045 s] [caption] index=5 page=1/2 playbackMs=58000
+[ 235.070 s] [display] PLAYING refreshMs=26

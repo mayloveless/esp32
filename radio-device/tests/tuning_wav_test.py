@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
 # Run the sketch's real mount/initialization policy against logical WL sectors.
 # Wear-level metadata exists outside this logical volume, even on an empty disk.
 sketch = (root / 'radio-device.ino').read_text()
-mount_code = sketch[sketch.index('bool blankFatVolume() {'):sketch.index('void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision) {')]
+mount_code = sketch[sketch.index('bool blankFatVolume() {'):sketch.index('void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,\n  const RadioCaptionTrack* captions) {')]
 mount_fakes = r"""
 constexpr int ESP_OK = 0, WL_INVALID_HANDLE = -1;
 constexpr int ESP_PARTITION_TYPE_DATA = 1, ESP_PARTITION_SUBTYPE_DATA_FAT = 2;

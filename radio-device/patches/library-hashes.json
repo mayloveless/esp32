@@ -6,7 +6,8 @@
   "Audio.cpp": {
     "diagnostic": "4270665e2041a3bfbd5b9b50ab54603ae8e811f4cb990d3ec015664b396e9273",
     "fixed": "f6a60bf465429114dc73d9a238230108baa2317eeb52807053137fafaefbc646",
-    "mutexGuard": "c5e77d2feeb7399584950fd3997dc905c9d38c22f59b201a20618f42b9cb65a8"
+    "mutexGuard": "c5e77d2feeb7399584950fd3997dc905c9d38c22f59b201a20618f42b9cb65a8",
+    "captionClock": "d2069833075b763e74d790a63b30622a07114d71a9c3f9183899c6a86f2c723a"
   },
   "RadioHttpRange.h": {
     "diagnostic": null,
