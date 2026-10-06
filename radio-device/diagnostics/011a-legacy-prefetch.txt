@@ -1,0 +1,235 @@
+[   9.739 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[   9.742 s] [start] dial.locked: ms=0 prefetch=0
+[   9.748 s] signalKind: music
+[   9.748 s] startOffsetMs: 12532
+[   9.778 s] [start] connect.begin: ms=41
+[  11.806 s] [start] tls.connected: ms=2067
+[  12.778 s] [seek] initial.status: HTTP=206
+[  12.783 s] [seek] initial.content-range: present=1
+[  12.788 s] [seek] initial.range-supported: supported=1 fileSize=2393836
+[  13.015 s] [start] wav.header: ms=3280
+[  13.216 s] audio seek queued
+[  13.219 s] [seek] queued: seconds=12 position=768044
+[  15.468 s] [seek] new-buffer.begin: position=768044 headerState=100
+[  15.474 s] [seek] file-seek.begin: acceptRanges=1 dataMode=3
+[  15.476 s] [seek] range.request: position=768044 length=-1
+[  15.482 s] [seek] range.sent: written=1214 expected=1214
+[  15.485 s] [start] range.sent: ms=4989
+[  15.487 s] [seek] file-seek.request-result: ok=1
+[  15.490 s] [seek] range.status: HTTP=206
+[  15.496 s] [seek] range.validated: position=768044 fileSize=2393836
+[  15.499 s] [seek] range.header-result: ok=1 reason=0
+[  15.501 s] [start] range.ready: ms=5371
+[  15.504 s] [seek] file-seek.header-result: ok=1
+[  15.510 s] [seek] new-buffer.seek-result: result=768044 requested=768044
+[  15.513 s] [seek] new-buffer.read: read=8192 expected=8192
+[  15.518 s] [seek] new-buffer.align: offset=0 codec=1
+[  15.521 s] [seek] new-buffer.result: position=768044 ok=1
+[  15.524 s] audio seek applied: position=768044
+[  15.561 s] [start] first.network.pcm: ms=5799
+[  15.568 s] [start] summary: mode=legacy prefetch=0 fallback=0 tls=2 headerMs=3280 rangeMs=382 totalMs=5799
+[  17.918 s] manifest prefetch ready: requestMs=2388 validMs=297612
+[ 103.442 s] audio playback completed
+[ 105.517 s] completed request succeeded
+[  25.681 s] [Wi-Fi 1380090 ms] periodic: status=3 (connected), STA MAC=28:84[caption] index=0 page=4/8 playbackMs=27000
+[  64.488 s] [caption] index=0 page=5/8 playbackMs=36000
+[  70.326 s] manifest prefetch hit: ageMs=129280
+[  70.335 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[  72.057 s] [start] dial.locked: ms=0 prefetch=1
+[  72.062 s] signalKind: music
+[  72.065 s] startOffsetMs: 9966
+[  72.098 s] [start] connect.begin: ms=42
+[  73.520 s] [start] tls.connected: ms=1462
+[  74.581 s] [seek] initial.status: HTTP=206
+[  74.587 s] [seek] initial.content-range: present=1
+[  74.592 s] [seek] initial.range-supported: supported=1 fileSize=2457644
+[  74.930 s] [start] wav.header: ms=2877
+[  74.932 s] audio seek queued
+[  74.939 s] [seek] queued: seconds=9 position=576044
+[  76.642 s] [seek] new-buffer.begin: position=576044 headerState=100
+[  76.646 s] [seek] file-seek.begin: acceptRanges=1 dataMode=3
+[  76.649 s] [seek] range.request: position=576044 length=-1
+[  76.655 s] [seek] range.sent: written=1214 expected=1214
+[  76.657 s] [start] range.sent: ms=4027
+[  76.660 s] [seek] file-seek.request-result: ok=1
+[  76.663 s] [seek] range.status: HTTP=206
+[  76.668 s] [seek] range.validated: position=576044 fileSize=2457644
+[  76.671 s] [seek] range.header-result: ok=1 reason=0
+[  76.674 s] [start] range.ready: ms=4348
+[  76.677 s] [seek] file-seek.header-result: ok=1
+[  76.682 s] [seek] new-buffer.seek-result: result=576044 requested=576044
+[  76.685 s] [seek] new-buffer.read: read=8192 expected=8192
+[  76.691 s] [seek] new-buffer.align: offset=0 codec=1
+[  76.693 s] [seek] new-buffer.result: position=576044 ok=1
+[  76.698 s] audio seek applied: position=576044
+[  76.727 s] [start] first.network.pcm: ms=4650
+[  76.735 s] [start] summary: mode=legacy prefetch=1 fallback=0 tls=2 headerMs=2877 rangeMs=321 totalMs=4650
+[  78.734 s] manifest prefetch ready: requestMs=2095 validMs=297905
+[  89.264 s] manifest prefetch hit: ageMs=12627
+[  89.272 s] [caption] loaded: received=9 kept=9 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1230
+[  90.173 s] [start] dial.locked: ms=0 prefetch=1
+[  90.179 s] signalKind: chat
+[  90.182 s] startOffsetMs: 7670
+[  90.215 s] [start] connect.begin: ms=43
+[  92.270 s] [start] tls.connected: ms=2096
+[  93.542 s] [seek] initial.status: HTTP=206
+[  93.547 s] [seek] initial.content-range: present=1
+[  93.552 s] [seek] initial.range-supported: supported=1 fileSize=3858402
+[  93.932 s] [start] wav.header: ms=3762
+[  93.952 s] audio seek queued
+[  93.955 s] [seek] queued: seconds=7 position=448044
+[  96.564 s] [seek] new-buffer.begin: position=448044 headerState=100
+[  96.570 s] [seek] file-seek.begin: acceptRanges=1 dataMode=3
+[  96.573 s] [seek] range.request: position=448044 length=-1
+[  96.578 s] [seek] range.sent: written=1214 expected=1214
+[  96.581 s] [start] range.sent: ms=5530
+[  96.584 s] [seek] file-seek.request-result: ok=1
+[  96.587 s] [seek] range.status: HTTP=206
+[  96.592 s] [seek] range.validated: position=448044 fileSize=3858402
+[  96.595 s] [seek] range.header-result: ok=1 reason=0
+[  96.598 s] [start] range.ready: ms=6021
+[  96.601 s] [seek] file-seek.header-result: ok=1
+[  96.606 s] [seek] new-buffer.seek-result: result=448044 requested=448044
+[  96.609 s] [seek] new-buffer.read: read=8192 expected=8192
+[  96.614 s] [seek] new-buffer.align: offset=0 codec=1
+[  96.617 s] [seek] new-buffer.result: position=448044 ok=1
+[  96.620 s] audio seek applied: position=448044
+[  96.624 s] [start] first.network.pcm: ms=6445
+[  96.631 s] [start] summary: mode=legacy prefetch=1 fallback=0 tls=2 headerMs=3762 rangeMs=491 totalMs=6445
+[  96.642 s] [caption] index=0 page=2/2 playbackMs=7000
+[  99.928 s] manifest prefetch ready: requestMs=3293 validMs=296707
+[ 114.322 s] manifest prefetch hit: ageMs=17688
+[ 114.330 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1129
+[ 115.699 s] [start] dial.locked: ms=0 prefetch=1
+[ 115.708 s] signalKind: news
+[ 115.708 s] startOffsetMs: 11458
+[ 115.762 s] [start] connect.begin: ms=45
+[ 117.121 s] [start] tls.connected: ms=1421
+[ 117.924 s] [seek] initial.status: HTTP=206
+[ 117.929 s] [seek] initial.content-range: present=1
+[ 117.934 s] [seek] initial.range-supported: supported=1 fileSize=4566454
+[ 117.954 s] [start] wav.header: ms=2258
+[ 118.262 s] audio seek queued
+[ 118.264 s] [seek] queued: seconds=11 position=704044
+[ 120.448 s] [seek] new-buffer.begin: position=704044 headerState=100
+[ 120.453 s] [seek] file-seek.begin: acceptRanges=1 dataMode=3
+[ 120.456 s] [seek] range.request: position=704044 length=-1
+[ 120.461 s] [seek] range.sent: written=1214 expected=1214
+[ 120.464 s] [start] range.sent: ms=3967
+[ 120.467 s] [seek] file-seek.request-result: ok=1
+[ 120.470 s] [seek] range.status: HTTP=206
+[ 120.476 s] [seek] range.validated: position=704044 fileSize=4566454
+[ 120.478 s] [seek] range.header-result: ok=1 reason=0
+[ 120.481 s] [start] range.ready: ms=4419
+[ 120.484 s] [seek] file-seek.header-result: ok=1
+[ 120.489 s] [seek] new-buffer.seek-result: result=704044 requested=704044
+[ 120.492 s] [seek] new-buffer.read: read=8192 expected=8192
+[ 120.497 s] [seek] new-buffer.align: offset=0 codec=1
+[ 120.500 s] [seek] new-buffer.result: position=704044 ok=1
+[ 120.503 s] audio seek applied: position=704044
+[ 120.506 s] [start] first.network.pcm: ms=4798
+[ 120.514 s] [start] summary: mode=legacy prefetch=1 fallback=0 tls=2 headerMs=2258 rangeMs=452 totalMs=4798
+[ 120.569 s] [caption] index=0 page=2/11 playbackMs=11000
+[ 122.551 s] manifest prefetch ready: requestMs=2032 validMs=297968
+[ 129.275 s] manifest prefetch hit: ageMs=8758
+[ 129.283 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[ 130.054 s] [start] dial.locked: ms=0 prefetch=1
+[ 130.059 s] signalKind: music
+[ 130.062 s] startOffsetMs: 9840
+[ 130.095 s] [start] connect.begin: ms=42
+[ 133.305 s] [start] tls.connected: ms=3250
+[ 134.118 s] [seek] initial.status: HTTP=206
+[ 134.122 s] [seek] initial.content-range: present=1
+[ 134.127 s] [seek] initial.range-supported: supported=1 fileSize=2710636
+[ 134.418 s] [start] wav.header: ms=4367
+[ 134.456 s] audio seek queued
+[ 134.459 s] [seek] queued: seconds=9 position=576044
+[ 136.218 s] [seek] new-buffer.begin: position=576044 headerState=100
+[ 136.224 s] [seek] file-seek.begin: acceptRanges=1 dataMode=3
+[ 136.226 s] [seek] range.request: position=576044 length=-1
+[ 136.232 s] [seek] range.sent: written=1214 expected=1214
+[ 136.235 s] [start] range.sent: ms=5603
+[ 136.237 s] [seek] file-seek.request-result: ok=1
+[ 136.240 s] [seek] range.status: HTTP=206
+[ 136.246 s] [seek] range.validated: position=576044 fileSize=2710636
+[ 136.249 s] [seek] range.header-result: ok=1 reason=0
+[ 136.251 s] [start] range.ready: ms=5914
+[ 136.254 s] [seek] file-seek.header-result: ok=1
+[ 136.260 s] [seek] new-buffer.seek-result: result=576044 requested=576044
+[ 136.262 s] [seek] new-buffer.read: read=8192 expected=8192
+[ 136.268 s] [seek] new-buffer.align: offset=0 codec=1
+[ 136.271 s] [seek] new-buffer.result: position=576044 ok=1
+[ 136.274 s] audio seek applied: position=576044
+[ 136.276 s] [start] first.network.pcm: ms=6219
+[ 136.285 s] [start] summary: mode=legacy prefetch=1 fallback=0 tls=2 headerMs=4367 rangeMs=311 totalMs=6219
+[ 138.177 s] manifest prefetch ready: requestMs=1888 validMs=298112
+[ 146.598 s] manifest prefetch hit: ageMs=10311
+[ 146.606 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[ 148.295 s] [start] dial.locked: ms=0 prefetch=1
+[ 148.301 s] signalKind: music
+[ 148.304 s] startOffsetMs: 13367
+[ 148.336 s] [start] connect.begin: ms=42
+[ 149.634 s] [start] tls.connected: ms=1338
+[ 150.435 s] [seek] initial.status: HTTP=206
+[ 150.441 s] [seek] initial.content-range: present=1
+[ 150.446 s] [seek] initial.range-supported: supported=1 fileSize=2500524
+[ 150.467 s] [start] wav.header: ms=2175
+[ 150.727 s] audio seek queued
+[ 150.730 s] [seek] queued: seconds=13 position=832044
+[ 154.366 s] [seek] new-buffer.begin: position=832044 headerState=100
+[ 154.372 s] [seek] file-seek.begin: acceptRanges=1 dataMode=3
+[ 154.375 s] [seek] range.request: position=832044 length=-1
+[ 154.380 s] [seek] range.sent: written=1214 expected=1214
+[ 154.383 s] [start] range.sent: ms=4900
+[ 154.386 s] [seek] file-seek.request-result: ok=1
+[ 154.388 s] [seek] range.status: HTTP=206
+[ 154.394 s] [seek] range.validated: position=832044 fileSize=2500524
+[ 154.397 s] [seek] range.header-result: ok=1 reason=0
+[ 154.400 s] [start] range.ready: ms=5382
+[ 154.402 s] [seek] file-seek.header-result: ok=1
+[ 154.408 s] [seek] new-buffer.seek-result: result=832044 requested=832044
+[ 154.411 s] [seek] new-buffer.read: read=8192 expected=8192
+[ 154.416 s] [seek] new-buffer.align: offset=0 codec=1
+[ 154.419 s] [seek] new-buffer.result: position=832044 ok=1
+[ 154.422 s] audio seek applied: position=832044
+[ 154.425 s] [start] first.network.pcm: ms=6121
+[ 154.433 s] [start] summary: mode=legacy prefetch=1 fallback=0 tls=2 headerMs=2175 rangeMs=482 totalMs=6121
+[ 157.521 s] manifest prefetch ready: requestMs=3085 validMs=296915
+[ 170.670 s] manifest prefetch hit: ageMs=16236
+[ 170.678 s] [caption] loaded: received=9 kept=9 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1230
+[ 172.171 s] [start] dial.locked: ms=0 prefetch=1
+[ 172.175 s] signalKind: chat
+[ 172.178 s] startOffsetMs: 5804
+[ 172.211 s] [start] connect.begin: ms=43
+[ 173.672 s] [start] tls.connected: ms=1499
+[ 174.662 s] [seek] initial.status: HTTP=206
+[ 174.667 s] [seek] initial.content-range: present=1
+[ 174.673 s] [seek] initial.range-supported: supported=1 fileSize=3858402
+[ 174.692 s] [start] wav.header: ms=2526
+[ 174.991 s] audio seek queued
+[ 174.994 s] [seek] queued: seconds=5 position=320044
+[ 177.343 s] [seek] new-buffer.begin: position=320044 headerState=100
+[ 177.348 s] [seek] file-seek.begin: acceptRanges=1 dataMode=3
+[ 177.351 s] [seek] range.request: position=320044 length=-1
+[ 177.357 s] [seek] range.sent: written=1214 expected=1214
+[ 177.359 s] [start] range.sent: ms=4164
+[ 177.362 s] [seek] file-seek.request-result: ok=1
+[ 177.365 s] [seek] range.status: HTTP=206
+[ 177.370 s] [seek] range.validated: position=320044 fileSize=3858402
+[ 177.374 s] [seek] range.header-result: ok=1 reason=0
+[ 177.376 s] [start] range.ready: ms=4505
+[ 177.379 s] [seek] file-seek.header-result: ok=1
+[ 177.384 s] [seek] new-buffer.seek-result: result=320044 requested=320044
+[ 177.387 s] [seek] new-buffer.read: read=8192 expected=8192
+[ 177.393 s] [seek] new-buffer.align: offset=0 codec=1
+[ 177.395 s] [seek] new-buffer.result: position=320044 ok=1
+[ 177.398 s] audio seek applied: position=320044
+[ 177.401 s] [start] first.network.pcm: ms=5230
+[ 177.409 s] [start] summary: mode=legacy prefetch=1 fallback=0 tls=2 headerMs=2526 rangeMs=341 totalMs=5230
+[ 177.424 s] [caption] index=0 page=1/2 playbackMs=5000
+[ 179.976 s] manifest prefetch ready: requestMs=2562 validMs=297438
+[ 182.015 s] [caption] index=0 page=2/2 playbackMs=6000
+[ 203.418 s] [caption] index=1 page=1/2 playbackMs=11000
+[ 223.614 s] [caption] index=1 page=2/2 playbackMs=16000
+[ 244.014 s] [caption] index=2 page=1/1 playbackMs=21000
+[ 260.820 s] [caption] index=3 page=1/2 playbackMs=24000

@@ -1,0 +1,40 @@
+--- a/src/Audio.cpp
++++ b/src/Audio.cpp
+@@ -1144,6 +1144,7 @@
+ 
+     info(*this, evt_info, "connect to: \"{}\" on port {} path \"/{}\"", hwoe.get(), port, path.get());
+     res = m_client->connect(hwoe.get(), port);
++    if (res) seekDiagnostic("radio.start.tls.connected", millis());
+ 
+     m_expectedCodec = CODEC_NONE;
+     m_expectedPlsFmt = FORMAT_NONE;
+@@ -1392,10 +1393,13 @@
+         return false;
+     }
+ 
++    seekDiagnostic("radio.start.tls.connected", millis());
++
+     // AUDIO_LOG_INFO("rqh \n{}", rqh.get());
+ 
+     const size_t diagnosticWritten = m_client->print(rqh.c_get());
+     seekDiagnostic("radio.seek.range.sent", diagnosticWritten, rqh.strlen());
++    seekDiagnostic("radio.start.range.sent", millis());
+     // m_resumeFilePos = seek; // used in processWebFile()
+     m_dataMode = HTTP_RANGE_HEADER;
+     return true;
+@@ -2011,6 +2015,7 @@
+     }
+     m_controlCounter = 100; // header succesfully read
+     m_audioDataStart = m_rwh.headerSize;
++    seekDiagnostic("radio.start.wav.header", millis());
+     return 0;
+ }
+ // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+@@ -5562,6 +5567,7 @@
+     return false;
+ lastToDo:
+     seekDiagnostic("radio.seek.range.header-result", 1, 0);
++    seekDiagnostic("radio.start.range.ready", millis());
+     m_dataMode = AUDIO_DATA;
+     return true;
+ }

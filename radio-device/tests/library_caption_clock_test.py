@@ -8,9 +8,9 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 library = Path(os.environ.get('RADIO_AUDIO_LIBRARY_DIR', str(Path.home() / 'Documents/Arduino/libraries/ESP32-audioI2S-master')))
-source = (library / 'src/Audio.cpp').read_text()
+from library_fixture import read_source
+source = read_source('captionClock')
 hashes = json.loads((root / 'patches/library-hashes.json').read_text())
-assert hashlib.sha256(source.encode()).hexdigest() == hashes['Audio.cpp']['captionClock']
 structs = (library / 'src/audiolib_structs.hpp').read_text()
 clock_struct = structs[structs.index('typedef struct _cat {'):structs.index('struct ifCh_t')]
 
@@ -65,6 +65,20 @@ struct Audio {
 '''
 cases = r'''
 int main() {
+#ifdef CLOCK_FIXED
+  // The fast API seeds these exact fields without queued setAudioPlayTime.
+  Audio fast;
+  fast.m_audioDataStart = 54;
+  fast.m_audioDataSize = 999946;
+  fast.m_haveNewFilePos = 448054;
+  fast.m_cat.firstCall = true;
+  fast.calculateAudioTime(2048, 1024);
+  assert(fast.getAudioCurrentTime() == 7);
+  clockMs += 100;
+  fast.calculateAudioTime(64000, 32000);
+  assert(fast.getAudioCurrentTime() == 8);
+  clockMs = 100;
+#endif
   Audio earlySeek;
   earlySeek.m_cat.firstCall = true;
   earlySeek.m_audioFileDuration = 60; // header known; decoder has not run yet

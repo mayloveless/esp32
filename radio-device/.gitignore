@@ -3,3 +3,5 @@
 *.bin
 *.elf
 *.map
+
+__pycache__/

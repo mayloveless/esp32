@@ -16,6 +16,7 @@ preamble = r'''
 #include "RadioTuningWav.h"
 #include "RadioDisplayModel.h"
 #include "RadioCaptions.h"
+#include "RadioStartTiming.h"
 void renderDisplay(RadioDisplayModel& model) { model.dirty = false; }
 #include <atomic>
 #include <cassert>
@@ -172,6 +173,33 @@ int main() {
   // A simultaneous failure and EOF cannot retire even after normal samples.
   reset(); WiFi.connection = 0; networkAudio.events.push_back({Audio::evt_eof});
   tick(); failed();
+
+  // First network PCM excludes static, feedback, zero/absent buffers, and
+  // pre-seek frames. The decoder claims once; logs happen only on the loop.
+  reset(false, 8300);
+  startTiming.begin(100, true, false); clockMs = 120;
+  int32_t pcm[4] = {1, 2, 3, 4};
+  audioOwner.store(AudioOwner::kStaticLocalFile); staticStreamReady.store(true);
+  audio_process_raw_samples(pcm, 4); assert(startTiming.firstPcm.load() == UINT32_MAX);
+  audioOwner.store(AudioOwner::kNetwork); audioStreamReady.store(true);
+  audio_process_raw_samples(pcm, 4); assert(startTiming.firstPcm.load() == UINT32_MAX);
+  audioSeekPending.store(false); displaySeekWaiting.store(true);
+  audio_process_raw_samples(pcm, 4); assert(startTiming.firstPcm.load() == UINT32_MAX);
+  displaySeekWaiting.store(false); feedbackActivitySeen.store(true); feedbackChangedAt.store(120);
+  audio_process_raw_samples(pcm, 4); assert(startTiming.firstPcm.load() == UINT32_MAX);
+  feedbackActivitySeen.store(false);
+  audio_process_raw_samples(nullptr, 4); audio_process_raw_samples(pcm, 0);
+  assert(startTiming.firstPcm.load() == UINT32_MAX);
+  Serial.diagnostics.clear(); clockMs = 4100; audio_process_raw_samples(pcm, 4);
+  assert(startTiming.firstPcm.load() == 4100 && Serial.diagnostics.empty());
+  clockMs = 4200; audio_process_raw_samples(pcm, 4); assert(startTiming.firstPcm.load() == 4100);
+  reportFirstNetworkPcm(); assert(Serial.diagnostics.size() == 2);
+  assert(Serial.diagnostics[0] == "[start] first.network.pcm: ms=4000\n");
+  reportFirstNetworkPcm(); assert(Serial.diagnostics.size() == 2);
+  startTiming.begin(UINT32_MAX - 10, false, false);
+  assert(startTiming.mark(RadioStartTiming::WavHeader, 9));
+  assert(startTiming.elapsed(RadioStartTiming::WavHeader) == 20); // wrap-safe ms
+  startTiming.active.store(false);
 
   // Only recognized constant event IDs and numeric fields may reach Serial.
   Serial.diagnostics.clear();

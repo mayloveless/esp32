@@ -24,6 +24,7 @@
 #include "RadioTuningWav.h"
 #include "RadioDisplay.h"
 #include "RadioCaptions.h"
+#include "RadioStartTiming.h"
 
 #ifndef WIFI_GATEWAY_MAC
 #define WIFI_GATEWAY_MAC ""
@@ -47,6 +48,27 @@ void renderDisplay(RadioDisplayModel& model) {
 }
 
 constexpr uint8_t kI2SBclkPin = 4;
+RadioStartTiming startTiming;
+bool startTimingPrefetch = false;
+uint32_t dialLockedAt = 0;
+bool dialLockRecorded = false;
+void failPlayback();
+void recordStartPoint(RadioStartTiming::Point point, uint32_t now) {
+  if (!startTiming.mark(point, now)) return;
+  constexpr const char* labels[] = { "connect.begin", "tls.connected", "wav.header", "range.sent", "range.ready", "first.network.pcm" };
+  Serial.printf("[start] %s: ms=%lu\n", labels[point], static_cast<unsigned long>(startTiming.elapsed(point)));
+}
+void reportFirstNetworkPcm() {
+  const uint32_t first = startTiming.firstPcm.load();
+  if (!startTiming.active.load() || startTiming.reported || first == UINT32_MAX) return;
+  recordStartPoint(RadioStartTiming::FirstPcm, first);
+  startTiming.reported = true;
+  Serial.printf("[start] summary: mode=%s prefetch=%d fallback=%d tls=%u headerMs=%lu rangeMs=%lu totalMs=%lu\n",
+    startTiming.fast ? "fast" : "legacy", startTiming.prefetch, startTiming.fallback, unsigned(startTiming.connections),
+    static_cast<unsigned long>(startTiming.elapsed(RadioStartTiming::WavHeader)),
+    static_cast<unsigned long>(startTiming.at[RadioStartTiming::RangeReady] - startTiming.at[RadioStartTiming::RangeSent]),
+    static_cast<unsigned long>(startTiming.elapsed(RadioStartTiming::FirstPcm)));
+}
 constexpr uint8_t kI2SLrcPin = 5;
 constexpr uint8_t kI2SDinPin = 6;
 constexpr uint32_t kWifiConnectTimeoutMs = 15'000;
@@ -300,6 +322,7 @@ bool playPrefetchedManifest(uint32_t requestedRevision) {
     return false;
   }
   Serial.printf("manifest prefetch hit: ageMs=%lu\n", static_cast<unsigned long>(age));
+  startTimingPrefetch = true;
   startManifestPlayback(manifest, requestedRevision, &job->captions);
   delete job;
   return true;  // Audio failure still stays idle; it is not a reason to auto tune.
@@ -375,6 +398,7 @@ void stopAudioForHandoff() {
   // NONE gates decoder-thread samples before stopSong waits for decoding.
   // loop() drains the 4.0.0 info queue; old events cannot change playback flags.
   audioOwner.store(AudioOwner::kNone);
+  startTiming.active.store(false);
   networkAudio.setVolume(0); // stopSong can leave queued PCM; NONE must stay silent.
   networkAudio.stopSong();
   networkAudio.loop();
@@ -406,6 +430,8 @@ void startLocalStatic() {
 
 void stopForTuning() {
   // Manual interruption never retires the old network program.
+  startTimingPrefetch = false;
+  dialLockRecorded = false;
   stopAudioForHandoff();
   currentProgramId = "";
   receiverState = ReceiverState::kTuning;
@@ -758,6 +784,12 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,
   }
 
   stopAudioForHandoff();
+  const char* query = strchr(audioUrl, '?');
+  const size_t pathLength = query ? size_t(query - audioUrl) : strlen(audioUrl);
+  const bool wavCandidate = pathLength >= 4 && !strncmp(audioUrl + pathLength - 4, ".wav", 4);
+  const bool useFastWav = RADIO_FAST_WAV_START && wavCandidate && startOffsetMs / 1000 <= UINT16_MAX;
+  startTiming.begin(dialLockRecorded ? dialLockedAt : millis(), startTimingPrefetch, useFastWav);
+  Serial.printf("[start] dial.locked: ms=0 prefetch=%d\n", startTiming.prefetch);
   audioOwner.store(AudioOwner::kNetwork);
   currentProgramId = programId;
   Serial.println("signal");
@@ -781,7 +813,30 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,
   renderDisplay(displayModel); // Show the selected title before blocking TLS/seek.
   // Audio.connecttohost() 独占 HTTP(S) 流式读取、解码和唯一的 I2S 输出；
   // sketch 只交付当前 signed URL，绝不会把整条音频下载进 RAM 或 PSRAM。
-  const bool connected = networkAudio.connecttohost(audioUrl);
+  recordStartPoint(RadioStartTiming::ConnectBegin, millis());
+  bool connected = false;
+#if RADIO_FAST_WAV_START
+  if (useFastWav) {
+    connected = networkAudio.connecttohostAtTime(audioUrl, static_cast<uint16_t>(startOffsetMs / 1000));
+    if (connected) {
+      audioSeekPending.store(false);
+      displaySeekWaiting.store(false);
+    } else {
+      // Drain failed experiment events before resetting flags for the legacy
+      // attempt. Error events from the failed attempt cannot poison fallback.
+      networkAudio.loop();
+      startTiming.fallback = true;
+      audioError.store(false);
+      audioEof = false;
+      audioStreamReady.store(false);
+      audioProducedSamples.store(false);
+      displayProducedSamples.store(false);
+      prepareStartOffset(startOffsetMs);
+      Serial.println("fallback to legacy seek");
+    }
+  }
+#endif
+  if (!connected) connected = networkAudio.connecttohost(audioUrl);
   if (tuneSuperseded(requestedRevision)) {
     stopForTuning();
     Serial.println("tune superseded while connecting audio");
@@ -789,7 +844,8 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,
   }
   if (!connected) {
     Serial.println("audio playback failed to start");
-    finishTuningIdle();
+    if (startTiming.fallback) failPlayback();
+    else finishTuningIdle();
     return;
   }
 
@@ -1006,6 +1062,8 @@ void updateControls() {
       const uint32_t revision = pendingPlaybackRevision;
       pendingPlaybackReady = false;
       pendingPlaybackManifest.clear();
+      dialLockedAt = millis();
+      dialLockRecorded = true;
       Serial.println("dial locked: connect prepared program");
       startManifestPlayback(manifest.as<JsonObjectConst>(), revision, &captionTrack);
     } else if (receiverState == ReceiverState::kTuning && !foregroundTunePending && !prefetchBusy) {
@@ -1026,6 +1084,28 @@ void onAudioInfo(Audio::msg_t message) {
   if (owner == AudioOwner::kNetwork && message.e == Audio::evt_eof) audioEof = true;
   if (owner == AudioOwner::kNetwork && message.e == Audio::evt_info && message.msg &&
       strcmp(message.msg, "stream ready") == 0) audioStreamReady = true;
+  if (owner == AudioOwner::kNetwork && message.e == Audio::evt_info && message.msg) {
+    if (!strcmp(message.msg, "radio.fast.not-reusable"))
+      Serial.println("fast wav start: connection not reusable");
+    if (!strcmp(message.msg, "radio.fast.failed")) {
+      constexpr const char* stages[] = {"unknown", "connect", "initial header", "initial body", "WAV header/target", "connection not reusable", "target request", "target header", "decode mutex", "decoder", "target prefill"};
+      const unsigned stage = static_cast<unsigned>(message.arg1);
+      Serial.printf("fast wav start failed: %s\n", stage < sizeof(stages) / sizeof(stages[0]) ? stages[stage] : stages[0]);
+    }
+    if (!strcmp(message.msg, "radio.fast.initial.consumed"))
+      Serial.printf("[fast] initial.consumed: bytes=%ld\n", static_cast<long>(message.arg1));
+    if (!strcmp(message.msg, "radio.fast.applied"))
+      Serial.printf("[fast] applied: position=%ld seconds=%ld\n", static_cast<long>(message.arg1), static_cast<long>(message.arg2));
+    struct StartEvent { const char* tag; RadioStartTiming::Point point; };
+    static constexpr StartEvent points[] = {
+      {"radio.start.tls.connected", RadioStartTiming::TlsConnected},
+      {"radio.start.wav.header", RadioStartTiming::WavHeader},
+      {"radio.start.range.sent", RadioStartTiming::RangeSent},
+      {"radio.start.range.ready", RadioStartTiming::RangeReady},
+    };
+    for (const StartEvent& event : points)
+      if (!strcmp(message.msg, event.tag)) recordStartPoint(event.point, uint32_t(message.arg1));
+  }
   // The local diagnostic patch enqueues these constant IDs. evt_info is
   // dispatched by Audio.loop() on the main task. Never print arbitrary
   // library messages or response headers: they can contain signed URLs.
@@ -1097,6 +1177,7 @@ void failPlayback() {
 void updatePlayback() {
   if (audioOwner.load() != AudioOwner::kNetwork) return;
   networkAudio.loop();
+  reportFirstNetworkPcm();
 
   if (receiverState != ReceiverState::kPlaying) return;
   // A turn captured during Audio.loop() must win over an EOF dispatched in
@@ -1221,7 +1302,10 @@ void audio_process_raw_samples(int32_t* samples, int16_t validSamples) {
   }
   if (validSamples > 0 && owner == AudioOwner::kNetwork && currentStreamReady && !feedback) {
     audioProducedSamples.store(true);
-    if (!displaySeekWaiting.load()) displayProducedSamples.store(true);
+    if (!displaySeekWaiting.load()) {
+      displayProducedSamples.store(true);
+      if (samples) startTiming.claimPcm(millis());
+    }
   }
   if (validSamples > 0 && owner == AudioOwner::kStaticLocalFile && staticStreamReady.load())
     staticProducedSamples.store(true);

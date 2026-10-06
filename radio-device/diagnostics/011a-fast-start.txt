@@ -1,0 +1,235 @@
+[   9.444 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[   9.447 s] [start] dial.locked: ms=0 prefetch=0
+[   9.452 s] signalKind: music
+[   9.452 s] startOffsetMs: 13176
+[   9.482 s] [start] connect.begin: ms=42
+[  13.622 s] audio playback started
+[  13.624 s] [start] tls.connected: ms=1559
+[  13.627 s] [seek] range.status: HTTP=206
+[  13.632 s] [seek] range.validated: position=0 fileSize=3041644
+[  13.635 s] [seek] range.header-result: ok=1 reason=0
+[  13.638 s] [fast] initial.consumed: bytes=8192
+[  13.641 s] [start] wav.header: ms=3102
+[  13.646 s] [seek] range.request: position=832044 length=-1
+[  13.649 s] [seek] range.sent: written=1214 expected=1214
+[  13.652 s] [start] range.sent: ms=3105
+[  13.655 s] [seek] range.status: HTTP=206
+[  13.660 s] [seek] range.validated: position=832044 fileSize=3041644
+[  13.663 s] [seek] range.header-result: ok=1 reason=0
+[  13.666 s] [start] range.ready: ms=3505
+[  13.670 s] [fast] applied: position=832044 seconds=13
+[  13.703 s] [start] first.network.pcm: ms=4241
+[  13.708 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=3102 rangeMs=400 totalMs=4241
+[  90.467 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1217
+[  91.411 s] [start] dial.locked: ms=0 prefetch=1
+[  91.419 s] signalKind: news
+[  91.422 s] startOffsetMs: 4115
+[  91.454 s] [start] connect.begin: ms=45
+[  94.755 s] audio playback started
+[  94.757 s] [start] tls.connected: ms=1422
+[  94.760 s] [seek] range.status: HTTP=206
+[  94.766 s] [seek] range.validated: position=0 fileSize=4445834
+[  94.768 s] [seek] range.header-result: ok=1 reason=0
+[  94.771 s] [fast] initial.consumed: bytes=8192
+[  94.774 s] [start] wav.header: ms=2876
+[  94.780 s] [seek] range.request: position=256044 length=-1
+[  94.782 s] [seek] range.sent: written=1214 expected=1214
+[  94.786 s] [start] range.sent: ms=2879
+[  94.788 s] [seek] range.status: HTTP=206
+[  94.793 s] [seek] range.validated: position=256044 fileSize=4445834
+[  94.796 s] [seek] range.header-result: ok=1 reason=0
+[  94.799 s] [start] range.ready: ms=3119
+[  94.803 s] [fast] applied: position=256044 seconds=4
+[  94.840 s] [caption] index=0 page=1/12 playbackMs=4000
+[  94.868 s] [start] first.network.pcm: ms=3405
+[  94.874 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2876 rangeMs=240 totalMs=3405
+[ 102.616 s] [caption] index=0 page=2/12 playbackMs=6000
+[ 116.278 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1120
+[ 117.480 s] [start] dial.locked: ms=0 prefetch=1
+[ 117.491 s] signalKind: news
+[ 117.494 s] startOffsetMs: 14910
+[ 117.537 s] [start] connect.begin: ms=59
+[ 123.203 s] [start] tls.connected: ms=1625
+[ 123.206 s] [seek] range.status: HTTP=206
+[ 123.211 s] [seek] range.validated: position=0 fileSize=3288396
+[ 123.214 s] [seek] range.header-result: ok=1 reason=0
+[ 123.220 s] [seek] read.timeout: read=5852 expected=8192
+[ 123.222 s] fast wav start failed: initial body
+[ 123.225 s] fallback to legacy seek
+[ 124.774 s] audio playback started
+[ 125.148 s] [seek] initial.status: HTTP=206
+[ 125.153 s] [seek] initial.content-range: present=1
+[ 125.159 s] [seek] initial.range-supported: supported=1 fileSize=3288396
+[ 125.419 s] [start] wav.header: ms=7943
+[ 125.443 s] [seek] queued: seconds=14 position=896044
+[ 127.238 s] [seek] new-buffer.begin: position=896044 headerState=100
+[ 127.243 s] [seek] file-seek.begin: acceptRanges=1 dataMode=3
+[ 127.246 s] [seek] range.request: position=896044 length=-1
+[ 127.252 s] [seek] range.sent: written=1214 expected=1214
+[ 127.255 s] [start] range.sent: ms=9177
+[ 127.257 s] [seek] file-seek.request-result: ok=1
+[ 127.260 s] [seek] range.status: HTTP=206
+[ 127.266 s] [seek] range.validated: position=896044 fileSize=3288396
+[ 127.268 s] [seek] range.header-result: ok=1 reason=0
+[ 127.271 s] [start] range.ready: ms=9478
+[ 127.274 s] [seek] file-seek.header-result: ok=1
+[ 127.280 s] [seek] new-buffer.seek-result: result=896044 requested=896044
+[ 127.282 s] [seek] new-buffer.read: read=8192 expected=8192
+[ 127.288 s] [seek] new-buffer.align: offset=0 codec=1
+[ 127.291 s] [seek] new-buffer.result: position=896044 ok=1
+[ 127.298 s] [start] first.network.pcm: ms=9815
+[ 127.304 s] [start] summary: mode=fast prefetch=1 fallback=1 tls=3 headerMs=7943 rangeMs=301 totalMs=9815
+[ 127.336 s] [caption] index=0 page=3/11 playbackMs=14000
+[ 130.512 s] [caption] index=0 page=4/11 playbackMs=15000
+[ 137.471 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[ 138.588 s] [start] dial.locked: ms=0 prefetch=1
+[ 138.594 s] signalKind: music
+[ 138.596 s] startOffsetMs: 11893
+[ 138.629 s] [start] connect.begin: ms=42
+[ 141.596 s] audio playback started
+[ 141.598 s] [start] tls.connected: ms=1305
+[ 141.601 s] [seek] range.status: HTTP=206
+[ 141.607 s] [seek] range.validated: position=0 fileSize=2710636
+[ 141.609 s] [seek] range.header-result: ok=1 reason=0
+[ 141.612 s] [fast] initial.consumed: bytes=8192
+[ 141.615 s] [start] wav.header: ms=2409
+[ 141.620 s] [seek] range.request: position=704044 length=-1
+[ 141.623 s] [seek] range.sent: written=1214 expected=1214
+[ 141.626 s] [start] range.sent: ms=2412
+[ 141.629 s] [seek] range.status: HTTP=206
+[ 141.634 s] [seek] range.validated: position=704044 fileSize=2710636
+[ 141.637 s] [seek] range.header-result: ok=1 reason=0
+[ 141.640 s] [start] range.ready: ms=2692
+[ 141.644 s] [fast] applied: position=704044 seconds=11
+[ 141.674 s] [start] first.network.pcm: ms=3067
+[ 141.680 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2409 rangeMs=280 totalMs=3067
+[ 152.416 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[ 153.349 s] [start] dial.locked: ms=0 prefetch=1
+[ 153.354 s] signalKind: music
+[ 153.357 s] startOffsetMs: 8148
+[ 153.389 s] [start] connect.begin: ms=42
+[ 156.676 s] audio playback started
+[ 156.678 s] [start] tls.connected: ms=1444
+[ 156.681 s] [seek] range.status: HTTP=206
+[ 156.687 s] [seek] range.validated: position=0 fileSize=2688044
+[ 156.690 s] [seek] range.header-result: ok=1 reason=0
+[ 156.692 s] [fast] initial.consumed: bytes=8192
+[ 156.695 s] [start] wav.header: ms=2667
+[ 156.701 s] [seek] range.request: position=512044 length=-1
+[ 156.703 s] [seek] range.sent: written=1214 expected=1214
+[ 156.706 s] [start] range.sent: ms=2670
+[ 156.709 s] [seek] range.status: HTTP=206
+[ 156.714 s] [seek] range.validated: position=512044 fileSize=2688044
+[ 156.717 s] [seek] range.header-result: ok=1 reason=0
+[ 156.720 s] [start] range.ready: ms=3012
+[ 156.724 s] [fast] applied: position=512044 seconds=8
+[ 156.755 s] [start] first.network.pcm: ms=3387
+[ 156.760 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2667 rangeMs=342 totalMs=3387
+[ 170.668 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=821
+[ 171.581 s] [start] dial.locked: ms=0 prefetch=1
+[ 171.589 s] signalKind: alien
+[ 171.592 s] startOffsetMs: 14749
+[ 171.624 s] [start] connect.begin: ms=44
+[ 174.699 s] audio playback started
+[ 174.701 s] [start] tls.connected: ms=1223
+[ 174.704 s] [seek] range.status: HTTP=206
+[ 174.710 s] [seek] range.validated: position=0 fileSize=4566594
+[ 174.712 s] [seek] range.header-result: ok=1 reason=0
+[ 174.715 s] [fast] initial.consumed: bytes=8192
+[ 174.718 s] [start] wav.header: ms=2388
+[ 174.724 s] [seek] range.request: position=896044 length=-1
+[ 174.726 s] [seek] range.sent: written=1214 expected=1214
+[ 174.729 s] [start] range.sent: ms=2390
+[ 174.732 s] [seek] range.status: HTTP=206
+[ 174.737 s] [seek] range.validated: position=896044 fileSize=4566594
+[ 174.740 s] [seek] range.header-result: ok=1 reason=0
+[ 174.743 s] [start] range.ready: ms=2681
+[ 174.747 s] [fast] applied: position=896044 seconds=14
+[ 174.774 s] [caption] index=0 page=2/8 playbackMs=14000
+[ 174.803 s] [start] first.network.pcm: ms=3177
+[ 174.809 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2388 rangeMs=291 totalMs=3177
+[ 186.430 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[ 187.591 s] [start] dial.locked: ms=0 prefetch=1
+[ 187.597 s] signalKind: music
+[ 187.600 s] startOffsetMs: 7122
+[ 187.633 s] [start] connect.begin: ms=43
+[ 190.278 s] audio playback started
+[ 190.281 s] [start] tls.connected: ms=1174
+[ 190.284 s] [seek] range.status: HTTP=206
+[ 190.289 s] [seek] range.validated: position=0 fileSize=2844460
+[ 190.292 s] [seek] range.header-result: ok=1 reason=0
+[ 190.295 s] [fast] initial.consumed: bytes=8192
+[ 190.298 s] [start] wav.header: ms=2167
+[ 190.303 s] [seek] range.request: position=448044 length=-1
+[ 190.306 s] [seek] range.sent: written=1214 expected=1214
+[ 190.309 s] [start] range.sent: ms=2170
+[ 190.312 s] [seek] range.status: HTTP=206
+[ 190.317 s] [seek] range.validated: position=448044 fileSize=2844460
+[ 190.320 s] [seek] range.header-result: ok=1 reason=0
+[ 190.323 s] [start] range.ready: ms=2450
+[ 190.326 s] [fast] applied: position=448044 seconds=7
+[ 190.361 s] [start] first.network.pcm: ms=2749
+[ 190.366 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2167 rangeMs=280 totalMs=2749
+[ 199.098 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[ 199.101 s] [start] dial.locked: ms=0 prefetch=0
+[ 199.107 s] signalKind: music
+[ 199.107 s] startOffsetMs: 14747
+[ 199.137 s] [start] connect.begin: ms=42
+[ 202.182 s] audio playback started
+[ 202.185 s] [start] tls.connected: ms=1224
+[ 202.188 s] [seek] range.status: HTTP=206
+[ 202.193 s] [seek] range.validated: position=0 fileSize=3011820
+[ 202.196 s] [seek] range.header-result: ok=1 reason=0
+[ 202.199 s] [fast] initial.consumed: bytes=8192
+[ 202.201 s] [start] wav.header: ms=2518
+[ 202.207 s] [seek] range.request: position=896044 length=-1
+[ 202.210 s] [seek] range.sent: written=1214 expected=1214
+[ 202.213 s] [start] range.sent: ms=2521
+[ 202.215 s] [seek] range.status: HTTP=206
+[ 202.221 s] [seek] range.validated: position=896044 fileSize=3011820
+[ 202.224 s] [seek] range.header-result: ok=1 reason=0
+[ 202.226 s] [start] range.ready: ms=2831
+[ 202.230 s] [fast] applied: position=896044 seconds=14
+[ 202.264 s] [start] first.network.pcm: ms=3148
+[ 202.269 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=2518 rangeMs=310 totalMs=3148
+[ 207.616 s] [caption] loaded: received=10 kept=10 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1179
+[ 208.063 s] [start] dial.locked: ms=0 prefetch=1
+[ 208.071 s] signalKind: chat
+[ 208.071 s] startOffsetMs: 12802
+[ 208.105 s] [start] connect.begin: ms=44
+[ 211.556 s] audio playback started
+[ 211.558 s] [start] tls.connected: ms=1231
+[ 211.561 s] [seek] range.status: HTTP=206
+[ 211.567 s] [seek] range.validated: position=0 fileSize=4140610
+[ 211.570 s] [seek] range.header-result: ok=1 reason=0
+[ 211.572 s] [fast] initial.consumed: bytes=8192
+[ 211.575 s] [start] wav.header: ms=2365
+[ 211.581 s] [seek] range.request: position=768044 length=-1
+[ 211.583 s] [seek] range.sent: written=1214 expected=1214
+[ 211.586 s] [start] range.sent: ms=2368
+[ 211.589 s] [seek] range.status: HTTP=206
+[ 211.595 s] [seek] range.validated: position=768044 fileSize=4140610
+[ 211.597 s] [seek] range.header-result: ok=1 reason=0
+[ 211.600 s] [start] range.ready: ms=2778
+[ 211.603 s] [fast] applied: position=768044 seconds=12
+[ 211.623 s] [caption] index=1 page=1/2 playbackMs=12000
+[ 211.652 s] [start] first.network.pcm: ms=3557
+[ 211.658 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2365 rangeMs=410 totalMs=3557
+[ 218.820 s] [caption] index=1 page=2/2 playbackMs=14000
+[ 238.219 s] [caption] index=2 page=1/1 playbackMs=18000
+[ 265.038 s] [caption] index=3 page=1/2 playbackMs=24000
+[ 286.636 s] [caption] index=3 page=2/2 playbackMs=28000
+[ 303.636 s] [caption] index=-1 page=0/0 playbackMs=32000
+[ 308.839 s] [caption] index=4 page=1/1 playbackMs=33000
+[ 319.835 s] [caption] index=-1 page=0/0 playbackMs=35000
+[ 327.641 s] [caption] index=5 page=1/2 playbackMs=36000
+[ 363.837 s] [caption] index=5 page=2/2 playbackMs=41000
+[ 386.039 s] [caption] index=6 page=1/1 playbackMs=46000
+[ 402.841 s] [caption] index=7 page=1/2 playbackMs=50000
+[ 413.038 s] [caption] index=7 page=2/2 playbackMs=53000
+[ 424.041 s] [caption] index=8 page=1/1 playbackMs=56000
+[ 434.845 s] [caption] index=9 page=1/2 playbackMs=59000
+[ 445.044 s] [caption] index=9 page=2/2 playbackMs=62000
+[ 483.478 s] audio failure flags: libraryError=0 WiFi=3 ready=1 seekPending=0 samples=1 running=1
+[ 483.481 s] audio playback failed
+[ 483.518 s] [display] SIGNAL LOST refreshMs=18

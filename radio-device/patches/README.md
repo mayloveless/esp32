@@ -97,3 +97,62 @@ python3 radio-device/tests/library_mutex_test.py
 ```
 
 回退该时钟修正使用此补丁的 `patch -R`，保留 HTTP seek 与 mutex 补丁，恢复旧时钟回零问题。必须重新编译和烧录。主机回归正反向验证指纹，并分别编译真实基线和当前库的时钟/seek 函数：复现早期 seek 的 8 → 0 → 1 秒，验证修复后 8 → 8 → 9 秒；同时覆盖已开始解码后 seek、duration 取整、seek 到零及音频停滞时墙钟不推进。原 seek 和 mutex 回归保持通过。
+
+## 011A 单连接 PCM WAV 实验与 A/B 结果
+
+基线为 `c1e1960`，任务文档来自 `0f472e5`。当前默认 `RADIO_FAST_WAV_START=0`，普通 `connecttohost()` / queued seek 继续使用原先的两次连接路径。没有服务端、manifest prefetch、EC11、字幕、completed 或 I2S owner 的架构变更。
+
+新增两个独立补丁，必须按顺序应用在 `captionClock` 指纹之后：
+
+```bash
+patch --dry-run -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-start-timing.patch
+patch -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-start-timing.patch
+patch --dry-run -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-fast-wav-start.patch
+patch -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-fast-wav-start.patch
+```
+
+`startTiming` 只增加实际 TLS connect 返回、WAV header ready、目标 GET 写出和严格 Range 校验完成时的整数 `millis()` 事件。sketch 在主任务打印相对锁台时间；raw-sample callback 只原子保存一次时间戳，不打印、不分配、不调用 Audio。只接受 NETWORK owner、stream-ready、非 pending seek、已应用 seek、无 tuning feedback 且有真实样本缓冲的回调。它表示首个允许输出的网络 PCM，不是麦克风测得的扬声器声波，也不是 `seek applied`。
+
+每条节目一次 `[start] summary`：
+
+- `prefetch=1` 才是 A/B 候选；启动请求和前台 tune 排除。
+- `tls` 是实际成功的 TCP/TLS connect 次数；TLS 时间点打印第一次，各次连接均计数。
+- `headerMs` 是锁台到 WAV 头解析完成；`rangeMs` 是目标 GET 写出到 Range header 验证通过，不包含 seek 的第二次 TLS。
+- `totalMs` 是锁台到真实网络 PCM；各时间点使用事件携带的发生时间，不使用延迟派发/Serial 到达时间。
+- `fallback=1` 必须排除 fast 成功统计。
+
+实验入口 `connecttohostAtTime(url, uint16_t seconds)` 只在开关开启且 URL path 为 `.wav`、offset 可表达时调用。服务返回的 WAV 还须通过真实 RIFF chunk、PCM format、channels/bits、byteRate、blockAlign 和文件边界校验；不会假定 44-byte header。首个响应必须是有限 `bytes=0-8191`、206、匹配的 Content-Range 和明确正确的 Content-Length，拒绝重定向、错误状态、重复 framing 字段、Transfer-Encoding 和非 identity Content-Encoding。
+
+完整读完 8192 字节后销毁初始缓冲；它从不进入 decoder/InBuff。只有此时 socket 仍 connected 且服务器未声明 close，才以显式 `httpRange(..., reuseConnected=true)` 在同一 client 上发送目标 GET，分支中无 stop/connect。第二个 206 沿用已有 strict range validator，额外要求明确正确的 Content-Length。目标按实际 PCM blockAlign 对齐，用同一个 decoder mutex 保护状态和两个解码块预填，保留原生 3 秒 prefill timeout。首次实际解码通过原 caption-clock 补丁按目标字节位置重设绝对样本计数。显式入口在同一 mutex 内完成原先 first-play 字段初始化，避免首个 decode 将 seek 后的读指针清零而导致尾部 stall。
+
+失败输出常量阶段名 `fast wav start failed: <stage>`；关闭连接另有 `fast wav start: connection not reusable`。sketch 清掉失败尝试的事件/状态后明确 `fallback to legacy seek`，不 completed、不显示旧字幕、不送入初始 PCM。fallback 再失败走现有 failPlayback。其他 URL 格式直接使用稳定入口。
+
+临时启用实验：把 [RadioStartTiming.h](../RadioStartTiming.h) 中默认宏设为 `1`，重新编译并烧录；测试完成恢复 `0` 并重新烧录。或者由本地编译参数显式定义该宏。不要仅修改库后沿用旧 binary。正式采用之前保持默认 `0`。
+
+撤销实验，保留计时与之前三个修复：
+
+```bash
+# 先恢复 RADIO_FAST_WAV_START=0
+patch --dry-run -R -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-fast-wav-start.patch
+patch -R -p1 -d "$RADIO_AUDIO_LIBRARY_DIR" < radio-device/patches/esp32-audioI2S-4.0.0-fast-wav-start.patch
+```
+
+再移除计时补丁则使用 `start-timing.patch` 的 `patch -R`，回到 `captionClock` 指纹。各层新增 SHA-256 都在 library-hashes.json；补丁正向应用和主机测试中的逐层反向恢复已验证。
+
+主机测试（实验补丁安装后）：
+
+```bash
+python3 radio-device/tests/library_fast_wav_test.py
+python3 radio-device/tests/library_seek_test.py
+python3 radio-device/tests/library_mutex_test.py
+python3 radio-device/tests/library_caption_clock_test.py
+python3 radio-device/tests/playback_test.py
+python3 radio-device/tests/controls_test.py
+python3 radio-device/tests/captions_test.py
+python3 radio-device/tests/display_model_test.py
+python3 radio-device/tests/tuning_wav_test.py
+```
+
+fast test 直接提取已校验指纹的原生初始请求构造、实验 API、httpRange、Range parser 和 playAudioData，通过可控 client/body/header 替身验证有限 GET、完整 body 边界、同 client 无 stop/reconnect、关闭/错误/malformed 拒绝、非标准 header、blockAlign、首帧 seek-relative 读指针与目标 Range 剩余字节的真实 EOF。seek/mutex/clock 原回归保留；时钟测试从补丁逐层恢复真实旧版本，另验证 fast API 提交的 `dataStart=54`、目标 `448054` 首帧为 7 秒、之后为 8 秒。controls 同时编译开关 0/1，验证成功不二次 seek、字幕绝对位置、natural EOF 只 completed 一次、失败事件不污染 fallback、双失败保留 idle/failure 语义、非 WAV 仍 legacy。playback 验证 raw callback 首次计时排除 static、feedback、seek 前样本、空缓冲并覆盖毫秒溢出。
+
+本次 A/B 成功样本中位数从 5675.5 ms 降至 3282 ms（42.2%），一次 initial-body 超时回退单列。自然结束暴露的首帧读指针重置已修复，并追加真机 completed 成功验证；正式采用前保持默认关闭。完整真机数据、修复及验收边界见 [011a-fast-wav-start.md](../diagnostics/011a-fast-wav-start.md)。HTTP response body 读到 framing 边界后才能复用连接的协议依据：[RFC 9112 §9.3](https://www.rfc-editor.org/rfc/rfc9112.html#section-9.3)。Storage 文档支持 signed URL 下载，并不承诺本设备 TLS keep-alive 的可复用性；必须实测。

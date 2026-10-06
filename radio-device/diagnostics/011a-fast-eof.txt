@@ -1,0 +1,25 @@
+[   9.809 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[   9.812 s] [start] dial.locked: ms=0 prefetch=0
+[   9.817 s] signalKind: music
+[   9.817 s] startOffsetMs: 7057
+[   9.847 s] [start] connect.begin: ms=41
+[  12.692 s] audio playback started
+[  12.695 s] [start] tls.connected: ms=1203
+[  12.697 s] [seek] range.status: HTTP=206
+[  12.703 s] [seek] range.validated: position=0 fileSize=3041644
+[  12.706 s] [seek] range.header-result: ok=1 reason=0
+[  12.708 s] [fast] initial.consumed: bytes=8192
+[  12.711 s] [start] wav.header: ms=2327
+[  12.717 s] [seek] range.request: position=448044 length=-1
+[  12.719 s] [seek] range.sent: written=1214 expected=1214
+[  12.722 s] [start] range.sent: ms=2330
+[  12.725 s] [seek] range.status: HTTP=206
+[  12.731 s] [seek] range.validated: position=448044 fileSize=3041644
+[  12.733 s] [seek] range.header-result: ok=1 reason=0
+[  12.736 s] [start] range.ready: ms=2640
+[  12.740 s] [fast] applied: position=448044 seconds=7
+[  12.773 s] [start] first.network.pcm: ms=2946
+[  12.779 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=2327 rangeMs=310 totalMs=2946
+[ 178.640 s] [display] NO SIGNAL refreshMs=18
+[ 178.640 s] audio playback completed
+[ 181.135 s] completed request succeeded

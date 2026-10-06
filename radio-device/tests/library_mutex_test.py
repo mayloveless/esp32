@@ -1,16 +1,13 @@
 """Run the installed library's real decode path with a failed/successful mutex."""
 from pathlib import Path
-import hashlib
-import json
 import os
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
 library = Path(os.environ.get('RADIO_AUDIO_LIBRARY_DIR', str(Path.home() / 'Documents/Arduino/libraries/ESP32-audioI2S-master')))
-source = (library / 'src/Audio.cpp').read_text()
-hashes = json.loads((root / 'patches/library-hashes.json').read_text())['Audio.cpp']
-assert hashlib.sha256(source.encode()).hexdigest() == hashes.get('captionClock', hashes['mutexGuard']), 'Apply the current library patches first'
+from library_fixture import read_source
+source = read_source()
 function = source[source.index('void Audio::playAudioData() {'):source.index('std::vector<ps_ptr<char>> Audio::readHeader()')]
 preamble = r'''
 #include <algorithm>

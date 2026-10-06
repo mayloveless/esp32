@@ -1,0 +1,328 @@
+--- a/src/Audio.cpp
++++ b/src/Audio.cpp
+@@ -17,6 +17,7 @@
+ 
+ #include "Audio.h"
+ #include "RadioHttpRange.h"
++#include "RadioFastWav.h"
+ #include "aac_decoder/aac_decoder.h"
+ #include "flac_decoder/flac_decoder.h"
+ #include "mp3_decoder/mp3_decoder.h"
+@@ -1043,7 +1044,89 @@
+     return result;
+ }
+ // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+-bool Audio::connecttohost(const char* host, const char* user, const char* pwd) { // user and pwd for authentification only, can be empty
++bool Audio::connecttohost(const char* host, const char* user, const char* pwd) {
++    return connecttohostRequest(host, user, pwd, false);
++}
++
++// Explicit experiment; the ordinary connecttohost path remains unchanged.
++// No PCM from the first, finite response ever enters InBuff or the decoder.
++bool Audio::connecttohostAtTime(const char* host, uint16_t startSeconds) {
++    auto fail = [this](int stage) {
++        seekDiagnostic("radio.fast.failed", stage);
++        stopSong();
++        return false;
++    };
++    if (!connecttohostRequest(host, nullptr, nullptr, true)) return fail(1);
++    m_streamType = ST_WEBFILE;
++    m_dataMode = HTTP_RANGE_HEADER;
++    if (!parseHttpRangeHeader(0, radio_fast_wav::kInitialBytes - 1, true) ||
++        m_audioFileSize < radio_fast_wav::kInitialBytes || m_codec != CODEC_WAV) return fail(2);
++    // parseHttpRangeHeader emits a target point; mark this one as initial only.
++    ps_ptr<uint8_t> initial;
++    if (!initial.calloc(radio_fast_wav::kInitialBytes, "fast WAV finite header")) return fail(3);
++    if (audioFileRead(initial.get(), radio_fast_wav::kInitialBytes, 3000) != radio_fast_wav::kInitialBytes) return fail(3);
++    seekDiagnostic("radio.fast.initial.consumed", radio_fast_wav::kInitialBytes);
++    radio_fast_wav::Header wav;
++    uint32_t target = 0;
++    if (!radio_fast_wav::parse(initial.get(), radio_fast_wav::kInitialBytes, m_audioFileSize, wav) ||
++        !radio_fast_wav::target(wav, startSeconds, target)) return fail(4);
++    seekDiagnostic("radio.start.wav.header", millis());
++    initial.reset();
++    if (m_f_connectionClose || !m_client->connected()) {
++        seekDiagnostic("radio.fast.not-reusable");
++        return fail(5);
++    }
++    if (!httpRange(target, UINT32_MAX, true)) return fail(6);
++    if (!parseHttpRangeHeader(target, UINT32_MAX, true) || m_codec != CODEC_WAV) return fail(7);
++    // Decoder creation may call stopSong on failure; do it before taking its mutex.
++    // m_f_stream is still false, so no PCM decoding can start yet.
++    if (!initializeDecoder()) return fail(9);
++    if (xSemaphoreTake(mutex_audioTaskIsDecoding, 1 * configTICK_RATE_HZ) != pdTRUE) return fail(8);
++    m_f_lockInBuffer = true;
++    m_decoder->setRawBlockParams(wav.channels, wav.sampleRate, wav.bits, 0, 0);
++    m_audioDataStart = wav.dataStart;
++    m_audioDataSize = wav.dataSize;
++    m_audioFileDuration = wav.dataSize / wav.byteRate;
++    m_nominal_bitrate = wav.byteRate * 8;
++    m_audioFilePosition = target;
++    m_audioDataReadPtr = target - wav.dataStart;
++    // This entry bypasses playAudioData's first-play initialization. Preserve
++    // the seek-relative read pointer so end-of-file accounting reaches EOF.
++    m_f_firstPlayCall = false;
++    m_pad.count = 0;
++    m_pad.oldAudioDataSize = 0;
++    m_bytesNotConsumed = 0;
++    m_pad.lastFrames = false;
++    m_f_eof = false;
++    m_resumeFilePos = -1;
++    m_controlCounter = 100;
++    m_f_acceptRanges = true;
++    m_f_firstCall = false;
++    m_f_allDataReceived = false;
++    m_pwf.audioHeaderFound = true;
++    m_pwf.newFilePos = target;
++    m_pwf.ctime = millis();
++    m_pwf.timeout = 8000;
++    m_pwf.maxFrameSize = InBuff.getMaxBlockSize();
++    // Same two-block prefill and 3 s timeout as the legacy WAV seek patch.
++    const uint32_t prefill = std::min<uint32_t>(wav.dataSize - (target - wav.dataStart), 2 * InBuff.getMaxBlockSize());
++    InBuff.reset();
++    const int32_t read = audioFileRead(InBuff.getWritePtr(), prefill, 3000);
++    if (prefill < InBuff.getMaxBlockSize() || read != prefill) {
++        m_f_lockInBuffer = false;
++        xSemaphoreGive(mutex_audioTaskIsDecoding);
++        return fail(10);
++    }
++    InBuff.bytesWritten(read);
++    m_haveNewFilePos = target; // caption-clock patch rebases the first decoded PCM
++    m_f_lockInBuffer = false;
++    xSemaphoreGive(mutex_audioTaskIsDecoding);
++    seekDiagnostic("radio.fast.applied", target, startSeconds);
++    // processWebFile publishes stream-ready only after enough target PCM is buffered.
++    return true;
++}
++
++bool Audio::connecttohostRequest(const char* host, const char* user, const char* pwd, bool finiteWavHeader) {
+ 
+     ps_ptr<char> c_host = host; // copy of host
+     ps_ptr<char> c_user = user; // copy of user
+@@ -1121,7 +1204,8 @@
+     rqh.append("Icy-MetaData:1\r\n");
+     rqh.append("Pragma: no-cache\r\n");
+     rqh.append("Cache-Control: no-cache\r\n");
+-    rqh.append("Range: bytes=0-\r\n");
++    if (finiteWavHeader) rqh.appendf("Range: bytes=0-{}\r\n", radio_fast_wav::kInitialBytes - 1);
++    else rqh.append("Range: bytes=0-\r\n");
+     rqh.append("Accept: */*\r\n");
+     rqh.appendf("User-Agent: {}\r\n", user_agent);
+     if (authLen > 0) {
+@@ -1310,7 +1394,7 @@
+     enqueueInfo(*this, evt_info, std::move(label), value1, value2);
+ }
+ 
+-bool Audio::httpRange(uint32_t seek, uint32_t length) {
++bool Audio::httpRange(uint32_t seek, uint32_t length, bool reuseConnected) {
+ 
+     seekDiagnostic("radio.seek.range.request", seek, length == UINT32_MAX ? -1 : length);
+     if (!m_f_running) {
+@@ -1378,22 +1462,29 @@
+     rqh.append("Sec-GPC: 1\r\n");
+     rqh.append("User-Agent: VLC/3.0.21 LibVLC/3.0.21 AppleWebKit/537.36 (KHTML, like Gecko)\r\n\r\n");
+ 
+-    if (m_client->connected()) { m_client->stop(); }
+-    if (m_f_ssl) {
+-        m_client = static_cast<NetworkClientSecure*>(&clientsecure);
+-        if (m_f_ssl && port == 80) port = 443;
++    if (reuseConnected) {
++        if (!m_client->connected() || m_f_connectionClose) {
++            seekDiagnostic("radio.fast.not-reusable");
++            return false;
++        }
+     } else {
+-        m_client = static_cast<NetworkClient*>(&client);
+-    }
+-
+-    if (!m_client->connect(hwoe.get(), port)) {
+-        seekDiagnostic("radio.seek.range.connect-failed");
+-        AUDIO_LOG_ERROR("connection lost {}", c_host.c_get());
+-        stopSong();
+-        return false;
+-    }
+-
+-    seekDiagnostic("radio.start.tls.connected", millis());
++        if (m_client->connected()) { m_client->stop(); }
++        if (m_f_ssl) {
++            m_client = static_cast<NetworkClientSecure*>(&clientsecure);
++            if (m_f_ssl && port == 80) port = 443;
++        } else {
++            m_client = static_cast<NetworkClient*>(&client);
++        }
++    
++        if (!m_client->connect(hwoe.get(), port)) {
++            seekDiagnostic("radio.seek.range.connect-failed");
++            AUDIO_LOG_ERROR("connection lost {}", c_host.c_get());
++            stopSong();
++            return false;
++        }
++    
++        seekDiagnostic("radio.start.tls.connected", millis());
++    }
+ 
+     // AUDIO_LOG_INFO("rqh \n{}", rqh.get());
+ 
+@@ -5498,7 +5589,7 @@
+     return true;
+ }
+ // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+-bool Audio::parseHttpRangeHeader(uint32_t position, uint32_t length) { // this is the response to a Range request
++bool Audio::parseHttpRangeHeader(uint32_t position, uint32_t length, bool requireLength) { // this is the response to a Range request
+ 
+     if (m_dataMode != HTTP_RANGE_HEADER) {
+         seekDiagnostic("radio.seek.range.header-result", 0, 1);
+@@ -5509,6 +5600,8 @@
+     bool hasRange = false;
+     bool hasContentLength = false;
+     uint32_t contentLength = 0;
++    bool invalidFraming = false;
++    uint8_t statusCount = 0, rangeCount = 0, lengthCount = 0;
+     const uint32_t fileSize = m_audioFileSize;
+     radio_http_range::ByteRange responseRange;
+     ps_ptr<char> name;
+@@ -5535,15 +5628,24 @@
+         if (name.starts_with_icase("http/")) {
+             const int status = name.strlen() >= 12 ? atoi(name.get() + 9) : 0;
+             responseStatus = status;
++            ++statusCount;
+             seekDiagnostic("radio.seek.range.status", status);
+         }
+         if (name.equals_icase("content-range")) {
+             hasRange = radio_http_range::parse(value.c_get(), responseRange);
++            ++rangeCount;
+         }
+         if (name.equals_icase("content-length")) {
+             hasContentLength = true;
++            ++lengthCount;
+             contentLength = value.to_uint32();
+-        }
++            if (requireLength) {
++                const char* p = value.c_get();
++                if (!radio_http_range::number(p, contentLength) || *p) invalidFraming = true;
++            }
++        }
++        if (requireLength && (name.equals_icase("transfer-encoding") ||
++            (name.equals_icase("content-encoding") && !value.equals_icase("identity")))) invalidFraming = true;
+         switch (parseHeaderLine(name, value, redirectUrl)) {
+             case HeaderResult::Continue: break;
+             case HeaderResult::Error:
+@@ -5552,7 +5654,8 @@
+             default: break;
+         }
+     }
+-    if (!hasRange || m_f_chunked ||
++    if ((requireLength && (!hasContentLength || invalidFraming || statusCount != 1 || rangeCount != 1 || lengthCount != 1)) ||
++        !hasRange || m_f_chunked ||
+         !radio_http_range::matches(responseStatus, responseRange, position,
+             length, fileSize, hasContentLength, contentLength)) {
+         seekDiagnostic("radio.seek.range.header-result", 0, 4);
+@@ -5567,7 +5670,7 @@
+     return false;
+ lastToDo:
+     seekDiagnostic("radio.seek.range.header-result", 1, 0);
+-    seekDiagnostic("radio.start.range.ready", millis());
++    if (position != 0 || length == UINT32_MAX) seekDiagnostic("radio.start.range.ready", millis());
+     m_dataMode = AUDIO_DATA;
+     return true;
+ }
+--- a/src/Audio.h
++++ b/src/Audio.h
+@@ -287,6 +287,7 @@
+     bool             openai_speech(const char* api_key, const char* model, const char* input, const char* instructions, const char* voice, const char* response_format, const char* speed);
+     audiolib::hwoe_t dismantle_host(const char* host);
+     bool             connecttohost(const char* host, const char* user = nullptr, const char* pwd = nullptr);
++    bool             connecttohostAtTime(const char* host, uint16_t startSeconds); // opt-in PCM WAV experiment
+     bool             connecttospeech(const char* speech, const char* lang);
+     bool             connecttoFS(fs::FS& fs, const char* path, int32_t fileStartTime = -1);
+     void             setConnectionTimeout(uint16_t timeout_ms, uint16_t timeout_ms_ssl);
+@@ -344,6 +345,7 @@
+     void                      destroy_decoder();
+     void                      latinToUTF8(ps_ptr<char>& buff, bool UTF8check = true);
+     void                      htmlToUTF8(char* str);
++    bool                      connecttohostRequest(const char* host, const char* user, const char* pwd, bool finiteWavHeader);
+     void                      setDefaults(); // free buffers and set defaults
+     int32_t                   audioFileRead();
+     int32_t                   audioFileRead(uint16_t timeout_ms);
+@@ -352,7 +354,7 @@
+     int32_t                   audioFileSeek(uint32_t position, size_t len = 0);
+     void                      initInBuff();
+     bool                      httpPrint(const char* host);
+-    bool                      httpRange(uint32_t range, uint32_t length = UINT32_MAX);
++    bool                      httpRange(uint32_t range, uint32_t length = UINT32_MAX, bool reuseConnected = false);
+     void                      seekDiagnostic(const char* tag, int32_t value1 = 0, int32_t value2 = 0);
+     void                      processLocalFile();
+     void                      processWebStream();
+@@ -400,7 +402,7 @@
+     std::vector<ps_ptr<char>> readHeader();
+     HeaderResult              parseHeaderLine(ps_ptr<char> name, ps_ptr<char> value, ps_ptr<char>& redirectUrl);
+     bool                      parseHttpResponseHeader();
+-    bool                      parseHttpRangeHeader(uint32_t position, uint32_t length);
++    bool                      parseHttpRangeHeader(uint32_t position, uint32_t length, bool requireLength = false);
+     bool                      initializeDecoder();
+     esp_err_t                 I2Sstart();
+     esp_err_t                 I2Sstop();
+--- /dev/null
++++ b/src/RadioFastWav.h
+@@ -0,0 +1,61 @@
++#pragma once
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++
++// Opt-in PCM WAV experiment. Only the finite first response is retained.
++namespace radio_fast_wav {
++constexpr uint32_t kInitialBytes = 8192;
++struct Header {
++    uint32_t dataStart = 0, dataSize = 0, byteRate = 0, sampleRate = 0;
++    uint16_t blockAlign = 0, channels = 0, bits = 0;
++};
++inline uint16_t le16(const uint8_t* p) { return uint16_t(p[0]) | (uint16_t(p[1]) << 8); }
++inline uint32_t le32(const uint8_t* p) {
++    return uint32_t(p[0]) | (uint32_t(p[1]) << 8) | (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24);
++}
++inline bool parse(const uint8_t* data, size_t size, uint32_t fileSize, Header& result) {
++    if (!data || size < 12 || std::memcmp(data, "RIFF", 4) || std::memcmp(data + 8, "WAVE", 4)) return false;
++    const uint64_t riffEnd = uint64_t(le32(data + 4)) + 8;
++    if (riffEnd > fileSize || riffEnd < 12) return false;
++    Header header;
++    bool fmtSeen = false;
++    size_t p = 12;
++    while (p + 8 <= size && p + 8 <= riffEnd) {
++        const uint32_t chunkSize = le32(data + p + 4);
++        const uint64_t end = uint64_t(p) + 8 + chunkSize;
++        if (end > riffEnd) return false;
++        if (!std::memcmp(data + p, "fmt ", 4)) {
++            if (fmtSeen || chunkSize < 16 || end > size || le16(data + p + 8) != 1) return false;
++            header.channels = le16(data + p + 10);
++            header.sampleRate = le32(data + p + 12);
++            header.byteRate = le32(data + p + 16);
++            header.blockAlign = le16(data + p + 20);
++            header.bits = le16(data + p + 22);
++            if ((header.channels != 1 && header.channels != 2) || !header.sampleRate || header.byteRate > UINT32_MAX / 8 ||
++                (header.bits != 8 && header.bits != 16 && header.bits != 24 && header.bits != 32) ||
++                header.blockAlign != header.channels * (header.bits / 8) ||
++                uint64_t(header.sampleRate) * header.blockAlign != header.byteRate) return false;
++            fmtSeen = true;
++        } else if (!std::memcmp(data + p, "data", 4)) {
++            if (!fmtSeen || !chunkSize || chunkSize % header.blockAlign) return false;
++            header.dataStart = uint32_t(p + 8);
++            header.dataSize = chunkSize;
++            result = header;
++            return true;
++        }
++        const uint64_t next = end + (chunkSize & 1);
++        if (next > size) return false; // header must fit the bounded response
++        p = size_t(next);
++    }
++    return false;
++}
++inline bool target(const Header& header, uint16_t seconds, uint32_t& result) {
++    if (!header.blockAlign || !header.byteRate) return false;
++    const uint64_t offset = uint64_t(seconds) * header.byteRate;
++    const uint64_t aligned = offset - offset % header.blockAlign;
++    if (aligned >= header.dataSize || uint64_t(header.dataStart) + aligned > INT32_MAX) return false;
++    result = header.dataStart + uint32_t(aligned);
++    return true;
++}
++} // namespace radio_fast_wav

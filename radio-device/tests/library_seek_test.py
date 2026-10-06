@@ -2,19 +2,14 @@
 Apply the documented library patches first. No network, Arduino or audio output.
 """
 from pathlib import Path
-import hashlib
-import json
 import os
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
 library = Path(os.environ.get('RADIO_AUDIO_LIBRARY_DIR', str(Path.home() / 'Documents/Arduino/libraries/ESP32-audioI2S-master')))
-source = (library / 'src/Audio.cpp').read_text()
-hashes = json.loads((root / 'patches/library-hashes.json').read_text())
-for filename, fingerprint in hashes.items():
-    expected = fingerprint.get('captionClock', fingerprint.get('mutexGuard', fingerprint['fixed']))
-    assert hashlib.sha256((library / 'src' / filename).read_bytes()).hexdigest() == expected, f'Apply the current library patches first: {filename}'
+from library_fixture import read_source
+source = read_source()
 
 def function(signature):
     start = source.index(signature)
@@ -35,6 +30,7 @@ preamble = r'''
 #include <string>
 #include <vector>
 using std::size_t;
+uint32_t millis() { return 100; }
 template<class T> struct ps_ptr {
     std::string text;
     ps_ptr() = default;
@@ -147,11 +143,13 @@ struct Audio {
     int32_t flac_correctResumeFilePos() { return alignment; }
     int32_t ogg_correctResumeFilePos() { return alignment; }
     bool parseHttpResponseHeader();
-    bool parseHttpRangeHeader(uint32_t, uint32_t);
+    bool parseHttpRangeHeader(uint32_t, uint32_t, bool = false);
     int32_t audioFileSeek(uint32_t, size_t = 0);
     int32_t newInBuffStart(int32_t);
 };
 '''
+if 'bool requireLength' not in source:
+    preamble = preamble.replace('bool parseHttpRangeHeader(uint32_t, uint32_t, bool = false);', 'bool parseHttpRangeHeader(uint32_t, uint32_t);')
 cases = r'''
 std::vector<ps_ptr<char>> headers(int status = 206, const char* range = "bytes 448044-999999/1000000", const char* length = "551956") {
     std::vector<ps_ptr<char>> out;

@@ -33,6 +33,7 @@ preamble = r'''
 #include "RadioTuningWav.h"
 #include "RadioDisplayModel.h"
 #include "RadioCaptions.h"
+#include "RadioStartTiming.h"
 int captionGlyphWidth(uint32_t cp) { return cp < 128 ? 6 : 12; }
 void renderDisplay(RadioDisplayModel& model) { model.dirty = false; }
 int FFat = 0;
@@ -80,6 +81,7 @@ struct Audio {
   enum Event { evt_eof, evt_info, evt_log };
   struct msg_t { Event e; const char* msg = nullptr; const char* s = nullptr; int32_t arg1 = 0, arg2 = 0; };
   bool running = false, connectOK = true;
+  bool fastOK = false; int fastConnects = 0;
   int stops = 0, connects = 0, localConnects = 0, volume = 15;
   bool localOK = true;
   std::vector<String> operations;
@@ -89,6 +91,12 @@ struct Audio {
   std::function<void()> loopStep, connectStep, stopStep;
   bool connecttohost(const char*) {
     operations.push_back("network"); ++connects; if (connectStep) connectStep(); running = connectOK; return connectOK;
+  }
+  bool connecttohostAtTime(const char*, uint16_t) {
+    operations.push_back("fast"); ++fastConnects;
+    running = fastOK;
+    if (!fastOK) { events.push_back({evt_info, "radio.fast.failed", nullptr, 5}); events.push_back({evt_log, "redacted", "LOGE"}); }
+    return fastOK;
   }
   void stopSong() { operations.push_back("stop"); ++stops; running = false; if (stopStep) stopStep(); }
   void setVolume(uint8_t value) { volume = value; }
@@ -158,6 +166,7 @@ void reset() {
   staticError = staticProducedSamples = staticStreamReady = false;
   prefetchGeneration = 0; prefetchBusy = prefetchAttempted = false;
   taskCreateOK = true; responseDate = "Tue, 06 Oct 2026 00:00:00 GMT";
+  startTiming.active.store(false); startTimingPrefetch = false; dialLockRecorded = false;
   networkAudio = Audio{}; receiverState = ReceiverState::kIdle;
   currentProgramId.clear(); recentProgramCount = 0;
   recentProgramIds[0].clear(); recentProgramIds[1].clear();
@@ -451,9 +460,48 @@ int main() {
   reset();
 }
 '''
+fast_cases = cases[:cases.index('int main() {')] + r'''
+int main() {
+  reset(); networkAudio.fastOK = true;
+  JsonDocument manifest;
+  manifest["programId"] = "fast"; manifest["audioUrl"] = "https://example.test/file.wav?token=HIDDEN";
+  manifest["startOffsetMs"] = 7613; manifest["signalKind"] = "chat";
+  auto caption = manifest["captions"].to<JsonArray>().add<JsonObject>();
+  caption["startMs"] = 7000; caption["endMs"] = 12000; caption["text"] = "绝对时间字幕";
+  startManifestPlayback(manifest.as<JsonObjectConst>(),0);
+  assert(receiverState == ReceiverState::kPlaying && networkAudio.fastConnects == 1 && networkAudio.connects == 0);
+  assert(!audioSeekPending && !displaySeekWaiting && !startTiming.fallback);
+  onAudioInfo({Audio::evt_info,"stream ready"});
+  int32_t pcm[4] = {1,2,3,4}; audio_process_raw_samples(pcm,4);
+  networkAudio.currentTimeSec = 7; updateDisplay();
+  assert(String(displayModel.captionLines[0]) == "绝对时间字幕");
+  updatePlayback(); assert(networkAudio.seeks.empty());
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
+  assert(receiverState == ReceiverState::kIdle && completedIds.size() == 1);
+  updatePlayback(); assert(completedIds.size() == 1);
+
+  reset(); play("fallback",7613);
+  assert(networkAudio.fastConnects == 1 && networkAudio.connects == 1);
+  assert(startTiming.fallback && !audioError && audioSeekPending && displaySeekWaiting && completedIds.empty());
+  assert(countLog("fallback to legacy seek") == 1);
+  onAudioInfo({Audio::evt_info,"stream ready"}); updatePlayback();
+  assert(networkAudio.seeks.size() == 1 && networkAudio.seeks[0] == 7);
+  reset(); networkAudio.connectOK = false;
+  manifest["programId"] = "failed";
+  startManifestPlayback(manifest.as<JsonObjectConst>(),0);
+  assert(receiverState == ReceiverState::kIdle && currentProgramId.empty() && completedIds.empty());
+  assert(displayModel.status == RadioDisplayStatus::SignalLost && captionTrack.count == 0);
+
+  reset(); manifest["audioUrl"] = "https://example.test/file.mp3";
+  startManifestPlayback(manifest.as<JsonObjectConst>(),0);
+  assert(networkAudio.fastConnects == 0 && networkAudio.connects == 1 && audioSeekPending);
+  reset();
+}
+'''
 with tempfile.TemporaryDirectory(prefix='radio-controls-test-') as directory:
-    cpp, binary = Path(directory) / 'controls.cpp', Path(directory) / 'controls-test'
-    cpp.write_text(preamble + globals_ + controls + flow + playback + display_update + hook + cases)
-    subprocess.run([os.environ.get('CXX', 'clang++'), '-std=c++17', '-Wall', '-Wextra', '-I', str(root), '-I', str(json_headers), str(cpp), '-o', str(binary)], check=True)
-    subprocess.run([str(binary)], check=True)
-print('Controls/tune/prefetch/playback checks passed (real ArduinoJson, host I/O fakes).')
+    for flag, test_cases in [(0, cases), (1, fast_cases)]:
+        cpp, binary = Path(directory) / 'controls.cpp', Path(directory) / 'controls-test'
+        cpp.write_text(preamble + globals_ + controls + flow + playback + display_update + hook + test_cases)
+        subprocess.run([os.environ.get('CXX', 'clang++'), '-std=c++17', f'-DRADIO_FAST_WAV_START={flag}', '-Wall', '-Wextra', '-I', str(root), '-I', str(json_headers), str(cpp), '-o', str(binary)], check=True)
+        subprocess.run([str(binary)], check=True)
+print('Controls/tune/prefetch/playback and opt-in fast/fallback checks passed (host I/O fakes).')
