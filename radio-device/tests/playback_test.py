@@ -17,6 +17,11 @@ preamble = r'''
 #include "RadioDisplayModel.h"
 #include "RadioCaptions.h"
 #include "RadioStartTiming.h"
+#include "ReceiverControls.h"
+RadioTuneInput tuneInput;
+int controlsMux = 0;
+void portENTER_CRITICAL(int*) {}
+void portEXIT_CRITICAL(int*) {}
 void renderDisplay(RadioDisplayModel& model) { model.dirty = false; }
 #include <atomic>
 #include <cassert>

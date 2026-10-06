@@ -156,3 +156,25 @@ python3 radio-device/tests/tuning_wav_test.py
 fast test 直接提取已校验指纹的原生初始请求构造、实验 API、httpRange、Range parser 和 playAudioData，通过可控 client/body/header 替身验证有限 GET、完整 body 边界、同 client 无 stop/reconnect、关闭/错误/malformed 拒绝、非标准 header、blockAlign、首帧 seek-relative 读指针与目标 Range 剩余字节的真实 EOF。seek/mutex/clock 原回归保留；时钟测试从补丁逐层恢复真实旧版本，另验证 fast API 提交的 `dataStart=54`、目标 `448054` 首帧为 7 秒、之后为 8 秒。controls 同时编译开关 0/1，验证成功不二次 seek、字幕绝对位置、natural EOF 只 completed 一次、失败事件不污染 fallback、双失败保留 idle/failure 语义、非 WAV 仍 legacy。playback 验证 raw callback 首次计时排除 static、feedback、seek 前样本、空缓冲并覆盖毫秒溢出。
 
 本次 A/B 成功样本中位数从 5675.5 ms 降至 3282 ms（42.2%），一次 initial-body 超时回退单列。自然结束暴露的首帧读指针重置已修复，并追加真机 completed 成功验证；正式采用前保持默认关闭。完整真机数据、修复及验收边界见 [011a-fast-wav-start.md](../diagnostics/011a-fast-wav-start.md)。HTTP response body 读到 framing 边界后才能复用连接的协议依据：[RFC 9112 §9.3](https://www.rfc-editor.org/rfc/rfc9112.html#section-9.3)。Storage 文档支持 signed URL 下载，并不承诺本设备 TLS keep-alive 的可复用性；必须实测。
+
+
+## 011B 稳定性验收与有限窗口比较（进行中）
+
+任务 `fe99697` 要求先用修正版完成新的实体换台验收，不能复用 011A 修 bug 前的 A/B。当前默认仍为 `RADIO_FAST_WAV_START=0`；只在满足新一轮验收条件后才改为正式默认路径。
+
+`RadioFastWav.h` 增加编译期 `RADIO_FAST_WAV_INITIAL_BYTES`，仅允许 4096/8192，当前源默认 8192。4096 比较固件必须在 **所有 C++ 编译单元** 使用 `-DRADIO_FAST_WAV_INITIAL_BYTES=4096`，例如 Arduino CLI 的 `compiler.cpp.extra_flags`；不能只在 sketch include 前定义。fast 开关另以显式 1 构建。改变窗口不会改变目标 PCM 的 8 KiB prefill、3 秒读取 timeout、严格 Range/Content-Length 校验、同 client 复用或 legacy fallback。
+
+超窗口 RIFF header 在发送第二 GET 前安全失败，不把初始 PCM 放进 decoder；不是固定 44-byte header。fast WAV 回归分别编译两个窗口，覆盖 dataStart=6000 的 8192 成功 / 4096 拒绝，以及两个窗口都越界的情况。controls 新增 fallback 的绝对字幕位置、自然 EOF 仅 completed 一次和手动中断不 completed。
+
+新真机记录和是否启用的结论见 [011b-fast-wav-productionize.md](../diagnostics/011b-fast-wav-productionize.md)。持续采集可使用：
+
+```bash
+python3 radio-device/diagnostics/capture-start-timing.py --output /tmp/radio-011b-trace.txt
+python3 radio-device/diagnostics/summarize-production-start.py /tmp/radio-011b-trace.txt
+# 若采集覆盖烧录/重启后的第一条 startup，请显式排除：
+python3 radio-device/diagnostics/summarize-production-start.py --exclude-startup /tmp/radio-011b-trace.txt
+```
+
+采集器不发重置脉冲、没有固定收集截止时间、只保存允许的数值/状态日志。用 SIGINT/SIGTERM 结束会 flush 并释放 UART。统计结果的数值条件不能替代用户对连续快转、static、TFT 和听感的确认。自然结束仍保持 NO SIGNAL / completed，等待下一次手动调台；不自动下一台。
+
+011B 现场另发现双连接失败退出 failPlayback 后，selectionLatched 未释放导致后续只响 static、不再选台。sketch 在同一 controlsMux 内使用已有 hold() 恢复选择 latch，保留角度阈值和 4 秒 hold，必须由新物理动作再次请求。controls 覆盖真实 travel → 双失败 → 无自动重试 → 下一次 deliberate travel 恢复，不通过自动 tune 或重启掩盖故障。

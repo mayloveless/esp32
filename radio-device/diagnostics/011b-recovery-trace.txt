@@ -1,0 +1,51 @@
+# Diagnostic snapshot: startup failures and a manual request interrupted by diagnostic reset. Not a physical-start acceptance round.
+# capture opened; no reset
+[    4.114 s] [display] TUNING refreshMs=19
+[    6.853 s] [caption] loaded: received=10 kept=10 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1179
+[    6.856 s] [start] dial.locked: ms=0 prefetch=0
+[    6.864 s] signalKind: chat
+[    6.864 s] startOffsetMs: 10651
+[    6.900 s] [display] LOCKING refreshMs=21
+[    6.904 s] [start] connect.begin: ms=55
+[   25.343 s] fast wav start failed: connect
+[   25.346 s] fallback to legacy seek
+[   43.843 s] audio playback failed to start
+[   43.851 s] audio failure flags: libraryError=1 WiFi=3 ready=0 seekPending=1 samples=0 running=0
+[   43.853 s] audio playback failed
+[   43.874 s] [display] SIGNAL LOST refreshMs=18
+# capture closed
+# capture opened; no reset
+[  277.798 s] encoder feedback
+[  277.809 s] local static started
+[  277.829 s] [display] TUNING refreshMs=19
+[  277.837 s] dial travel threshold: retune
+[  277.840 s] tune request queued
+[  277.906 s] local static ready: volume=15
+[  278.407 s] dial stopped: static off
+[  280.313 s] [caption] loaded: received=9 kept=9 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1197
+[  280.316 s] [start] dial.locked: ms=0 prefetch=0
+[  280.324 s] signalKind: chat
+[  280.325 s] startOffsetMs: 9723
+[  280.340 s] audio stream: lhiojnqooreavzmkrzji.supabase.co/storage/v1/object/sign/radio-audio/8f93caee-fa05-417c-aa80-213d696a3844/dc99868b-5a97-4688-a2e7-a2b5c44a2d64.wav
+[  280.361 s] [display] LOCKING refreshMs=21
+[  280.365 s] [start] connect.begin: ms=55
+# capture closed
+# capture opened; no reset
+[    5.259 s] [display] TUNING refreshMs=19
+[    8.213 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=821
+[    8.216 s] [start] dial.locked: ms=0 prefetch=0
+[    8.224 s] signalKind: alien
+[    8.227 s] startOffsetMs: 4218
+[    8.241 s] audio stream: lhiojnqooreavzmkrzji.supabase.co/storage/v1/object/sign/radio-audio/a839ee50-6b55-4e73-9625-cecbf7105789/9babac18-e4a4-44ac-b395-bd788c94077f.wav
+[    8.260 s] [display] LOCKING refreshMs=21
+[    8.265 s] [start] connect.begin: ms=54
+[   26.475 s] [ 28255][E][ssl_client.cpp:157] start_ssl_client(): socket error on fd 48, errno: 113, "Software caused connection abort"
+[   26.484 s] [ 28266][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[   26.487 s] fast wav start failed: connect
+[   26.490 s] fallback to legacy seek
+[   44.974 s] [ 46755][E][ssl_client.cpp:157] start_ssl_client(): socket error on fd 48, errno: 113, "Software caused connection abort"
+[   44.983 s] [ 46766][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[   44.986 s] audio playback failed to start
+[   44.994 s] audio failure flags: libraryError=1 WiFi=3 ready=0 seekPending=1 samples=0 running=0
+[   44.996 s] audio playback failed
+[   45.018 s] [display] SIGNAL LOST refreshMs=18

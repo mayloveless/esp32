@@ -1165,6 +1165,12 @@ void failPlayback() {
     audioProducedSamples.load(), networkAudio.isRunning());
   stopAudioForHandoff();
   invalidatePrefetch();
+  // A selected tune remains latched until accepted or finished. A terminal
+  // playback failure must release it just like finishTuningIdle, so a later
+  // physical turn can request a new program; never retry automatically.
+  portENTER_CRITICAL(&controlsMux);
+  tuneInput.hold(millis());
+  portEXIT_CRITICAL(&controlsMux);
   currentProgramId = "";
   receiverState = ReceiverState::kIdle;
   captionTrack.clear();

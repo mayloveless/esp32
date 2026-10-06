@@ -480,17 +480,65 @@ int main() {
   assert(receiverState == ReceiverState::kIdle && completedIds.size() == 1);
   updatePlayback(); assert(completedIds.size() == 1);
 
-  reset(); play("fallback",7613);
+  reset(); manifest["programId"] = "fallback";
+  startManifestPlayback(manifest.as<JsonObjectConst>(),0);
   assert(networkAudio.fastConnects == 1 && networkAudio.connects == 1);
   assert(startTiming.fallback && !audioError && audioSeekPending && displaySeekWaiting && completedIds.empty());
   assert(countLog("fallback to legacy seek") == 1);
   onAudioInfo({Audio::evt_info,"stream ready"}); updatePlayback();
   assert(networkAudio.seeks.size() == 1 && networkAudio.seeks[0] == 7);
+  assert(completedIds.empty()); // accepting the legacy seek never completes
+  onAudioInfo({Audio::evt_info,"radio.seek.new-buffer.result",nullptr,448044,1});
+  networkAudio.currentTimeSec = 7;
+  audio_process_raw_samples(pcm,4); updatePlayback(); updateDisplay();
+  assert(String(displayModel.captionLines[0]) == "绝对时间字幕");
+  assert(!audioError && audioProducedSamples && !displaySeekWaiting);
+  assert(completedIds.empty());
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
+  assert(receiverState == ReceiverState::kIdle && completedIds.size() == 1 && completedIds[0] == "fallback");
+  updatePlayback(); assert(completedIds.size() == 1); // fallback EOF is once-only
+  assert(countLog("fallback to legacy seek") == 1);
+  // A manual dial after a recovered fallback must never retire that program.
+  reset(); play("fallback-manual",7613);
+  onAudioInfo({Audio::evt_info,"stream ready"}); updatePlayback();
+  onAudioInfo({Audio::evt_info,"radio.seek.new-buffer.result",nullptr,448044,1});
+  audio_process_raw_samples(pcm,4); stopForTuning();
+  assert(completedIds.empty());
   reset(); networkAudio.connectOK = false;
   manifest["programId"] = "failed";
   startManifestPlayback(manifest.as<JsonObjectConst>(),0);
   assert(receiverState == ReceiverState::kIdle && currentProgramId.empty() && completedIds.empty());
   assert(displayModel.status == RadioDisplayStatus::SignalLost && captionTrack.count == 0);
+
+  // Real physical selection latches until accepted; a double connect failure
+  // must release it, otherwise all later turns only produce static forever.
+  reset(); setupManifestPrefetch(); tuningWavReady = true;
+  networkAudio.connectOK = false;
+  select(clockMs = 5000); const uint32_t failedRevision = tuneInput.revision;
+  assert(tuneInput.selectionLatched);
+  updateControls(); finishPrefetch();
+  assert(receiverState == ReceiverState::kTuning && pendingPlaybackReady);
+  settle(clockMs += 300); // foreground manifest -> fast failure -> legacy failure
+  assert(receiverState == ReceiverState::kIdle && completedIds.empty());
+  assert(!tuneInput.selectionLatched && tuneInput.revision == failedRevision);
+  const int callsAfterFailure = requestCalls;
+  updateControls(); updateForegroundTune(); updateManifestPrefetch();
+  assert(requestCalls == callsAfterFailure && !prefetchBusy); // no automatic retry
+  // Keeping the existing 4 s hold, larger deliberate travel can recover even
+  // within it; one burst queues exactly one new foreground tune.
+  networkAudio.fastOK = true; networkAudio.connectOK = true;
+  for (int i=0;i<15;++i) tuneInput.request(clockMs += 3);
+  updateControls(); assert(tuneInput.revision == failedRevision && !prefetchBusy);
+  tuneInput.request(clockMs += 3); updateControls();
+  assert(tuneInput.revision == failedRevision + 1 && prefetchBusy);
+  finishPrefetch(); settle(clockMs += 300);
+  assert(receiverState == ReceiverState::kPlaying && networkAudio.fastConnects == 2);
+  assert(requestCalls == callsAfterFailure + 1 && completedIds.empty());
+  reset(); play("runtime-failure",7613);
+  tuneInput.selectionLatched = true; failPlayback();
+  assert(!tuneInput.selectionLatched && completedIds.empty());
+  for(int i=0;i<4;++i) tuneInput.request(clockMs = 5000);
+  assert(tuneInput.ready(acknowledgedTuneRevision,clockMs)); // normal travel after hold
 
   reset(); manifest["audioUrl"] = "https://example.test/file.mp3";
   startManifestPlayback(manifest.as<JsonObjectConst>(),0);

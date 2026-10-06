@@ -144,8 +144,8 @@ struct Audio {
     int32_t audioFileRead(uint8_t* out, size_t n, uint16_t timeout) {
         assert(timeout == 3000); ++bodyReads;
         if (bodyReads == 1) {
-            assert(n == 8192);
-            if (incomplete) return 4096;
+            assert(n == radio_fast_wav::kInitialBytes);
+            if (incomplete) return n / 2;
             std::memcpy(out,initial.data(),n); m_client->consumed = true;
             if (closeAfterBody) m_client->open = false;
         } else { assert(m_client->writes == 2); std::memset(out,0x55,n); }
@@ -175,12 +175,12 @@ std::vector<ps_ptr<char>> response(int status, const std::string& range, const s
 }
 void prepare(Audio& a) {
     a.initial=wav();
-    a.responses={response(206,"bytes 0-8191/1000000","8192"),response(206,"bytes 448054-999999/1000000","551946")};
+    a.responses={response(206,"bytes 0-" + std::to_string(radio_fast_wav::kInitialBytes - 1) + "/1000000",std::to_string(radio_fast_wav::kInitialBytes)),response(206,"bytes 448054-999999/1000000","551946")};
 }
 int main() {
     Audio a; prepare(a); assert(a.connecttohostAtTime("https://example.test/audio.wav",7));
     assert(a.clientsecure.connects == 1 && a.clientsecure.stops == 0 && a.clientsecure.writes == 2);
-    assert(a.clientsecure.sent[0].find("Range: bytes=0-8191\r\n") != std::string::npos);
+    assert(a.clientsecure.sent[0].find("Range: bytes=0-" + std::to_string(radio_fast_wav::kInitialBytes - 1) + "\r\n") != std::string::npos);
     assert(a.clientsecure.request.find("Range: bytes=448054-\r\n") != std::string::npos);
     assert(a.bodyReads == 2 && a.InBuff.written == 8192 && a.InBuff.bytes[0] == 0x55);
     assert(a.m_audioDataStart == 54 && a.m_haveNewFilePos == 448054 && a.m_audioDataReadPtr == 448000);
@@ -214,7 +214,7 @@ int main() {
         Audio bad; prepare(bad); bad.responses[1][1]=ps_ptr<char>((std::string("Content-Range: ")+range).c_str());
         assert(!bad.connecttohostAtTime("https://example.test/audio.wav",7) && bad.bodyReads == 1 && bad.InBuff.written == 0);
     }
-    for (const char* value : {"8191", "8192garbage", "4294967296"}) {
+    for (const char* value : {"8191", "4095", "8192garbage", "4294967296"}) {
         Audio bad; prepare(bad); bad.responses[0][2]=ps_ptr<char>((std::string("Content-Length: ")+value).c_str());
         assert(!bad.connecttohostAtTime("https://example.test/audio.wav",7) && bad.clientsecure.writes == 1);
     }
@@ -234,6 +234,34 @@ int main() {
     radio_fast_wav::Header header; auto b=wav(); assert(radio_fast_wav::parse(b.data(),b.size(),1000000,header));
     uint32_t target=0; assert(radio_fast_wav::target(header,7,target) && (target-header.dataStart)%header.blockAlign==0);
     assert(!radio_fast_wav::parse(b.data(),40,1000000,header));
+    // Both proposed finite windows still parse real chunks (including padding).
+    assert(radio_fast_wav::parse(b.data(),4096,1000000,header) && header.dataStart == 54);
+    auto beyondWindow = wav();
+    put32(beyondWindow,16,9000); // declared JUNK crosses even the 8192 boundary
+    assert(!radio_fast_wav::parse(beyondWindow.data(),4096,1000000,header));
+    assert(!radio_fast_wav::parse(beyondWindow.data(),8192,1000000,header));
+    Audio oversizedHeader; prepare(oversizedHeader); oversizedHeader.initial = beyondWindow;
+    assert(!oversizedHeader.connecttohostAtTime("https://example.test/audio.wav",7));
+    assert(oversizedHeader.failureStage == 4 && oversizedHeader.clientsecure.writes == 1);
+    assert(oversizedHeader.InBuff.written == 0 && !oversizedHeader.m_f_running && locks == 0);
+    // A genuine data header between the two limits is supported at 8192,
+    // and safely rejected before the target GET at 4096.
+    Audio wide; prepare(wide); wide.initial.assign(8192,0);
+    std::memcpy(wide.initial.data(),"RIFF",4); put32(wide.initial,4,999992);
+    std::memcpy(wide.initial.data()+8,"WAVE",4);
+    std::memcpy(wide.initial.data()+12,"JUNK",4); put32(wide.initial,16,5948);
+    std::memcpy(wide.initial.data()+5968,"fmt ",4); put32(wide.initial,5972,16);
+    put16(wide.initial,5976,1); put16(wide.initial,5978,1); put32(wide.initial,5980,32000);
+    put32(wide.initial,5984,64000); put16(wide.initial,5988,2); put16(wide.initial,5990,16);
+    std::memcpy(wide.initial.data()+5992,"data",4); put32(wide.initial,5996,994000);
+    wide.responses[1] = response(206,"bytes 454000-999999/1000000","546000");
+    if (radio_fast_wav::kInitialBytes == 4096) {
+        assert(!wide.connecttohostAtTime("https://example.test/audio.wav",7));
+        assert(wide.failureStage == 4 && wide.clientsecure.writes == 1 && wide.InBuff.written == 0);
+    } else {
+        assert(wide.connecttohostAtTime("https://example.test/audio.wav",7));
+        assert(wide.m_audioDataStart == 6000 && wide.m_audioDataReadPtr == 448000);
+    }
     // Normal httpRange still reconnects; the reuse flag is opt-in.
     Audio legacy; legacy.m_f_running=true; legacy.clientsecure.open=true; legacy.clientsecure.consumed=true;
     assert(legacy.httpRange(448054,UINT32_MAX)); assert(legacy.clientsecure.stops==1 && legacy.clientsecure.connects==1);
@@ -242,6 +270,7 @@ int main() {
 actual = ''.join(function(sig) for sig in ['bool Audio::connecttohostRequest(', 'bool Audio::connecttohostAtTime(', 'bool Audio::httpRange(', 'bool Audio::parseHttpRangeHeader(', 'void Audio::playAudioData('])
 with tempfile.TemporaryDirectory(prefix='radio-fast-wav-test-') as folder:
     cpp=Path(folder)/'fast.cpp'; binary=Path(folder)/'fast'; cpp.write_text(preamble+actual+cases)
-    subprocess.run(['c++','-std=c++17','-fsanitize=address,undefined','-g','-I',str(library/'src'),str(cpp),'-o',str(binary)],check=True)
-    subprocess.run([str(binary)],check=True)
+    for window in (8192, 4096):
+        subprocess.run(['c++','-std=c++17',f'-DRADIO_FAST_WAV_INITIAL_BYTES={window}','-fsanitize=address,undefined','-g','-I',str(library/'src'),str(cpp),'-o',str(binary)],check=True)
+        subprocess.run([str(binary)],check=True)
 print('Native fast WAV API/body-boundary/same-client/range/format/clock-state checks passed.')
