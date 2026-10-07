@@ -1,0 +1,352 @@
+# capture opened; no reset
+[    6.596 s] [display] TUNING refreshMs=18
+[   12.345 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=1120
+[   12.347 s] [start] dial.locked: ms=0 prefetch=0
+[   12.358 s] signalKind: news
+[   12.361 s] startOffsetMs: 13078
+[   12.372 s] audio stream: 192.168.31.182:3000
+[   12.395 s] [display] LOCKING refreshMs=24
+[   12.399 s] [start] connect.begin: ms=58
+[   12.489 s] audio playback started
+[   12.491 s] [start] tls.connected: ms=73
+[   12.494 s] [seek] range.status: HTTP=206
+[   12.500 s] [seek] accept-ranges: headerBytes=1 supported=1
+[   12.526 s] [seek] range.validated: position=0 fileSize=3288396
+[   12.526 s] [seek] range.header-result: ok=1 reason=0
+[   12.526 s] [fast] initial.consumed: bytes=8192
+[   12.526 s] [start] wav.header: ms=111
+[   12.527 s] [seek] range.request: position=832044 length=-1
+[   12.527 s] [seek] range.sent: written=629 expected=629
+[   12.527 s] [start] range.sent: ms=113
+[   12.527 s] [seek] range.status: HTTP=206
+[   12.530 s] [seek] accept-ranges: headerBytes=1 supported=1
+[   12.533 s] [seek] range.validated: position=832044 fileSize=3288396
+[   12.539 s] [seek] range.header-result: ok=1 reason=0
+[   12.541 s] [start] range.ready: ms=138
+[   12.545 s] [fast] applied: position=832044 seconds=13
+[   12.600 s] [caption] index=0 page=3/11 playbackMs=13000
+[   12.623 s] [display] PLAYING refreshMs=26
+[   12.629 s] [start] first.network.pcm: ms=226
+[   12.634 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=111 rangeMs=25 totalMs=226
+[   12.639 s] manifest prefetch request queued
+[   14.171 s] [caption] index=0 page=4/11 playbackMs=15000
+[   14.195 s] [display] PLAYING refreshMs=26
+[   15.499 s] [flow] wallMs=3000 audioSec=16 sr=32000 inBytes=655350 inSize=655350 pcmFrames=93952 maxGapMs=18 loopMaxMs=48 dmaFree=0
+[   16.940 s] manifest prefetch ready: requestMs=4310 validMs=295690
+[   18.171 s] [caption] index=0 page=5/11 playbackMs=19000
+[   18.195 s] [display] PLAYING refreshMs=25
+[   18.499 s] [flow] wallMs=3000 audioSec=19 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=0
+[   21.498 s] [flow] wallMs=3000 audioSec=22 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[   23.171 s] [caption] index=0 page=6/11 playbackMs=24000
+[   23.195 s] [display] PLAYING refreshMs=25
+[   24.498 s] [flow] wallMs=3000 audioSec=25 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=15 loopMaxMs=3 dmaFree=0
+[   27.498 s] [flow] wallMs=3000 audioSec=28 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[   28.171 s] [caption] index=0 page=7/11 playbackMs=29000
+[   28.196 s] [display] PLAYING refreshMs=26
+[   30.498 s] [flow] wallMs=3000 audioSec=31 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=2 dmaFree=0
+[   32.171 s] [caption] index=0 page=8/11 playbackMs=33000
+[   32.196 s] [display] PLAYING refreshMs=26
+[   33.498 s] [flow] wallMs=3000 audioSec=34 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=13 loopMaxMs=3 dmaFree=0
+[   36.499 s] [flow] wallMs=3001 audioSec=37 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[   37.171 s] [caption] index=0 page=9/11 playbackMs=38000
+[   37.196 s] [display] PLAYING refreshMs=26
+[   39.499 s] [flow] wallMs=3000 audioSec=40 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[   42.171 s] [caption] index=0 page=10/11 playbackMs=43000
+[   42.196 s] [display] PLAYING refreshMs=26
+[   42.498 s] [flow] wallMs=3000 audioSec=43 sr=32000 inBytes=506656 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=1 dmaFree=0
+[   45.498 s] [flow] wallMs=3000 audioSec=46 sr=32000 inBytes=314144 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=0 dmaFree=0
+[   46.169 s] [caption] index=0 page=11/11 playbackMs=47000
+[   46.191 s] [display] PLAYING refreshMs=22
+[   48.498 s] [flow] wallMs=3000 audioSec=49 sr=32000 inBytes=121632 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=1 dmaFree=0
+[   50.450 s] [display] NO SIGNAL refreshMs=19
+[   50.450 s] audio playback completed
+[   52.055 s] completed request succeeded
+[  373.455 s] encoder feedback
+[  373.467 s] local static started
+[  373.486 s] [display] TUNING refreshMs=18
+[  373.494 s] dial travel threshold: retune
+[  373.499 s] manifest prefetch expired; using normal tune
+[  373.501 s] tune request queued
+[  373.565 s] local static ready: volume=15
+[  374.041 s] dial stopped: static off
+[  375.964 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[  375.967 s] [start] dial.locked: ms=0 prefetch=0
+[  375.972 s] signalKind: music
+[  375.972 s] startOffsetMs: 7586
+[  375.984 s] audio stream: 192.168.31.182:3000
+[  375.998 s] [display] LOCKING refreshMs=19
+[  376.002 s] [start] connect.begin: ms=41
+[  376.122 s] audio playback started
+[  376.125 s] [start] tls.connected: ms=56
+[  376.128 s] [seek] range.status: HTTP=206
+[  376.133 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  376.136 s] [seek] range.validated: position=0 fileSize=2710636
+[  376.141 s] [seek] range.header-result: ok=1 reason=0
+[  376.144 s] [fast] initial.consumed: bytes=8192
+[  376.144 s] [start] wav.header: ms=105
+[  376.150 s] [seek] range.request: position=448044 length=-1
+[  376.153 s] [seek] range.sent: written=629 expected=629
+[  376.155 s] [start] range.sent: ms=107
+[  376.158 s] [seek] range.status: HTTP=206
+[  376.164 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  376.166 s] [seek] range.validated: position=448044 fileSize=2710636
+[  376.172 s] [seek] range.header-result: ok=1 reason=0
+[  376.175 s] [start] range.ready: ms=152
+[  376.178 s] [fast] applied: position=448044 seconds=7
+[  376.248 s] [display] PLAYING refreshMs=21
+[  376.254 s] [start] first.network.pcm: ms=270
+[  376.259 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=105 rangeMs=45 totalMs=270
+[  376.264 s] manifest prefetch request queued
+[  377.454 s] manifest prefetch ready: requestMs=1199 validMs=298801
+[  379.131 s] [flow] wallMs=3000 audioSec=10 sr=32000 inBytes=655350 inSize=655350 pcmFrames=92672 maxGapMs=19 loopMaxMs=48 dmaFree=0
+[  382.131 s] [flow] wallMs=3000 audioSec=13 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=1 dmaFree=0
+[  382.534 s] encoder feedback
+[  382.554 s] [display] TUNING refreshMs=18
+[  382.561 s] dial travel threshold: retune
+[  382.576 s] local static started
+[  382.579 s] manifest prefetch hit: ageMs=6325
+[  382.588 s] [caption] loaded: received=7 kept=7 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=718
+[  382.593 s] manifest prepared; waiting for dial stop
+[  382.668 s] local static ready: volume=15
+[  382.857 s] dial stopped: static off
+[  382.891 s] local static started
+[  382.956 s] local static ready: volume=15
+[  383.174 s] dial stopped: static off
+[  383.325 s] dial locked: connect prepared program
+[  383.328 s] [start] dial.locked: ms=0 prefetch=1
+[  383.336 s] signalKind: alien
+[  383.336 s] startOffsetMs: 6452
+[  383.347 s] audio stream: 192.168.31.182:3000
+[  383.366 s] [display] LOCKING refreshMs=21
+[  383.371 s] [start] connect.begin: ms=44
+[  383.487 s] audio playback started
+[  383.490 s] [start] tls.connected: ms=75
+[  383.492 s] [seek] range.status: HTTP=206
+[  383.498 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  383.501 s] [seek] range.validated: position=0 fileSize=4005492
+[  383.506 s] [seek] range.header-result: ok=1 reason=0
+[  383.509 s] [fast] initial.consumed: bytes=8192
+[  383.509 s] [start] wav.header: ms=115
+[  383.515 s] [seek] range.request: position=384044 length=-1
+[  383.517 s] [seek] range.sent: written=629 expected=629
+[  383.520 s] [start] range.sent: ms=117
+[  383.523 s] [seek] range.status: HTTP=206
+[  383.528 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  383.531 s] [seek] range.validated: position=384044 fileSize=4005492
+[  383.537 s] [seek] range.header-result: ok=1 reason=0
+[  383.540 s] [start] range.ready: ms=151
+[  383.543 s] [fast] applied: position=384044 seconds=6
+[  383.621 s] [caption] index=0 page=2/2 playbackMs=6000
+[  383.673 s] [display] PLAYING refreshMs=55
+[  383.679 s] [start] first.network.pcm: ms=240
+[  383.684 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=115 rangeMs=34 totalMs=240
+[  383.689 s] manifest prefetch request queued
+[  385.172 s] [caption] index=1 page=1/2 playbackMs=8000
+[  385.196 s] [display] PLAYING refreshMs=25
+[  385.454 s] manifest prefetch ready: requestMs=1774 validMs=298226
+[  386.497 s] [flow] wallMs=3000 audioSec=9 sr=32000 inBytes=655350 inSize=655350 pcmFrames=93952 maxGapMs=20 loopMaxMs=48 dmaFree=0
+[  389.496 s] [flow] wallMs=3000 audioSec=12 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  390.166 s] [caption] index=1 page=2/2 playbackMs=13000
+[  390.187 s] [display] PLAYING refreshMs=22
+[  392.496 s] [flow] wallMs=3000 audioSec=15 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  395.496 s] [flow] wallMs=3000 audioSec=18 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=14 loopMaxMs=3 dmaFree=0
+[  396.170 s] [caption] index=2 page=1/1 playbackMs=19000
+[  396.195 s] [display] PLAYING refreshMs=25
+[  398.496 s] [flow] wallMs=3000 audioSec=21 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  401.497 s] [flow] wallMs=3000 audioSec=24 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  404.496 s] [flow] wallMs=3000 audioSec=27 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=14 loopMaxMs=3 dmaFree=0
+[  407.496 s] [flow] wallMs=3000 audioSec=30 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  410.496 s] [flow] wallMs=3000 audioSec=33 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  413.496 s] [flow] wallMs=3000 audioSec=36 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  414.168 s] [caption] index=3 page=1/1 playbackMs=37000
+[  414.192 s] [display] PLAYING refreshMs=25
+[  416.496 s] [flow] wallMs=3000 audioSec=39 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=15 loopMaxMs=3 dmaFree=0
+[  419.495 s] [flow] wallMs=3000 audioSec=42 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  421.165 s] [caption] index=-1 page=0/0 playbackMs=44000
+[  421.185 s] [display] PLAYING refreshMs=21
+[  422.170 s] [caption] index=4 page=1/2 playbackMs=45000
+[  422.194 s] [display] PLAYING refreshMs=25
+[  422.495 s] [flow] wallMs=3000 audioSec=45 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  425.495 s] [flow] wallMs=3000 audioSec=48 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=16 loopMaxMs=3 dmaFree=0
+[  427.165 s] [caption] index=4 page=2/2 playbackMs=50000
+[  427.185 s] [display] PLAYING refreshMs=21
+[  428.495 s] [flow] wallMs=3000 audioSec=51 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  431.495 s] [flow] wallMs=3000 audioSec=54 sr=32000 inBytes=516680 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=1 dmaFree=0
+[  432.168 s] [caption] index=5 page=1/1 playbackMs=55000
+[  432.192 s] [display] PLAYING refreshMs=24
+[  434.495 s] [flow] wallMs=3000 audioSec=57 sr=32000 inBytes=328264 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  437.167 s] [caption] index=6 page=1/1 playbackMs=60000
+[  437.189 s] [display] PLAYING refreshMs=23
+[  437.495 s] [flow] wallMs=3000 audioSec=60 sr=32000 inBytes=135752 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=0 dmaFree=0
+[  439.651 s] [display] NO SIGNAL refreshMs=19
+[  439.652 s] audio playback completed
+[  441.877 s] completed request succeeded
+[  442.048 s] encoder feedback
+[  442.060 s] local static started
+[  442.079 s] [display] TUNING refreshMs=18
+[  442.087 s] dial travel threshold: retune
+[  442.092 s] manifest prefetch hit: ageMs=58413
+[  442.101 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[  442.104 s] manifest prepared; waiting for dial stop
+[  442.162 s] local static ready: volume=15
+[  442.436 s] dial stopped: static off
+[  442.587 s] dial locked: connect prepared program
+[  442.590 s] [start] dial.locked: ms=0 prefetch=1
+[  442.595 s] signalKind: music
+[  442.598 s] startOffsetMs: 10274
+[  442.607 s] audio stream: 192.168.31.182:3000
+[  442.626 s] [display] LOCKING refreshMs=19
+[  442.630 s] [start] connect.begin: ms=42
+[  442.741 s] audio playback started
+[  442.744 s] [start] tls.connected: ms=57
+[  442.746 s] [seek] range.status: HTTP=206
+[  442.752 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  442.755 s] [seek] range.validated: position=0 fileSize=3011820
+[  442.760 s] [seek] range.header-result: ok=1 reason=0
+[  442.763 s] [fast] initial.consumed: bytes=8192
+[  442.763 s] [start] wav.header: ms=107
+[  442.769 s] [seek] range.request: position=640044 length=-1
+[  442.771 s] [seek] range.sent: written=629 expected=629
+[  442.774 s] [start] range.sent: ms=109
+[  442.777 s] [seek] range.status: HTTP=206
+[  442.782 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  442.785 s] [seek] range.validated: position=640044 fileSize=3011820
+[  442.791 s] [seek] range.header-result: ok=1 reason=0
+[  442.793 s] [start] range.ready: ms=143
+[  442.797 s] [fast] applied: position=640044 seconds=10
+[  442.821 s] [display] PLAYING refreshMs=21
+[  442.826 s] [start] first.network.pcm: ms=216
+[  442.832 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=107 rangeMs=34 totalMs=216
+[  442.838 s] manifest prefetch request queued
+[  443.635 s] manifest prefetch ready: requestMs=807 validMs=299193
+[  445.751 s] [flow] wallMs=3000 audioSec=13 sr=32000 inBytes=655350 inSize=655350 pcmFrames=94208 maxGapMs=18 loopMaxMs=48 dmaFree=0
+[  448.750 s] [flow] wallMs=3000 audioSec=16 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=1 dmaFree=0
+[  450.559 s] encoder feedback
+[  450.579 s] [display] TUNING refreshMs=19
+[  450.602 s] dial travel threshold: retune
+[  450.618 s] local static started
+[  450.621 s] manifest prefetch hit: ageMs=7794
+[  450.629 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[  450.634 s] manifest prepared; waiting for dial stop
+[  450.706 s] local static ready: volume=15
+[  450.754 s] dial stopped: static off
+[  450.836 s] local static started
+[  450.905 s] local static ready: volume=15
+[  451.028 s] dial stopped: static off
+[  451.179 s] dial locked: connect prepared program
+[  451.181 s] [start] dial.locked: ms=0 prefetch=1
+[  451.187 s] signalKind: music
+[  451.190 s] startOffsetMs: 11507
+[  451.199 s] audio stream: 192.168.31.182:3000
+[  451.218 s] [display] LOCKING refreshMs=19
+[  451.222 s] [start] connect.begin: ms=42
+[  451.314 s] audio playback started
+[  451.331 s] [display] TUNING refreshMs=18
+[  451.334 s] [start] tls.connected: ms=57
+[  451.336 s] [seek] range.status: HTTP=206
+[  451.342 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  451.345 s] [seek] range.validated: position=0 fileSize=2710636
+[  451.350 s] [seek] range.header-result: ok=1 reason=0
+[  451.353 s] [fast] initial.consumed: bytes=8192
+[  451.356 s] [start] wav.header: ms=96
+[  451.359 s] [seek] range.request: position=704044 length=-1
+[  451.364 s] [seek] range.sent: written=629 expected=629
+[  451.364 s] [start] range.sent: ms=98
+[  451.367 s] [seek] range.status: HTTP=206
+[  451.373 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  451.378 s] [seek] range.validated: position=704044 fileSize=2710636
+[  451.381 s] [seek] range.header-result: ok=1 reason=0
+[  451.384 s] [start] range.ready: ms=123
+[  451.387 s] [fast] applied: position=704044 seconds=11
+[  451.391 s] encoder feedback
+[  451.428 s] [start] first.network.pcm: ms=248
+[  451.433 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=96 rangeMs=25 totalMs=248
+[  451.438 s] manifest prefetch request queued
+[  451.554 s] [display] PLAYING refreshMs=21
+[  453.425 s] encoder feedback
+[  453.445 s] [display] TUNING refreshMs=18
+[  453.872 s] [display] PLAYING refreshMs=20
+[  454.322 s] [flow] wallMs=3000 audioSec=14 sr=32000 inBytes=655350 inSize=655350 pcmFrames=84224 maxGapMs=280 loopMaxMs=59 dmaFree=0
+[  455.165 s] encoder feedback
+[  455.185 s] [display] TUNING refreshMs=19
+[  455.313 s] dial travel threshold: retune
+[  455.327 s] local static started
+[  455.393 s] local static ready: volume=15
+[  455.464 s] dial stopped: static off
+[  455.508 s] local static started
+[  455.577 s] local static ready: volume=15
+[  455.694 s] dial stopped: static off
+[  455.738 s] local static started
+[  455.809 s] local static ready: volume=15
+[  455.953 s] dial stopped: static off
+[  461.450 s] manifest prefetch discarded: HTTP=-11 stale=1
+[  461.452 s] tune request queued
+[  468.386 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=821
+[  468.389 s] [start] dial.locked: ms=0 prefetch=0
+[  468.397 s] signalKind: alien
+[  468.400 s] startOffsetMs: 4297
+[  468.410 s] audio stream: 192.168.31.182:3000
+[  468.422 s] [display] LOCKING refreshMs=21
+[  468.427 s] [start] connect.begin: ms=43
+[  468.517 s] audio playback started
+[  468.519 s] [start] tls.connected: ms=59
+[  468.522 s] [seek] range.status: HTTP=206
+[  468.528 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  468.530 s] [seek] range.validated: position=0 fileSize=4566594
+[  468.536 s] [seek] range.header-result: ok=1 reason=0
+[  468.539 s] [fast] initial.consumed: bytes=8192
+[  468.539 s] [start] wav.header: ms=97
+[  468.544 s] [seek] range.request: position=256044 length=-1
+[  468.547 s] [seek] range.sent: written=629 expected=629
+[  468.550 s] [start] range.sent: ms=99
+[  468.553 s] [seek] range.status: HTTP=206
+[  468.558 s] [seek] accept-ranges: headerBytes=1 supported=1
+[  468.561 s] [seek] range.validated: position=256044 fileSize=4566594
+[  468.567 s] [seek] range.header-result: ok=1 reason=0
+[  468.569 s] [start] range.ready: ms=124
+[  468.572 s] [fast] applied: position=256044 seconds=4
+[  468.621 s] [caption] index=0 page=1/8 playbackMs=4000
+[  468.643 s] [display] PLAYING refreshMs=25
+[  468.649 s] [start] first.network.pcm: ms=211
+[  468.655 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=97 rangeMs=25 totalMs=211
+[  468.659 s] manifest prefetch request queued
+[  471.525 s] [flow] wallMs=3000 audioSec=7 sr=32000 inBytes=655350 inSize=655350 pcmFrames=93696 maxGapMs=16 loopMaxMs=48 dmaFree=0
+[  472.672 s] manifest prefetch ready: requestMs=4020 validMs=295980
+[  473.197 s] [caption] index=0 page=2/8 playbackMs=9000
+[  473.221 s] [display] PLAYING refreshMs=26
+[  474.526 s] [flow] wallMs=3000 audioSec=10 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  477.525 s] [flow] wallMs=3000 audioSec=13 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  480.525 s] [flow] wallMs=3000 audioSec=16 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=14 loopMaxMs=3 dmaFree=0
+[  482.196 s] [caption] index=0 page=3/8 playbackMs=18000
+[  482.220 s] [display] PLAYING refreshMs=25
+[  483.525 s] [flow] wallMs=3000 audioSec=19 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=1 dmaFree=0
+[  486.525 s] [flow] wallMs=3000 audioSec=22 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  489.526 s] [flow] wallMs=3001 audioSec=25 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=16 loopMaxMs=3 dmaFree=0
+[  491.196 s] [caption] index=0 page=4/8 playbackMs=27000
+[  491.220 s] [display] PLAYING refreshMs=25
+[  492.526 s] [flow] wallMs=3000 audioSec=28 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=1 dmaFree=0
+[  495.526 s] [flow] wallMs=3000 audioSec=31 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  498.526 s] [flow] wallMs=3000 audioSec=34 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  500.195 s] [caption] index=0 page=5/8 playbackMs=36000
+[  500.220 s] [display] PLAYING refreshMs=25
+[  501.525 s] [flow] wallMs=3000 audioSec=37 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=15 loopMaxMs=3 dmaFree=0
+[  504.525 s] [flow] wallMs=3000 audioSec=40 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  507.525 s] [flow] wallMs=3000 audioSec=43 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  509.195 s] [caption] index=0 page=6/8 playbackMs=45000
+[  509.218 s] [display] PLAYING refreshMs=25
+[  510.525 s] [flow] wallMs=3000 audioSec=46 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=12 loopMaxMs=3 dmaFree=0
+[  513.525 s] [flow] wallMs=3000 audioSec=49 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  516.525 s] [flow] wallMs=3000 audioSec=52 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  518.195 s] [caption] index=0 page=7/8 playbackMs=54000
+[  518.218 s] [display] PLAYING refreshMs=24
+[  519.525 s] [flow] wallMs=3000 audioSec=55 sr=32000 inBytes=704451 inSize=655350 pcmFrames=96000 maxGapMs=15 loopMaxMs=2 dmaFree=0
+[  522.524 s] [flow] wallMs=3000 audioSec=58 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=3 dmaFree=0
+[  525.525 s] [flow] wallMs=3000 audioSec=61 sr=32000 inBytes=632342 inSize=655350 pcmFrames=96000 maxGapMs=10 loopMaxMs=1 dmaFree=0
+[  527.194 s] [caption] index=0 page=8/8 playbackMs=63000
+[  527.217 s] [display] PLAYING refreshMs=24
+[  528.524 s] [flow] wallMs=3000 audioSec=64 sr=32000 inBytes=439830 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=0 dmaFree=0
+[  531.524 s] [flow] wallMs=3000 audioSec=67 sr=32000 inBytes=247318 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=0 dmaFree=0
+[  534.524 s] [flow] wallMs=3000 audioSec=70 sr=32000 inBytes=54806 inSize=655350 pcmFrames=96000 maxGapMs=9 loopMaxMs=0 dmaFree=0
+[  535.455 s] [display] NO SIGNAL refreshMs=18
+[  535.455 s] audio playback completed
+[  536.808 s] completed request succeeded

@@ -1,0 +1,12 @@
+{
+  "result": "pass",
+  "signalKind": "music",
+  "programId": "78214890-8b6c-422b-8844-d89bf6996178",
+  "cachedBytes": 2710636,
+  "prepareMs": 13221,
+  "unauthenticatedStatus": 403,
+  "initialRangeStatus": 206,
+  "initialBytes": 8192,
+  "seekRangeStatus": 206,
+  "seekPosition": 256044
+}

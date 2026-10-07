@@ -27,11 +27,11 @@ def stop(signum, frame):
 
 signal.signal(signal.SIGINT, stop)
 signal.signal(signal.SIGTERM, stop)
-prefixes = ('[start]', '[seek]', '[fast]', '[caption]', '[display]',
+prefixes = ('[flow]', '[start]', '[seek]', '[fast]', '[caption]', '[display]',
             'signalKind:', 'startOffsetMs:', 'audio stream:', 'audio playback',
             'audio failure flags:', 'completed request', 'manifest prefetch',
             'dial locked:', 'fast wav start', 'fallback to legacy seek',
-            'static ', 'local static', 'encoder feedback', 'dial stopped:',
+            'automatic continuation:', 'static ', 'local static', 'encoder feedback', 'dial stopped:',
             'dial travel threshold:', 'tune request queued', 'no_signal',
             'tune response JSON/result failed', 'tuning feedback', 'manifest prepared;')
 fd = os.open(args.port, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)

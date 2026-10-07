@@ -1,0 +1,22 @@
+{
+  "programId": "3ad72e1d-f9fa-43d5-bf48-efb17dfb2151",
+  "format": "chat",
+  "sampleRate": 32000,
+  "channels": 1,
+  "bits": 16,
+  "durationSec": 103.553,
+  "wavBytes": 6627412,
+  "mp3Bytes": 1243296,
+  "computerDownloadSec": 7.985,
+  "computerBytesPerSec": 829931,
+  "wav": {
+    "peak": 27727,
+    "fullScaleSamples": 0,
+    "rms": 2814.03
+  },
+  "decodedMp3": {
+    "peak": 26376,
+    "fullScaleSamples": 0,
+    "rms": 2672.54
+  }
+}

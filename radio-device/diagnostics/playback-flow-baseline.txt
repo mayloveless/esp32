@@ -1,0 +1,69 @@
+# 2026-10-07: Direct cloud WAV before I2S candidate: volume=15, fast=1 / 8192, flow=1
+# PCM counts are callback submissions, not microphone measurements; no URL paths/queries or credentials.
+[ 3330.212 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=2388 rangeMs=241 totalMs=2899
+[ 3333.134 s] [flow] wallMs=3000 audioSec=12 sr=32000 inBytes=3936 inSize=655350 pcmFrames=33024 maxGapMs=226 loopMaxMs=47 dmaFree=1
+[ 3336.134 s] [flow] wallMs=3000 audioSec=13 sr=32000 inBytes=1968 inSize=655350 pcmFrames=36608 maxGapMs=208 loopMaxMs=3 dmaFree=13
+[ 3342.388 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2309 rangeMs=250 totalMs=2859
+[ 3358.029 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=2062 rangeMs=300 totalMs=2653
+[ 3360.937 s] [flow] wallMs=3000 audioSec=9 sr=32000 inBytes=1011 inSize=655350 pcmFrames=30720 maxGapMs=288 loopMaxMs=46 dmaFree=10
+[ 3363.937 s] [flow] wallMs=3000 audioSec=10 sr=32000 inBytes=2740 inSize=655350 pcmFrames=26624 maxGapMs=200 loopMaxMs=2 dmaFree=6
+[ 3367.866 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2244 rangeMs=291 totalMs=2875
+[ 3370.704 s] [flow] wallMs=3000 audioSec=9 sr=32000 inBytes=3370 inSize=655350 pcmFrames=26624 maxGapMs=608 loopMaxMs=47 dmaFree=11
+[ 3373.702 s] [flow] wallMs=3000 audioSec=10 sr=32000 inBytes=1003 inSize=655350 pcmFrames=28672 maxGapMs=264 loopMaxMs=3 dmaFree=13
+[ 3377.458 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2254 rangeMs=281 totalMs=2833
+[ 3380.368 s] [flow] wallMs=3000 audioSec=13 sr=32000 inBytes=399 inSize=655350 pcmFrames=34816 maxGapMs=232 loopMaxMs=46 dmaFree=1
+[ 3383.368 s] [flow] wallMs=3000 audioSec=14 sr=32000 inBytes=2394 inSize=655350 pcmFrames=30464 maxGapMs=216 loopMaxMs=3 dmaFree=0
+[ 3386.368 s] [flow] wallMs=3000 audioSec=14 sr=32000 inBytes=0 inSize=655350 pcmFrames=28928 maxGapMs=222 loopMaxMs=3 dmaFree=14
+[ 3389.368 s] [flow] wallMs=3000 audioSec=15 sr=32000 inBytes=665 inSize=655350 pcmFrames=26624 maxGapMs=704 loopMaxMs=6 dmaFree=41
+[ 3393.726 s] [start] summary: mode=fast prefetch=1 fallback=0 tls=1 headerMs=2337 rangeMs=310 totalMs=2946
+[ 3396.619 s] [flow] wallMs=3000 audioSec=9 sr=32000 inBytes=1277 inSize=655350 pcmFrames=34816 maxGapMs=262 loopMaxMs=46 dmaFree=1
+[ 3399.619 s] [flow] wallMs=3000 audioSec=10 sr=32000 inBytes=3150 inSize=655350 pcmFrames=30720 maxGapMs=203 loopMaxMs=3 dmaFree=7
+[ 3402.618 s] [flow] wallMs=3000 audioSec=11 sr=32000 inBytes=916 inSize=655350 pcmFrames=30720 maxGapMs=247 loopMaxMs=3 dmaFree=20
+[ 3405.619 s] [flow] wallMs=3000 audioSec=11 sr=32000 inBytes=1581 inSize=655350 pcmFrames=26624 maxGapMs=776 loopMaxMs=6 dmaFree=34
+[ 3408.618 s] [flow] wallMs=3000 audioSec=12 sr=32000 inBytes=3017 inSize=655350 pcmFrames=30464 maxGapMs=657 loopMaxMs=6 dmaFree=0
+[ 3411.618 s] [flow] wallMs=3000 audioSec=13 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24832 maxGapMs=816 loopMaxMs=6 dmaFree=43
+[ 3414.618 s] [flow] wallMs=3000 audioSec=14 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32768 maxGapMs=600 loopMaxMs=6 dmaFree=15
+[ 3417.618 s] [flow] wallMs=3000 audioSec=15 sr=32000 inBytes=3017 inSize=655350 pcmFrames=25344 maxGapMs=680 loopMaxMs=6 dmaFree=0
+[ 3420.618 s] [flow] wallMs=3000 audioSec=16 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32000 maxGapMs=785 loopMaxMs=6 dmaFree=1
+[ 3423.619 s] [flow] wallMs=3001 audioSec=16 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=672 loopMaxMs=6 dmaFree=59
+[ 3426.619 s] [flow] wallMs=3000 audioSec=17 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=912 loopMaxMs=6 dmaFree=75
+[ 3429.619 s] [flow] wallMs=3000 audioSec=18 sr=32000 inBytes=7113 inSize=655350 pcmFrames=24832 maxGapMs=832 loopMaxMs=6 dmaFree=0
+[ 3432.619 s] [flow] wallMs=3000 audioSec=19 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32512 maxGapMs=680 loopMaxMs=6 dmaFree=30
+[ 3435.618 s] [flow] wallMs=3000 audioSec=20 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=961 loopMaxMs=6 dmaFree=37
+[ 3438.619 s] [flow] wallMs=3000 audioSec=21 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32768 maxGapMs=688 loopMaxMs=6 dmaFree=1
+[ 3441.625 s] [flow] wallMs=3000 audioSec=22 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=664 loopMaxMs=5 dmaFree=48
+[ 3444.618 s] [flow] wallMs=3000 audioSec=23 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32768 maxGapMs=632 loopMaxMs=6 dmaFree=2
+[ 3447.618 s] [flow] wallMs=3000 audioSec=23 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=697 loopMaxMs=5 dmaFree=51
+[ 3450.618 s] [flow] wallMs=3000 audioSec=24 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=1001 loopMaxMs=6 dmaFree=47
+[ 3453.618 s] [flow] wallMs=3000 audioSec=25 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=808 loopMaxMs=5 dmaFree=75
+[ 3456.618 s] [flow] wallMs=3000 audioSec=25 sr=32000 inBytes=3017 inSize=655350 pcmFrames=16384 maxGapMs=1017 loopMaxMs=6 dmaFree=146
+[ 3459.618 s] [flow] wallMs=3000 audioSec=26 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=1385 loopMaxMs=6 dmaFree=84
+[ 3462.622 s] [flow] wallMs=3005 audioSec=27 sr=32000 inBytes=19401 inSize=655350 pcmFrames=24576 maxGapMs=761 loopMaxMs=6 dmaFree=131
+[ 3465.622 s] [flow] wallMs=3000 audioSec=28 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32768 maxGapMs=1057 loopMaxMs=5 dmaFree=17
+[ 3468.659 s] [flow] wallMs=3005 audioSec=29 sr=32000 inBytes=4075 inSize=655350 pcmFrames=24576 maxGapMs=696 loopMaxMs=6 dmaFree=62
+[ 3471.628 s] [flow] wallMs=3000 audioSec=30 sr=32000 inBytes=3017 inSize=655350 pcmFrames=28160 maxGapMs=984 loopMaxMs=6 dmaFree=0
+[ 3474.628 s] [flow] wallMs=3001 audioSec=30 sr=32000 inBytes=3017 inSize=655350 pcmFrames=20992 maxGapMs=928 loopMaxMs=5 dmaFree=89
+[ 3477.628 s] [flow] wallMs=3000 audioSec=31 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32512 maxGapMs=823 loopMaxMs=6 dmaFree=0
+[ 3480.628 s] [flow] wallMs=3000 audioSec=32 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24832 maxGapMs=841 loopMaxMs=5 dmaFree=12
+[ 3483.628 s] [flow] wallMs=3000 audioSec=33 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=785 loopMaxMs=6 dmaFree=25
+[ 3486.627 s] [flow] wallMs=3000 audioSec=34 sr=32000 inBytes=3017 inSize=655350 pcmFrames=29952 maxGapMs=664 loopMaxMs=6 dmaFree=0
+[ 3489.628 s] [flow] wallMs=3000 audioSec=34 sr=32000 inBytes=3017 inSize=655350 pcmFrames=19200 maxGapMs=1328 loopMaxMs=5 dmaFree=26
+[ 3492.627 s] [flow] wallMs=3000 audioSec=35 sr=32000 inBytes=3017 inSize=655350 pcmFrames=22016 maxGapMs=1296 loopMaxMs=5 dmaFree=0
+[ 3495.627 s] [flow] wallMs=3000 audioSec=36 sr=32000 inBytes=3017 inSize=655350 pcmFrames=27136 maxGapMs=745 loopMaxMs=6 dmaFree=30
+[ 3498.627 s] [flow] wallMs=3000 audioSec=37 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=768 loopMaxMs=6 dmaFree=65
+[ 3501.627 s] [flow] wallMs=3000 audioSec=38 sr=32000 inBytes=3017 inSize=655350 pcmFrames=27392 maxGapMs=904 loopMaxMs=6 dmaFree=0
+[ 3504.627 s] [flow] wallMs=3000 audioSec=38 sr=32000 inBytes=3017 inSize=655350 pcmFrames=26880 maxGapMs=849 loopMaxMs=6 dmaFree=0
+[ 3507.627 s] [flow] wallMs=3000 audioSec=39 sr=32000 inBytes=3017 inSize=655350 pcmFrames=19456 maxGapMs=905 loopMaxMs=6 dmaFree=88
+[ 3510.627 s] [flow] wallMs=3000 audioSec=40 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32768 maxGapMs=736 loopMaxMs=6 dmaFree=36
+[ 3513.626 s] [flow] wallMs=3000 audioSec=41 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32768 maxGapMs=640 loopMaxMs=6 dmaFree=0
+[ 3516.627 s] [flow] wallMs=3000 audioSec=42 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=776 loopMaxMs=6 dmaFree=25
+[ 3519.626 s] [flow] wallMs=3000 audioSec=43 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=808 loopMaxMs=6 dmaFree=57
+[ 3522.627 s] [flow] wallMs=3000 audioSec=43 sr=32000 inBytes=3017 inSize=655350 pcmFrames=19200 maxGapMs=1264 loopMaxMs=6 dmaFree=0
+[ 3525.626 s] [flow] wallMs=3000 audioSec=44 sr=32000 inBytes=3017 inSize=655350 pcmFrames=29952 maxGapMs=609 loopMaxMs=5 dmaFree=52
+[ 3528.626 s] [flow] wallMs=3000 audioSec=45 sr=32000 inBytes=3017 inSize=655350 pcmFrames=30720 maxGapMs=713 loopMaxMs=6 dmaFree=0
+[ 3531.626 s] [flow] wallMs=3000 audioSec=46 sr=32000 inBytes=3017 inSize=655350 pcmFrames=26624 maxGapMs=768 loopMaxMs=6 dmaFree=20
+[ 3534.626 s] [flow] wallMs=3000 audioSec=47 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=641 loopMaxMs=5 dmaFree=87
+[ 3537.626 s] [flow] wallMs=3000 audioSec=47 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=929 loopMaxMs=6 dmaFree=79
+[ 3540.626 s] [flow] wallMs=3000 audioSec=48 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32512 maxGapMs=960 loopMaxMs=6 dmaFree=0
+[ 3543.626 s] [flow] wallMs=3000 audioSec=49 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24832 maxGapMs=785 loopMaxMs=6 dmaFree=24
+[ 3546.625 s] [flow] wallMs=3000 audioSec=50 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=728 loopMaxMs=6 dmaFree=54

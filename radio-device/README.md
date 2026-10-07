@@ -42,7 +42,7 @@
 
 `RadioDisplayModel.h` 只保存显示内容与 dirty flag；`RadioDisplay.cpp` 只负责绘制。画布在 setup 初始化后一次分配 **40,960 字节**，文字先画入画布，再通过一次 SPI 写入显示完整帧。只有状态、标题或类型实际变化时刷新，同一状态反复提交不刷新；ISR、音频回调和 HTTP worker 不操作 TFT。画布分配失败会在 Serial 报告并禁用显示，保留原音频链路。
 
-开机依次显示 BOOTING / CONNECTING；转动时显示 TUNING，小幅反馈结束后恢复原节目界面。manifest 已准备或接入 HTTPS 时显示 LOCKING SIGNAL 与已知标题；seek 排队仍保持 LOCKING，原生 seek 应用后真正输出网络节目采样才显示 SIGNAL LOCKED。NEWS / CHAT / ALIEN / MUSIC 使用 ASCII。no_signal 及自然播完显示 NO SIGNAL，播放或 tune 失败显示 SIGNAL LOST，断网显示 NO NETWORK。屏幕不显示 IP、HTTP 错误码、授权信息、URL 或 programId。Wi-Fi 的启动网关选择和原有重连行为保持不变，TURN TO RETRY 提示不新增网络扫描或自动 tune。
+开机依次显示 BOOTING / CONNECTING；转动时显示 TUNING，小幅反馈结束后恢复原节目界面。manifest 已准备或接入 HTTPS 时显示 LOCKING SIGNAL 与已知标题；seek 排队仍保持 LOCKING，原生 seek 应用后真正输出网络节目采样才显示 SIGNAL LOCKED。NEWS / CHAT / ALIEN / MUSIC 使用 ASCII。no_signal 显示 NO SIGNAL；自然播完上报成功后自动接下一条，接入期间显示 LOCKING SIGNAL。播放或 tune 失败显示 SIGNAL LOST，断网显示 NO NETWORK。屏幕不显示 IP、HTTP 错误码、授权信息、URL 或 programId。Wi-Fi 的启动网关选择和原有重连行为保持不变，TURN TO RETRY 提示不新增网络扫描或自动 tune。
 
 本次最终构建（ESP32 Core 3.3.12、现有 3MB APP / 9.9MB FATFS 分区）占应用 **2,396,747 / 3,145,728 字节（76%）**，剩余 **748,981 字节**；相比 009B 增加 259,152 字节。静态 RAM **62,956 字节（19%）**，此外画布在运行时分配 40,960 字节。ELF 确认 GB2312 字体为 208,526 字节，保留原分区与音频功能。
 
@@ -162,7 +162,7 @@ pnpm dev:device
 5. 确认 `startOffsetMs`。大于 0 时应接着看到 `seeking to: N s` 与 `audio seek queued`，随后实际跳转成功才有 `audio seek applied: position=N`；扬声器应从中途播放；0 时正常从头播放。
 6. 自然播完后，预期看到 `audio playback completed` 和 `completed request succeeded`；此时服务端会机会式补一条库存。
 
-`no_signal`、Wi-Fi 失败、manifest 解析失败或播放失败都会进入 idle，不会伪造 completed，也不会自动 tune 下一条。Wi-Fi 已连接时可旋转手动重试。播放期间 `loop()` 每轮都让 decoder 继续运行，没有长时间 delay。
+自然播完且 completed 上报成功后自动接下一条节目，从 0 秒播放；优先消费有效预取，正在进行的后台请求先等待结果，没有有效缓存才现场 tune 一次。上报失败、`no_signal`、Wi-Fi 失败、manifest 解析失败或播放失败都会进入 idle，不会伪造 completed，也不会自动重试。Wi-Fi 已连接时可旋转手动重试。播放期间 `loop()` 每轮都让 decoder 继续运行，没有长时间 delay。
 
 Device tune 使用 HTTP/1.0，避免将 HTTP chunked 分块标记交给 JSON 解析器。音频库 4.0.0 的 EOF 延迟一轮派发，且音频头超时也可能发送 EOF：固件会先排空停止时的事件，确认流已就绪、产生过真实音频样本且没有已报告错误，再上报 completed。15 秒未产生样本或播放位置连续 30 秒没有推进会停止播放；断网也会停止，不上报完成。样本回调只设置原子标志，不创建任务或改变 I2S 输出。
 
@@ -300,3 +300,11 @@ python3 radio-device/tests/library_caption_clock_test.py
 - `startOffsetMs` 通过库原生 seek 实现，日志记录 offset、实际请求秒数和结果；不自行构造 HTTP Range。
 - 只有一个 Audio 对象与 I2S 输出；owner 在 NONE / NETWORK / STATIC_LOCAL_FILE 间切换，切换前停止并排空旧事件。HTTP worker 不接触音频。
 - 使用 Arduino IDE 内置 CLI、ESP32 Core 3.3.12、ESP32-audioI2S-master 4.0.0、ArduinoJson 7.4.3 编译并烧录到检测为 16MB Flash / 8MB PSRAM 的 ESP32-S3。Task 008 的出声与 completed 已确认；008B 原始失败及后续 seek 修复验收见上述记录。
+
+## 自然结束自动续播（2026-10-07）
+
+自然 EOF 仍须满足 stream ready、seek 已应用、确实产生网络 PCM、无错误且 Wi-Fi 在线；仅上报一次 completed。上报成功后主循环接下一条，优先现有有效预取，若预取仍在请求则等它结束，缺失/过期才沿用原 foreground worker（不可用时使用原同步 tune）。续播从 0 秒开始，字幕继续匹配节目内绝对播放时钟；实体转旋钮换台仍使用 manifest 的 startOffsetMs。续播不用本地调频沙沙声。
+
+旋钮优先：completed 请求中、续播 HTTP 或音频建连中出现物理旋转都会取消自动接入；仅旋转达到原阈值才触发手动选台。播放失败、断网、no_signal、completed 失败不自动重试，不放宽最近两条排除历史。已有预取、WAV Range、唯一 Audio owner、原 I2S 与音量 15 保持。上文早期记录中的“自然 EOF 后 idle”是当时行为，当前版本由本节覆盖。
+
+主机检查覆盖连续两次自然续播、预取命中/在途/过期、现场与同步 fallback、从头播放与手动 offset 区分、no_signal/HTTP/连接/播放/上报/断网失败、旋钮抢占与旧 EOF 隔离；ESP32 烧录及真机连续播放结果见 [续播验收记录](diagnostics/automatic-continuation.md)。

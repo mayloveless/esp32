@@ -1,0 +1,63 @@
+# 011B archived binary restoration, before updating to current failure latch baseline
+# capture opened; no reset
+[    6.853 s] [display] TUNING refreshMs=19
+[    8.566 s] [caption] loaded: received=0 kept=0 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=0
+[    8.568 s] [start] dial.locked: ms=0 prefetch=0
+[    8.574 s] signalKind: music
+[    8.574 s] startOffsetMs: 11145
+[    8.588 s] audio stream: lhiojnqooreavzmkrzji.supabase.co
+[    8.599 s] [display] LOCKING refreshMs=19
+[    8.603 s] [start] connect.begin: ms=41
+[   11.477 s] audio playback started
+[   11.481 s] [start] tls.connected: ms=1153
+[   11.483 s] [seek] range.status: HTTP=206
+[   11.488 s] [seek] range.validated: position=0 fileSize=2722092
+[   11.491 s] [seek] range.header-result: ok=1 reason=0
+[   11.494 s] [fast] initial.consumed: bytes=8192
+[   11.497 s] [start] wav.header: ms=2335
+[   11.502 s] [seek] range.request: position=704044 length=-1
+[   11.505 s] [seek] range.sent: written=1214 expected=1214
+[   11.508 s] [start] range.sent: ms=2338
+[   11.511 s] [seek] range.status: HTTP=206
+[   11.516 s] [seek] range.validated: position=704044 fileSize=2722092
+[   11.519 s] [seek] range.header-result: ok=1 reason=0
+[   11.522 s] [start] range.ready: ms=2579
+[   11.526 s] [fast] applied: position=704044 seconds=11
+[   11.553 s] [display] PLAYING refreshMs=19
+[   11.559 s] [start] first.network.pcm: ms=2975
+[   11.564 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=2335 rangeMs=241 totalMs=2975
+[   11.569 s] manifest prefetch request queued
+[   12.671 s] manifest prefetch ready: requestMs=1102 validMs=298898
+[  125.280 s] [display] NO SIGNAL refreshMs=18
+[  125.280 s] audio playback completed
+[  127.256 s] completed request succeeded
+[  146.920 s] encoder feedback
+[  146.931 s] local static started
+[  146.950 s] [display] TUNING refreshMs=18
+[  146.976 s] dial travel threshold: retune
+[  146.981 s] manifest prefetch hit: ageMs=135416
+[  146.990 s] [caption] loaded: received=1 kept=1 invalid=0 dropped=0 textTruncated=0 speakerTruncated=0 bytes=821
+[  146.993 s] manifest prepared; waiting for dial stop
+[  147.035 s] local static ready: volume=15
+[  147.209 s] dial stopped: static off
+[  147.260 s] local static started
+[  147.331 s] local static ready: volume=15
+[  147.473 s] dial stopped: static off
+[  147.624 s] dial locked: connect prepared program
+[  147.627 s] [start] dial.locked: ms=0 prefetch=1
+[  147.636 s] signalKind: alien
+[  147.638 s] startOffsetMs: 6869
+[  147.652 s] audio stream: lhiojnqooreavzmkrzji.supabase.co
+[  147.666 s] [display] LOCKING refreshMs=20
+[  147.670 s] [start] connect.begin: ms=45
+[  165.884 s] [168773][E][ssl_client.cpp:157] start_ssl_client(): socket error on fd 48, errno: 113, "Software caused connection abort"
+[  165.893 s] [168784][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[  165.896 s] fast wav start failed: connect
+[  165.899 s] fallback to legacy seek
+[  184.383 s] [187273][E][ssl_client.cpp:157] start_ssl_client(): socket error on fd 48, errno: 113, "Software caused connection abort"
+[  184.392 s] [187284][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[  184.395 s] audio playback failed to start
+[  184.403 s] audio failure flags: libraryError=1 WiFi=3 ready=0 seekPending=1 samples=0 running=0
+[  184.406 s] audio playback failed
+[  184.427 s] [display] SIGNAL LOST refreshMs=18
+# capture closed

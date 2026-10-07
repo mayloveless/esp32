@@ -111,6 +111,10 @@ uint32_t audioSeekSeconds = 0;
 uint32_t audioStartMillis = 0;
 uint32_t audioProgressMillis = 0;
 uint32_t lastAudioPosition = 0;
+bool autoAdvancePending = false;
+bool automaticTune = false;
+uint32_t autoAdvanceRevision = 0;
+uint32_t autoAdvanceActivity = 0;
 RadioDisplayModel displayModel;
 std::atomic<bool> displaySeekWaiting{false};
 std::atomic<bool> displayProducedSamples{false};
@@ -430,6 +434,7 @@ void startLocalStatic() {
 
 void stopForTuning() {
   // Manual interruption never retires the old network program.
+  autoAdvancePending = automaticTune = false;
   startTimingPrefetch = false;
   dialLockRecorded = false;
   stopAudioForHandoff();
@@ -443,6 +448,7 @@ void stopForTuning() {
 }
 
 void finishTuningIdle(RadioDisplayStatus status) {
+  autoAdvancePending = automaticTune = false;
   stopAudioForHandoff();
   foregroundTunePending = false;
   pendingPlaybackReady = false;
@@ -679,7 +685,7 @@ bool connectWifi() {
   return false;
 }
 
-void sendCompleted(const String& programId) {
+bool sendCompleted(const String& programId) {
   WiFiClient client;
   HTTPClient request;
   const String path =
@@ -688,7 +694,7 @@ void sendCompleted(const String& programId) {
 
   if (!request.begin(client, endpoint)) {
     Serial.println("completed request failed to start");
-    return;
+    return false;
   }
 
   request.setConnectTimeout(8'000);
@@ -700,6 +706,7 @@ void sendCompleted(const String& programId) {
   else
     reportHttpFailure("completed", status);
   request.end();
+  return status >= 200 && status < 300;
 }
 
 bool blankFatVolume() {
@@ -746,11 +753,15 @@ void setupTuningWav() {
 void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,
   const RadioCaptionTrack* captions) {
   if (tuneSuperseded(requestedRevision)) return;
+  if (automaticTune && readTuneInput().activityRevision != autoAdvanceActivity) {
+    stopForTuning();
+    return;
+  }
   const char* programId = manifest["programId"] | "";
   const char* title = manifest["title"] | "(untitled)";
   const char* signalKind = manifest["signalKind"] | "unknown";
   const char* audioUrl = manifest["audioUrl"] | "";
-  const uint32_t startOffsetMs = manifest["startOffsetMs"] | 0;
+  const uint32_t startOffsetMs = automaticTune ? 0 : (manifest["startOffsetMs"] | 0u);
 
   if (strlen(programId) == 0 || strlen(audioUrl) == 0) {
     Serial.println("signal manifest is missing programId or audioUrl");
@@ -837,7 +848,8 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,
   }
 #endif
   if (!connected) connected = networkAudio.connecttohost(audioUrl);
-  if (tuneSuperseded(requestedRevision)) {
+  if (tuneSuperseded(requestedRevision) ||
+      (automaticTune && readTuneInput().activityRevision != autoAdvanceActivity)) {
     stopForTuning();
     Serial.println("tune superseded while connecting audio");
     return;
@@ -861,6 +873,7 @@ void startManifestPlayback(JsonObjectConst manifest, uint32_t requestedRevision,
   invalidatePrefetch();
   prefetchAttempted = false;
   receiverState = ReceiverState::kPlaying;
+  automaticTune = false;
   Serial.println("audio playback started");
 }
 
@@ -1010,9 +1023,42 @@ void requestForegroundTune(uint32_t requestedRevision) {
   updateForegroundTune();
 }
 
+void updateAutomaticAdvance() {
+  if (!autoAdvancePending) return;
+  const RadioTuneInput input = readTuneInput();
+  // Any physical motion, including during completed HTTP, wins over autoplay.
+  if (receiverState != ReceiverState::kIdle || input.revision != autoAdvanceRevision ||
+      input.activityRevision != autoAdvanceActivity || input.moving(millis())) {
+    autoAdvancePending = false;
+    return;
+  }
+  if (WiFi.status() != WL_CONNECTED) { finishTuningIdle(); return; }
+  // Reuse a background request still in flight; never queue a duplicate.
+  if (prefetchBusy) return;
+  autoAdvancePending = false;
+  automaticTune = true;
+  startTimingPrefetch = false;
+  dialLockedAt = millis();
+  dialLockRecorded = true;
+  receiverState = ReceiverState::kTuning;
+  displayModel.setStatus(RadioDisplayStatus::Locking);
+  Serial.println("automatic continuation: next program");
+  if (!playPrefetchedManifest(autoAdvanceRevision)) {
+    invalidatePrefetch();
+    requestForegroundTune(autoAdvanceRevision);
+  }
+}
+
 void updateControls() {
   RadioTuneInput input = readTuneInput();
   if (input.activityRevision != handledActivityRevision) {
+    if (automaticTune) {
+      foregroundTunePending = false;
+      pendingPlaybackReady = false;
+      pendingPlaybackManifest.clear();
+      invalidatePrefetch();
+      stopForTuning();
+    }
     handledActivityRevision = input.activityRevision;
     feedbackChangedAt.store(input.changedAt);
     feedbackActivitySeen.store(true);
@@ -1160,6 +1206,7 @@ void onAudioInfo(Audio::msg_t message) {
 }
 
 void failPlayback() {
+  autoAdvancePending = automaticTune = false;
   Serial.printf("audio failure flags: libraryError=%d WiFi=%d ready=%d seekPending=%d samples=%d running=%d\n",
     audioError.load(), WiFi.status(), audioStreamReady.load(), audioSeekPending.load(),
     audioProducedSamples.load(), networkAudio.isRunning());
@@ -1213,8 +1260,11 @@ void updatePlayback() {
     captionCursor.reset();
     displayModel.setIdle(RadioDisplayStatus::NoSignal);
     renderDisplay(displayModel); // completed HTTP may block; the program has ended.
+    const RadioTuneInput input = readTuneInput();
+    autoAdvanceRevision = input.revision;
+    autoAdvanceActivity = input.activityRevision;
     Serial.println("audio playback completed");
-    sendCompleted(completedProgramId);
+    autoAdvancePending = sendCompleted(completedProgramId);
     return;
   }
 
@@ -1356,6 +1406,7 @@ void loop() {
   updateLocalStatic();
   updateForegroundTune();
   if (receiverState == ReceiverState::kPlaying) updatePlayback();
+  updateAutomaticAdvance();
   updateManifestPrefetch();
   updateWifiDiagnostics();
   updateDisplay();

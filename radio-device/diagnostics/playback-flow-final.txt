@@ -1,0 +1,14 @@
+# 2026-10-07: restored cloud program firmware, I2S continuity, volume=18, fast=1 / 8192, flow=1
+[   11.034 s] [fast] applied: position=576044 seconds=9
+[   11.081 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=3178 rangeMs=350 totalMs=3814
+[   12.472 s] manifest prefetch ready: requestMs=1385 validMs=298615
+[   13.997 s] [flow] wallMs=3001 audioSec=9 sr=32000 inBytes=457 inSize=655350 pcmFrames=18432 maxGapMs=620 loopMaxMs=46 dmaEvents=385
+[   16.996 s] [flow] wallMs=3000 audioSec=10 sr=32000 inBytes=41 inSize=655350 pcmFrames=18432 maxGapMs=629 loopMaxMs=3 dmaEvents=760
+[   19.996 s] [flow] wallMs=3000 audioSec=10 sr=32000 inBytes=1504 inSize=655350 pcmFrames=22528 maxGapMs=725 loopMaxMs=3 dmaEvents=1135
+[   22.996 s] [flow] wallMs=3000 audioSec=11 sr=32000 inBytes=4081 inSize=655350 pcmFrames=20480 maxGapMs=408 loopMaxMs=3 dmaEvents=1510
+[   25.996 s] [flow] wallMs=3000 audioSec=12 sr=32000 inBytes=1448 inSize=655350 pcmFrames=24576 maxGapMs=376 loopMaxMs=3 dmaEvents=1885
+[   28.996 s] [flow] wallMs=3000 audioSec=13 sr=32000 inBytes=3017 inSize=655350 pcmFrames=32768 maxGapMs=732 loopMaxMs=6 dmaEvents=2260
+[   31.995 s] [flow] wallMs=3000 audioSec=14 sr=32000 inBytes=7113 inSize=655350 pcmFrames=32256 maxGapMs=713 loopMaxMs=5 dmaEvents=2635
+[   34.996 s] [flow] wallMs=3000 audioSec=15 sr=32000 inBytes=3017 inSize=655350 pcmFrames=25088 maxGapMs=965 loopMaxMs=6 dmaEvents=3010
+[   37.995 s] [flow] wallMs=3000 audioSec=15 sr=32000 inBytes=3017 inSize=655350 pcmFrames=16384 maxGapMs=1103 loopMaxMs=5 dmaEvents=3385
+[   40.995 s] [flow] wallMs=3000 audioSec=16 sr=32000 inBytes=3017 inSize=655350 pcmFrames=24576 maxGapMs=1187 loopMaxMs=6 dmaEvents=3760

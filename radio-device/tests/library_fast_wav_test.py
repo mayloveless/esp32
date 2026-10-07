@@ -194,6 +194,17 @@ int main() {
     for (int i=0; i<200 && !a.m_f_eof; ++i) a.playAudioData();
     assert(a.m_f_eof && a.m_audioDataReadPtr == a.m_audioDataSize);
     assert(a.m_nominal_bitrate == 512000); // actual clock patch tests this first-frame rebase separately
+    // Automatic continuation uses time zero: target the actual data chunk,
+    // retain a zero PCM clock, and reach EOF after the full audio payload.
+    Audio zero; prepare(zero);
+    zero.responses[1] = response(206,"bytes 54-999999/1000000","999946");
+    assert(zero.connecttohostAtTime("https://example.test/audio.wav",0));
+    assert(zero.clientsecure.request.find("Range: bytes=54-\r\n") != std::string::npos);
+    assert(zero.m_haveNewFilePos == 54 && zero.m_audioDataReadPtr == 0);
+    zero.playAudioData(); assert(zero.m_audioDataReadPtr == 8192);
+    zero.InBuff.written = 999946; zero.InBuff.consumed = 8192;
+    for (int i=0; i<300 && !zero.m_f_eof; ++i) zero.playAudioData();
+    assert(zero.m_f_eof && zero.m_audioDataReadPtr == zero.m_audioDataSize);
     Audio partial; prepare(partial); partial.incomplete=true;
     assert(!partial.connecttohostAtTime("https://example.test/audio.wav",7) && partial.failureStage == 3 && partial.clientsecure.writes == 1);
     Audio closed; prepare(closed); closed.closeAfterBody=true;

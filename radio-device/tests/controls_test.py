@@ -139,7 +139,13 @@ String summarizeAudioUrl(const String&) { return "example.test/audio.wav"; }
 void printWifiStatus(const char*) {}
 void reportHttpFailure(const char*, int) {}
 String diagnoseGateway() { return {}; }
-void sendCompleted(const String& id) { assert(!id.empty()); completedIds.push_back(id); }
+bool completedOK = true;
+std::function<void()> completedStep;
+bool sendCompleted(const String& id) {
+  assert(!id.empty()); completedIds.push_back(id);
+  if (completedStep) completedStep();
+  return completedOK;
+}
 '''
 cases = r'''
 void Audio::loop() {
@@ -177,7 +183,9 @@ void reset() {
   pins[RADIO_ENCODER_CLK] = pins[RADIO_ENCODER_DT] = pins[RADIO_ENCODER_SW] = HIGH;
   setupControls(); Serial.lines.clear(); WiFi.connection = WL_CONNECTED;
   requestStatus = 200; beginOK = true; requestCalls = 0;
-  requestBodies.clear(); completedIds.clear(); postStep = readStep = {};
+  requestBodies.clear(); completedIds.clear(); postStep = readStep = completedStep = {};
+  completedOK = true; autoAdvancePending = automaticTune = false;
+  autoAdvanceRevision = autoAdvanceActivity = 0;
   responseJson = R"({"result":"signal","manifest":{"programId":"new","title":"test","signalKind":"music","audioUrl":"https://example.test/song.wav?token=HIDDEN","startOffsetMs":8301}})";
 }
 void play(const char* id = "old", uint32_t offsetMs = 0) {
@@ -457,6 +465,109 @@ int main() {
   assert(String(displayModel.captionLines[0]) == "预取译文" && String(displayModel.captionLabel()) == "译文");
   networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
   assert(captionTrack.count == 0 && displayModel.captionIndex == -1 && completedIds.size() == 1);
+
+  // Natural EOF consumes the cached next program from zero, without static.
+  reset(); play(); startPrefetch(); finishPrefetch();
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
+  assert(autoAdvancePending && completedIds == std::vector<String>{"old"});
+  updateAutomaticAdvance();
+  assert(receiverState == ReceiverState::kPlaying && currentProgramId == "cached");
+  assert(!autoAdvancePending && !automaticTune && !audioSeekPending && audioSeekSeconds == 0);
+  assert(requestCalls == 1 && networkAudio.connects == 2 && networkAudio.localConnects == 0);
+  assert(recentProgramIds[0] == "cached" && recentProgramIds[1] == "old");
+  updateAutomaticAdvance(); updatePlayback(); assert(completedIds.size() == 1);
+  audioStreamReady = true; audio_process_raw_samples(nullptr, 128); updateManifestPrefetch();
+  responseJson = R"({"result":"signal","manifest":{"programId":"third","audioUrl":"https://example.test/third.wav","startOffsetMs":12000,"audioExpiresAt":"2026-10-06T00:15:00.500Z"}})";
+  finishPrefetch();
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  assert(currentProgramId == "third" && !audioSeekPending && networkAudio.connects == 3);
+  assert(completedIds == (std::vector<String>{"old", "cached"}));
+  assert(exclusions(requestBodies.back()) == (std::vector<String>{"cached", "old"}));
+  audioError = true; updatePlayback(); updateAutomaticAdvance();
+  assert(receiverState == ReceiverState::kIdle && !autoAdvancePending && completedIds.size() == 2);
+
+  // Without a worker the existing synchronous tune fallback can still advance.
+  reset(); play(); audioStreamReady = true; audio_process_raw_samples(nullptr, 128);
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  assert(currentProgramId == "new" && !audioSeekPending && requestCalls == 1);
+
+  // Already-handled small motion close to EOF must not start automatic audio.
+  reset(); play(); startPrefetch(); finishPrefetch();
+  tuneInput.request(clockMs = 100); updateControls(); clockMs = 260;
+  audio_process_raw_samples(nullptr, 128);
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  assert(!autoAdvancePending && networkAudio.connects == 1 && receiverState == ReceiverState::kIdle);
+
+  // An in-flight background result is reused instead of requesting twice.
+  reset(); play(); startPrefetch();
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
+  updateAutomaticAdvance(); assert(autoAdvancePending && prefetchBusy);
+  finishPrefetch(); updateAutomaticAdvance();
+  assert(currentProgramId == "cached" && requestCalls == 1 && !audioSeekPending);
+
+  // No cache: queue one foreground request. Errors/no_signal never retry.
+  for (int outcome = 0; outcome < 4; ++outcome) {
+    reset(); play(); setupManifestPrefetch();
+    audioStreamReady = true; audio_process_raw_samples(nullptr, 128);
+    networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+    assert(automaticTune && prefetchBusy && requestCalls == 0);
+    updateAutomaticAdvance(); updateForegroundTune();
+    if (outcome == 1) responseJson = R"({"result":"no_signal"})";
+    if (outcome == 2) requestStatus = 503;
+    if (outcome == 3) networkAudio.connectOK = false;
+    finishPrefetch();
+    if (outcome == 0) assert(currentProgramId == "new" && !audioSeekPending && receiverState == ReceiverState::kPlaying);
+    else assert(receiverState == ReceiverState::kIdle && !automaticTune && !autoAdvancePending);
+    updateAutomaticAdvance(); updateForegroundTune();
+    assert(requestCalls == 1 && completedIds == std::vector<String>{"old"});
+  }
+
+  // Expired cache falls back to one request, retaining the exclusions.
+  reset(); play(); startPrefetch(); finishPrefetch(); clockMs = 300000;
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  assert(prefetchBusy && !prefetchedManifest); finishPrefetch();
+  assert(requestCalls == 2 && exclusions(requestBodies.back()) == std::vector<String>{"old"});
+  assert(currentProgramId == "cached" && !audioSeekPending);
+
+  // Failed completion reporting or disconnect cannot advance automatically.
+  reset(); play(); startPrefetch(); finishPrefetch(); completedOK = false;
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  assert(receiverState == ReceiverState::kIdle && requestCalls == 1 && !autoAdvancePending);
+  reset(); play(); startPrefetch(); finishPrefetch();
+  completedStep = [] { WiFi.connection = 0; };
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  assert(receiverState == ReceiverState::kIdle && !autoAdvancePending && networkAudio.connects == 1);
+
+  // Small motion during completed HTTP cancels automatic continuation.
+  reset(); play(); startPrefetch(); finishPrefetch();
+  completedStep = [] { tuneInput.request(clockMs = 100); };
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  assert(!autoAdvancePending && networkAudio.connects == 1);
+  updateControls(); assert(receiverState == ReceiverState::kTuning && !automaticTune);
+
+  // Actual selection during completed retains manual startOffset semantics.
+  reset(); play(); startPrefetch(); finishPrefetch();
+  completedStep = [] { select(clockMs = 5000); };
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  updateControls(); settle(clockMs += 300);
+  assert(currentProgramId == "cached" && audioSeekSeconds == 8 && audioSeekPending);
+  assert(completedIds == std::vector<String>{"old"});
+
+  // Polling precedes controls; tiny motion must reject the automatic result.
+  reset(); play(); setupManifestPrefetch();
+  audioStreamReady = true; audio_process_raw_samples(nullptr, 128);
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  tuneInput.request(clockMs = 100); finishPrefetch(); updateControls();
+  assert(networkAudio.connects == 1 && currentProgramId.empty() && !automaticTune);
+  assert(!pendingPlaybackReady && completedIds.size() == 1);
+
+  // Motion during blocking audio connect also cancels automatic handoff.
+  reset(); play(); startPrefetch(); finishPrefetch();
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback();
+  networkAudio.connectStep = [] { tuneInput.request(clockMs = 100); };
+  updateAutomaticAdvance(); updateControls();
+  assert(receiverState == ReceiverState::kTuning && currentProgramId.empty() && !automaticTune);
+  assert(completedIds == std::vector<String>{"old"});
   reset();
 }
 '''
@@ -539,6 +650,11 @@ int main() {
   assert(!tuneInput.selectionLatched && completedIds.empty());
   for(int i=0;i<4;++i) tuneInput.request(clockMs = 5000);
   assert(tuneInput.ready(acknowledgedTuneRevision,clockMs)); // normal travel after hold
+
+  reset(); networkAudio.fastOK = true; play(); startPrefetch(); finishPrefetch();
+  networkAudio.events.push_back({Audio::evt_eof}); updatePlayback(); updateAutomaticAdvance();
+  assert(currentProgramId == "cached" && networkAudio.fastConnects == 2 && !audioSeekPending);
+  assert(!automaticTune && audioSeekSeconds == 0 && completedIds.size() == 1);
 
   reset(); manifest["audioUrl"] = "https://example.test/file.mp3";
   startManifestPlayback(manifest.as<JsonObjectConst>(),0);

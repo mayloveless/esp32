@@ -1,0 +1,24 @@
+# 2026-10-07: temporary LAN synthetic WAV, same firmware Audio/I2S, fast=1 / 8192, flow=1, volume=18
+# 32kHz mono 16-bit, 400Hz gentle tone, duration=600s; no real program audio or credentials.
+# Product source is restored; fixture is not a delivery/proxy implementation.
+[    6.598 s] [flow] source=local-diagnostic
+[    6.816 s] [start] summary: mode=fast prefetch=0 fallback=0 tls=1 headerMs=115 rangeMs=13 totalMs=206
+[    9.755 s] [flow] wallMs=3000 audioSec=3 sr=32000 inBytes=655350 inSize=655350 pcmFrames=94464 maxGapMs=39 loopMaxMs=49 dmaFree=384
+[   12.754 s] [flow] wallMs=3000 audioSec=5 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=759
+[   15.754 s] [flow] wallMs=3000 audioSec=8 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=2 dmaFree=1134
+[   18.754 s] [flow] wallMs=3000 audioSec=11 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=21 loopMaxMs=3 dmaFree=1509
+[   21.754 s] [flow] wallMs=3000 audioSec=14 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=14 loopMaxMs=1 dmaFree=1884
+[   24.753 s] [flow] wallMs=3000 audioSec=17 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=2259
+[   27.753 s] [flow] wallMs=3000 audioSec=20 sr=32000 inBytes=692193 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=2634
+[   30.753 s] [flow] wallMs=3000 audioSec=24 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=12 loopMaxMs=3 dmaFree=3009
+[   33.754 s] [flow] wallMs=3000 audioSec=27 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=3384
+[   36.753 s] [flow] wallMs=3000 audioSec=29 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=3759
+[   39.753 s] [flow] wallMs=3000 audioSec=32 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=12 loopMaxMs=3 dmaFree=4134
+[   42.753 s] [flow] wallMs=3000 audioSec=35 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=4509
+[   45.753 s] [flow] wallMs=3000 audioSec=38 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=4884
+[   48.753 s] [flow] wallMs=3000 audioSec=41 sr=32000 inBytes=659405 inSize=655350 pcmFrames=96000 maxGapMs=16 loopMaxMs=1 dmaFree=5259
+[   51.753 s] [flow] wallMs=3000 audioSec=44 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=12 loopMaxMs=3 dmaFree=5634
+[   54.753 s] [flow] wallMs=3000 audioSec=48 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=6009
+[   57.753 s] [flow] wallMs=3000 audioSec=51 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=6384
+[   60.753 s] [flow] wallMs=3000 audioSec=53 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=12 loopMaxMs=3 dmaFree=6759
+[   63.752 s] [flow] wallMs=3000 audioSec=56 sr=32000 inBytes=655350 inSize=655350 pcmFrames=96000 maxGapMs=11 loopMaxMs=1 dmaFree=7134

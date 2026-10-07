@@ -68,7 +68,9 @@ struct Audio {
   }
 };
 int completed = 0;
-void sendCompleted(const String& id) { assert(id == "program"); ++completed; }
+bool completedOK = true;
+bool sendCompleted(const String& id) { assert(id == "program"); ++completed; return completedOK; }
+RadioTuneInput readTuneInput() { return tuneInput; }
 uint32_t acknowledgedTuneRevision = 0;
 bool tuneSuperseded(uint32_t) { return false; }
 bool controlsHaveActivity() { return false; }
@@ -95,7 +97,8 @@ void reset(bool started = true, uint32_t offsetMs = 0) {
   audioError = false;
   audioStartMillis = audioProgressMillis = lastAudioPosition = clockMs = 0;
   WiFi.connection = WL_CONNECTED;
-  completed = 0;
+  completed = 0; completedOK = true;
+  autoAdvancePending = automaticTune = false;
 }
 void tick() { if (receiverState == ReceiverState::kPlaying) updatePlayback(); }
 void eofOnNextLoop() {
@@ -104,12 +107,14 @@ void eofOnNextLoop() {
     networkAudio.events.push_back({Audio::evt_eof});
   };
 }
-void failed() { assert(receiverState == ReceiverState::kIdle); assert(completed == 0); assert(!networkAudio.running); }
+void failed() { assert(receiverState == ReceiverState::kIdle); assert(completed == 0); assert(!networkAudio.running); assert(!autoAdvancePending); }
 int main() {
   reset(); eofOnNextLoop(); tick();
   assert(receiverState == ReceiverState::kPlaying && completed == 0);
   tick(); assert(receiverState == ReceiverState::kIdle && completed == 1);
-  tick(); assert(completed == 1);
+  tick(); assert(completed == 1 && autoAdvancePending);
+  reset(); completedOK = false; eofOnNextLoop(); tick(); tick();
+  assert(completed == 1 && !autoAdvancePending);
 
   // Header timeout emits EOF even with library logging disabled.
   reset(false); eofOnNextLoop(); tick(); tick(); failed();
